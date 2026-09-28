@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Orbix 666 — Human Hunt</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
 <style>
   :root{--bg:#0b0d12;--card:#141824;--acc:#7c5cff;--txt:#e8eaf2;--dim:#8b91a8}
   *{box-sizing:border-box;margin:0;font-family:'Segoe UI',system-ui,sans-serif}
@@ -32,49 +33,74 @@
   <div id="msg"></div>
 </div>
 <script>
-let n = 0, attempts = 0, winData = null, account = null;
+let n = 0, attempts = 0, winData = null, account = null, connecting = false, rolling = false;
 const $ = s => document.querySelector(s);
+const setMsg = (t) => { $('#msg').textContent = t; };
 
 async function connect(){
-  if (!window.ethereum) return alert('Install MetaMask/Rabby');
-  await window.ethereum.request({method:'wallet_addEthereumChain', params:[{chainId:'0xb626', chainName:'Robinhood Chain Testnet', nativeCurrency:{name:'Ether',symbol:'ETH',decimals:18}, rpcUrls:['https://rpc.testnet.chain.robinhood.com'], blockExplorerUrls:['https://explorer.testnet.chain.robinhood.com']}]}).catch(()=>{});
-  account = (await window.ethereum.request({method:'eth_requestAccounts'}))[0];
-  $('#msg').textContent = 'Wallet: '+account.slice(0,6)+'…'+account.slice(-4);
+  if (!window.ethereum) { setMsg('Install MetaMask or Rabby to mint.'); return null; }
+  if (connecting) return account;
+  connecting = true;
+  try {
+    await window.ethereum.request({method:'wallet_addEthereumChain', params:[{chainId:'0xb626', chainName:'Robinhood Chain Testnet', nativeCurrency:{name:'Ether',symbol:'ETH',decimals:18}, rpcUrls:['https://rpc.testnet.chain.robinhood.com'], blockExplorerUrls:['https://explorer.testnet.chain.robinhood.com']}]}).catch(()=>{});
+    account = (await window.ethereum.request({method:'eth_requestAccounts'}))[0];
+    setMsg('Wallet: '+account.slice(0,6)+'…'+account.slice(-4));
+    return account;
+  } catch(e) {
+    setMsg('Wallet connection failed: '+(e.shortMessage||e.message||'rejected'));
+    return null;
+  } finally { connecting = false; }
 }
 
-function roll(){
+async function roll(){
+  if (rolling) return;
+  if (!account) { setMsg('Connect your wallet first.'); const a = await connect(); if (!a) return; }
+  rolling = true;
+  $('#roll').disabled = true;
   n = Math.floor(111111 + Math.random() * (999999 - 111111));
   attempts++;
   $('#digits').textContent = n;
   $('#attempts').textContent = attempts + ' rolls';
   $('#claim').style.display = 'none';
-  fetch('/check', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({number:n, address:account})})
-  .then(r=>r.json()).then(d=>{
+  $('#digits').classList.remove('win');
+  try {
+    const r = await fetch('/check', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({number:n, address:account})});
+    if (!r.ok) { setMsg('Server unavailable (HTTP '+r.status+'). Try again.'); return; }
+    const d = await r.json();
     if (d.winner) {
       winData = d;
       $('#digits').classList.add('win');
-      $('#msg').textContent = '🎉 WINNER! Server signed your claim.';
+      setMsg('WINNER. Server signed your claim — mint it on-chain.');
       $('#claim').style.display = 'block';
+    } else {
+      setMsg('Not a winner. Roll again.');
     }
-  }).catch(()=>{});
+  } catch(e) {
+    setMsg('Request failed. Check your connection and roll again.');
+  } finally {
+    rolling = false;
+    $('#roll').disabled = false;
+  }
 }
 
 async function mint(){
   if (!winData) return;
+  if (typeof ethers === 'undefined') { setMsg('ethers.js failed to load. Reload the page.'); return; }
+  if (!account) { const a = await connect(); if (!a) return; }
   const provider = new ethers.BrowserProvider(window.ethereum);
   const signer = await provider.getSigner();
   const c = new ethers.Contract(winData.contract, [
     'function mintHuman(uint256,uint256,bytes32,bytes)'], signer);
   try {
     const tx = await c.mintHuman(winData.luckyNumber, winData.timestamp, winData.seed, winData.signature);
-    $('#msg').textContent = 'Mint sent: '+tx.hash.slice(0,18)+'…';
+    setMsg('Mint sent: '+tx.hash.slice(0,18)+'…');
     await tx.wait();
-    $('#msg').textContent = '✅ Minted! You hold an Orbix 666.';
-  } catch(e){ $('#msg').textContent = '❌ '+e.message.slice(0,100); }
+    setMsg('Minted. You hold an Orbix 666.');
+  } catch(e){ setMsg('Mint failed: '+(e.shortMessage||e.message).slice(0,120)); }
 }
 
-$('#roll').onclick = () => { if (!account) connect(); roll(); };
+$('#roll').onclick = () => { roll(); };
 $('#claim').onclick = mint;
 </script>
 </body>

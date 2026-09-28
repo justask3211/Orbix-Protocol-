@@ -32,6 +32,7 @@ contract OrbixMasterChef is Ownable {
 
     error PoolExists();
     error NothingStaked();
+    error InsufficientRewards();
 
     constructor(address _ecoToken, uint256 _ecoPerBlock, uint256 startBlock) Ownable(msg.sender) {
         ecoToken = _ecoToken;
@@ -67,7 +68,8 @@ contract OrbixMasterChef is Ownable {
             accEcoPerShare += ecoReward * 1e12 / stakedTotal;
         }
         uint256 userStaked = staked[user][pid];
-        return userStaked * accEcoPerShare / 1e12 - rewardDebt[user][pid] + pendingRewards[user];
+        // pool-specific view: pendingRewards is a global bucket surfaced separately via pendingRewards(address)
+        return userStaked * accEcoPerShare / 1e12 - rewardDebt[user][pid];
     }
 
     // Tracks staked totals per pool using balance deltas (no double storage cost)
@@ -110,17 +112,20 @@ contract OrbixMasterChef is Ownable {
     }
 
     function harvest() external {
-        Pool storage pool = poolInfo[0];
-        _updatePool(0);
-        uint256 total = 0;
-        for (uint256 pid = 0; pid < poolInfo.length; pid++) {
+        uint256 len = poolInfo.length;
+        // settle EVERY pool before computing anything, so multi-pool positions are correct
+        for (uint256 pid = 0; pid < len; pid++) {
+            _updatePool(pid);
+        }
+        uint256 total = pendingRewards[msg.sender];
+        for (uint256 pid = 0; pid < len; pid++) {
             Pool storage p = poolInfo[pid];
             total += staked[msg.sender][pid] * p.accEcoPerShare / 1e12 - rewardDebt[msg.sender][pid];
             rewardDebt[msg.sender][pid] = staked[msg.sender][pid] * p.accEcoPerShare / 1e12;
         }
-        total += pendingRewards[msg.sender];
         pendingRewards[msg.sender] = 0;
         if (total > 0) {
+            if (IERC20(ecoToken).balanceOf(address(this)) < total) revert InsufficientRewards();
             SafeERC20.safeTransfer(IERC20(ecoToken), msg.sender, total);
             emit Harvest(msg.sender, total);
         }

@@ -42,7 +42,10 @@
     <div class="row"><select id="fromTok"><option value="WETH">ETH (via WETH)</option><option value="FREE">FREE</option></select></div>
     <div class="row"><select id="toTok"><option value="FREE">FREE</option><option value="WETH">ETH (via WETH)</option></select></div>
     <div class="row"><input id="amt" placeholder="Amount (e.g. 0.0001)"></div>
+    <div class="row"><input id="slip" placeholder="Slippage % (default 2.5)" value="2.5"></div>
     <button class="act" id="doSwap">Swap</button>
+    <div class="stat"><span>Expected out</span><b id="quote">—</b></div>
+    <div class="stat"><span>Min received</span><b id="minOut">—</b></div>
     <div class="addr">Router 0x8979aE333d624b6fCf580D22ba1D0EF179aC0691 · WETH 0xf5CC840BD9529eaA67D2AbB8B13dF26cF7B4F1ac</div>
   </div>
 
@@ -52,6 +55,8 @@
     <div class="stat"><span>Your pending rewards</span><b id="pend">—</b></div>
     <div class="row"><input id="stakeAmt" placeholder="LP amount to stake"></div>
     <button class="act" id="doStake">Stake LP</button>
+    <div class="row"><input id="unstakeAmt" placeholder="LP amount to withdraw"></div>
+    <button class="act" id="doUnstake" style="background:linear-gradient(135deg,#3a4a7a,#2a3560)">Withdraw LP</button>
     <button class="act" id="doHarvest" style="background:linear-gradient(135deg,#2ecc71,#1abc9c)">Harvest Rewards</button>
     <div class="addr">Reward token ORBIX-ECO 0xC3D3f769441e60F6e8A3D022fA8f55b0c8c432c3 · 10 ECO/block</div>
   </div>
@@ -89,46 +94,85 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   t.classList.add('on'); $('#p-'+t.dataset.p).classList.add('on');
 });
 
+const ROUTER_ABI = [
+  'function swapExactETHForTokens(uint256,address[],address,uint256) payable returns (uint256[])',
+  'function swapExactTokensForETH(uint256,uint256,address[],address,uint256) returns (uint256[])',
+  'function getAmountsOut(uint256,address[]) view returns (uint256[])'];
+const SWAP_ABI = ROUTER_ABI.slice(0,2);
+
 async function ensure(chainId) {
+  if (!provider || !acct) throw new Error('Connect your wallet first');
   const net = await provider.getNetwork();
-  if (net.chainId !== chainId) throw new Error('Wrong network — switch to 46630');
+  if (net.chainId !== chainId) throw new Error('Wrong network — switch to Robinhood Chain 46630');
 }
 async function erc20(addr){ return new ethers.Contract(addr, ['function approve(address,uint256) returns (bool)','function balanceOf(address) view returns (uint256)','function allowance(address,address) view returns (uint256)'], signer); }
 const deadline = () => Math.floor(Date.now()/1000)+1200;
+const slipBps = () => { const v = parseFloat($('#slip').value); return BigInt(Math.round((isNaN(v)?2.5:v) * 100)); };
+
+// live quote + min-received preview
+async function preview() {
+  try {
+    if (!$('#amt').value || !acct) { $('#quote').textContent = '—'; $('#minOut').textContent = '—'; return; }
+    const fromSel = $('#fromTok').value, toSel = $('#toTok').value;
+    if (fromSel === toSel) { $('#quote').textContent = 'pick two different tokens'; return; }
+    const read = new ethers.Contract(A.ROUTER, ROUTER_ABI, provider);
+    const amt = ethers.parseEther($('#amt').value);
+    const amounts = await read.getAmountsOut(amt, [A[fromSel], A[toSel]]);
+    const out = amounts[amounts.length-1];
+    $('#quote').textContent = ethers.formatEther(out);
+    $('#minOut').textContent = ethers.formatEther(out * (10000n - slipBps()) / 10000n);
+  } catch(e) { $('#quote').textContent = 'quote unavailable'; }
+}
 
 $('#doSwap').onclick = async () => {
   try {
     await ensure(46630n);
-    const from = A[$('#fromTok').value], to = A[$('#toTok').value], amt = $('#amt').value;
+    const fromKey = $('#fromTok').value, toKey = $('#toTok').value, amt = $('#amt').value;
     if (!amt) return msg('Enter amount');
-    const router = new ethers.Contract(A.ROUTER, [
-      'function swapExactETHForTokens(uint256,address[],address,uint256) payable returns (uint256[])',
-      'function swapExactTokensForETH(uint256,uint256,address[],address,uint256) returns (uint256[])'], signer);
-    const t = await erc20(from);
-    if ($('#fromTok').value==='WETH') {
-      const tx = await router.swapExactETHForTokens(0, [from,to], acct, deadline(), {value: ethers.parseEther(amt)});
-      msg('Swap sent: '+tx.hash); await tx.wait(); msg('✅ Swapped '+tx.hash);
+    if (fromKey === toKey) return msg('Choose two different tokens');
+    const input = ethers.parseEther(amt);
+    const read = new ethers.Contract(A.ROUTER, ROUTER_ABI, provider);
+    const quoted = (await read.getAmountsOut(input, [A[fromKey], A[toKey]])).at(-1);
+    const minOut = quoted * (10000n - slipBps()) / 10000n;
+    if (slipBps() >= 10000n) return msg('Slippage must be below 100%');
+    $('#quote').textContent = ethers.formatEther(quoted);
+    $('#minOut').textContent = ethers.formatEther(minOut);
+    const router = new ethers.Contract(A.ROUTER, SWAP_ABI, signer);
+    if (fromKey === 'WETH') {
+      const tx = await router.swapExactETHForTokens(minOut, [A.WETH,A[toKey]], acct, deadline(), {value: input});
+      msg('Swap submitted: '+tx.hash); await tx.wait(); msg('Swap confirmed: '+tx.hash);
     } else {
-      if ((await t.allowance(acct, A.ROUTER)) < ethers.parseEther(amt)) {
-        msg('Approving…'); const ap = await t.approve(A.ROUTER, ethers.MaxUint256); await ap.wait();
-      }
-      const tx = await router.swapExactTokensForETH(ethers.parseEther(amt), 0, [from,to], acct, deadline());
-      msg('Swap sent: '+tx.hash); await tx.wait(); msg('✅ Swapped '+tx.hash);
+      const t = await erc20(A[fromKey]);
+      const bal = await t.balanceOf(acct);
+      if (bal < input) return msg('Insufficient '+fromKey+' balance');
+      if ((await t.allowance(acct, A.ROUTER)) < input) { msg('Approving…'); await (await t.approve(A.ROUTER, ethers.MaxUint256)).wait(); }
+      const tx = await router.swapExactTokensForETH(input, minOut, [A[fromKey],A.WETH], acct, deadline());
+      msg('Swap submitted: '+tx.hash); await tx.wait(); msg('Swap confirmed: '+tx.hash);
     }
-  } catch(e){ msg('❌ '+e.message.slice(0,140)); }
+  } catch(e){ msg('Swap failed: '+(e.shortMessage||e.message).slice(0,140)); }
 };
+
+$('#amt').addEventListener('input', preview);
+$('#slip').addEventListener('input', preview);
+$('#fromTok').addEventListener('change', preview);
+$('#toTok').addEventListener('change', preview);
 
 $('#doStake').onclick = async () => {
   try {
+    if (!signer) return msg('Connect wallet first');
     await ensure(46630n);
+    if (!$('#stakeAmt').value) return msg('Enter LP amount');
+    const amt = ethers.parseEther($('#stakeAmt').value);
+    if (amt <= 0n) return msg('Enter LP amount greater than 0');
     const pair = new ethers.Contract('0xea7d222013877c362ac78c3c80f4ee6910b5b711',
-      ['function approve(address,uint256) returns (bool)'], signer);
-    const amt = ethers.parseEther($('#stakeAmt').value||'0');
+      ['function approve(address,uint256) returns (bool)','function allowance(address,address) view returns (uint256)','function balanceOf(address) view returns (uint256)'], signer);
+    const bal = await pair.balanceOf(acct);
+    if (bal < amt) return msg('Insufficient LP balance: ' + ethers.formatEther(bal));
     if ((await pair.allowance(acct, A.CHEF)) < amt) { msg('Approving LP…'); await (await pair.approve(A.CHEF, ethers.MaxUint256)).wait(); }
-    const chef = new ethers.Contract(A.CHEF, ['function deposit(uint256,uint256)'], signer);
+    const chef = new ethers.Contract(A.CHEF, ['function deposit(uint256,uint256)','function withdraw(uint256,uint256)'], signer);
     const tx = await chef.deposit(0, amt); msg('Stake sent: '+tx.hash);
     await tx.wait(); msg('✅ Staked '+tx.hash);
-  } catch(e){ msg('❌ '+e.message.slice(0,140)); }
+  } catch(e){ msg('❌ '+(e.shortMessage||e.message).slice(0,140)); }
 };
 
 $('#doHarvest').onclick = async () => {
@@ -136,9 +180,22 @@ $('#doHarvest').onclick = async () => {
     await ensure(46630n);
     const chef = new ethers.Contract(A.CHEF, ['function pendingEco(uint256,address) view returns (uint256)','function harvest()'], signer);
     const p = await chef.pendingEco(0, acct);
-    msg('Pending: '+ethers.formatEther(p)+' ECO — harvesting…');
-    const tx = await chef.harvest(); await tx.wait(); msg('✅ Harvested '+tx.hash);
-  } catch(e){ msg('❌ '+e.message.slice(0,140)); }
+    msg('Pending: '+ethers.formatEther(p)+' ECO; harvesting…');
+    const tx = await chef.harvest(); await tx.wait(); msg('Harvest confirmed: '+tx.hash);
+  } catch(e){ msg('Harvest failed: '+(e.shortMessage||e.message).slice(0,140)); }
+};
+
+$('#doUnstake').onclick = async () => {
+  try {
+    await ensure(46630n);
+    const raw = $('#unstakeAmt').value;
+    if (!raw || Number(raw) <= 0) return msg('Enter LP amount to withdraw');
+    const chef = new ethers.Contract(A.CHEF, ['function staked(address,uint256) view returns (uint256)','function withdraw(uint256,uint256)'], signer);
+    const amt = ethers.parseEther(raw);
+    const staked = await chef.staked(acct, 0);
+    if (amt > staked) return msg('Amount exceeds your staked LP');
+    const tx = await chef.withdraw(0, amt); msg('Withdraw submitted: '+tx.hash); await tx.wait(); msg('Withdraw confirmed: '+tx.hash);
+  } catch(e){ msg('Withdraw failed: '+(e.shortMessage||e.message).slice(0,140)); }
 };
 
 $('#doBridge').onclick = async () => {
