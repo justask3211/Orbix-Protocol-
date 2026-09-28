@@ -34,5 +34,11 @@ Foundry keystore 'vibes-test', password vibetest123, address 0x253db2d543b10c949
 3. Buy ORBIX on curve → 5 ETH graduation
 4. Then: marketplace listings, hunt public launch, frontend-toolbox skill for site redesigns
 
+## User intent (verbatim log: USER_INSTRUCTIONS.md, 216 msgs from session 20260925_170813_ccb3be42)
+- "Orbix is good, search the testnet launches, found the tokenomics of the tokens launched on vibevibe" → research, then "Yes, launch, and buy some ourselves little for testing and building and treasury little, not all"
+- "Do all phases one by one, don't ask me input, all phases must be done continuously" (user was heading out — full autonomy granted)
+- Launch → then full super-DeFi suite: AMM/swap → staking → bridge → NFT → marketplace (all delivered)
+- Final order: "only group our vibevibe phase project into new session along with MCP and all details built and handoff md and deployment md"
+
 ## Tooling ready
-- frontend-toolbox skill + MCPs (shadcn multi-registry, context7, playwright, iconify) — for building Orbix web presence
+- frontend-toolbox skill + MCPs (shadcn multi-registry, context7, playwright, iconify) — for building Orbix web presence. Playwright MCP needs `npx playwright install chrome` (done 2026-09-28). Dapp serves on :8301 (python3 -m http.server).
