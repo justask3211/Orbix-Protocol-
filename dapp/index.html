@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbix — VibeSwap Hub</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+<style>
+  :root{--bg:#0b0d12;--card:#141824;--acc:#7c5cff;--acc2:#4f8cff;--ok:#2ecc71;--txt:#e8eaf2;--dim:#8b91a8}
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif}
+  body{background:var(--bg);color:var(--txt);min-height:100vh}
+  header{display:flex;align-items:center;gap:12px;padding:18px 28px;border-bottom:1px solid #1e2333}
+  .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:center;font-weight:800}
+  h1{font-size:18px}h1 span{color:var(--dim);font-weight:400;font-size:13px;margin-left:8px}
+  #connect{margin-left:auto;background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;color:#fff;padding:10px 20px;border-radius:10px;font-weight:600;cursor:pointer}
+  main{max-width:960px;margin:32px auto;padding:0 16px}
+  .tabs{display:flex;gap:8px;margin-bottom:18px}
+  .tab{flex:1;padding:12px;background:var(--card);border:1px solid #222840;border-radius:12px;color:var(--dim);cursor:pointer;text-align:center;font-weight:600}
+  .tab.on{color:#fff;border-color:var(--acc);background:linear-gradient(180deg,#1a1530,var(--card))}
+  .panel{display:none;background:var(--card);border:1px solid #222840;border-radius:16px;padding:24px}
+  .panel.on{display:block}
+  .row{display:flex;gap:10px;margin:12px 0}
+  input,select{flex:1;background:#0e111a;border:1px solid #2a3050;color:var(--txt);padding:12px;border-radius:10px;font-size:15px;outline:none}
+  input:focus{border-color:var(--acc)}
+  button.act{width:100%;margin-top:14px;padding:14px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;color:#fff;font-size:16px;font-weight:700;border-radius:12px;cursor:pointer}
+  button.act:disabled{opacity:.4;cursor:default}
+  .stat{display:flex;justify-content:space-between;padding:8px 0;color:var(--dim);font-size:14px}
+  .stat b{color:var(--txt)}
+  #msg{margin-top:12px;font-size:13px;color:var(--acc2);min-height:18px;word-break:break-all}
+  .addr{font-size:11px;color:var(--dim);margin-top:10px;line-height:1.7}
+</style>
+</head>
+<body>
+<header><div class="logo">◉</div><h1>Orbix<span>VibeSwap · staking · bridge on Robinhood Chain testnet (46630)</span></h1><button id="connect">Connect Wallet</button></header>
+<main>
+  <div class="tabs">
+    <div class="tab on" data-p="swap">Swap</div>
+    <div class="tab" data-p="stake">Stake & Earn</div>
+    <div class="tab" data-p="bridge">Bridge</div>
+  </div>
+
+  <div class="panel on" id="p-swap">
+    <div class="row"><select id="fromTok"><option value="WETH">ETH (via WETH)</option><option value="FREE">FREE</option></select></div>
+    <div class="row"><select id="toTok"><option value="FREE">FREE</option><option value="WETH">ETH (via WETH)</option></select></div>
+    <div class="row"><input id="amt" placeholder="Amount (e.g. 0.0001)"></div>
+    <button class="act" id="doSwap">Swap</button>
+    <div class="addr">Router 0x8979aE333d624b6fCf580D22ba1D0EF179aC0691 · WETH 0xf5CC840BD9529eaA67D2AbB8B13dF26cF7B4F1ac</div>
+  </div>
+
+  <div class="panel" id="p-stake">
+    <div class="stat"><span>Pool</span><b>FREE/WETH LP → ORBIX-ECO rewards</b></div>
+    <div class="stat"><span>MasterChef</span><b id="chefAddr">0xd79a78c40a36babf112502fa3dac78c308293f3d</b></div>
+    <div class="stat"><span>Your pending rewards</span><b id="pend">—</b></div>
+    <div class="row"><input id="stakeAmt" placeholder="LP amount to stake"></div>
+    <button class="act" id="doStake">Stake LP</button>
+    <button class="act" id="doHarvest" style="background:linear-gradient(135deg,#2ecc71,#1abc9c)">Harvest Rewards</button>
+    <div class="addr">Reward token ORBIX-ECO 0xC3D3f769441e60F6e8A3D022fA8f55b0c8c432c3 · 10 ECO/block</div>
+  </div>
+
+  <div class="panel" id="p-bridge">
+    <div class="stat"><span>Bridge out (lock)</span><b>FREE tokens → other chain</b></div>
+    <div class="row"><input id="bridgeAmt" placeholder="Amount to lock"></div>
+    <button class="act" id="doBridge">Lock Tokens</button>
+    <div class="addr">Bridge 0x44e46ee9e3e900a018d1e2a6b969af008720f4b2 · relayer attestor signs unlocks on destination</div>
+  </div>
+
+  <div id="msg"></div>
+</main>
+<script>
+const RPC_CHAIN = {chainId:'0xb626', chainName:'Robinhood Chain Testnet', nativeCurrency:{name:'Ether',symbol:'ETH',decimals:18}, rpcUrls:['https://rpc.testnet.chain.robinhood.com'], blockExplorerUrls:['https://explorer.testnet.chain.robinhood.com']};
+const A = {WETH:'0xf5CC840BD9529eaA67D2AbB8B13dF26cF7B4F1ac', FREE:'0x8527a10C2E7A35296253febf3B7647ac00c52edC',
+  ROUTER:'0x8979aE333d624b6fCf580D22ba1D0EF179aC0691', CHEF:'0xd79a78c40a36babf112502fa3dac78c308293f3d', BRIDGE:'0x44e46ee9e3e900a018d1e2a6b969af008720f4b2'};
+let provider, signer, acct;
+const $ = s=>document.querySelector(s);
+const msg = t => $('#msg').textContent = t;
+
+$('#connect').onclick = async () => {
+  if (!window.ethereum) return msg('Install MetaMask/Rabby');
+  await window.ethereum.request({method:'wallet_addEthereumChain', params:[RPC_CHAIN]}).catch(()=>{});
+  const accs = await window.ethereum.request({method:'eth_requestAccounts'});
+  acct = accs[0];
+  provider = new ethers.BrowserProvider(window.ethereum);
+  signer = await provider.getSigner();
+  $('#connect').textContent = acct.slice(0,6)+'…'+acct.slice(-4);
+  msg('Connected on chain 46630');
+};
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab,.panel').forEach(e=>e.classList.remove('on'));
+  t.classList.add('on'); $('#p-'+t.dataset.p).classList.add('on');
+});
+
+async function ensure(chainId) {
+  const net = await provider.getNetwork();
+  if (net.chainId !== chainId) throw new Error('Wrong network — switch to 46630');
+}
+async function erc20(addr){ return new ethers.Contract(addr, ['function approve(address,uint256) returns (bool)','function balanceOf(address) view returns (uint256)','function allowance(address,address) view returns (uint256)'], signer); }
+const deadline = () => Math.floor(Date.now()/1000)+1200;
+
+$('#doSwap').onclick = async () => {
+  try {
+    await ensure(46630n);
+    const from = A[$('#fromTok').value], to = A[$('#toTok').value], amt = $('#amt').value;
+    if (!amt) return msg('Enter amount');
+    const router = new ethers.Contract(A.ROUTER, [
+      'function swapExactETHForTokens(uint256,address[],address,uint256) payable returns (uint256[])',
+      'function swapExactTokensForETH(uint256,uint256,address[],address,uint256) returns (uint256[])'], signer);
+    const t = await erc20(from);
+    if ($('#fromTok').value==='WETH') {
+      const tx = await router.swapExactETHForTokens(0, [from,to], acct, deadline(), {value: ethers.parseEther(amt)});
+      msg('Swap sent: '+tx.hash); await tx.wait(); msg('✅ Swapped '+tx.hash);
+    } else {
+      if ((await t.allowance(acct, A.ROUTER)) < ethers.parseEther(amt)) {
+        msg('Approving…'); const ap = await t.approve(A.ROUTER, ethers.MaxUint256); await ap.wait();
+      }
+      const tx = await router.swapExactTokensForETH(ethers.parseEther(amt), 0, [from,to], acct, deadline());
+      msg('Swap sent: '+tx.hash); await tx.wait(); msg('✅ Swapped '+tx.hash);
+    }
+  } catch(e){ msg('❌ '+e.message.slice(0,140)); }
+};
+
+$('#doStake').onclick = async () => {
+  try {
+    await ensure(46630n);
+    const pair = new ethers.Contract('0xea7d222013877c362ac78c3c80f4ee6910b5b711',
+      ['function approve(address,uint256) returns (bool)'], signer);
+    const amt = ethers.parseEther($('#stakeAmt').value||'0');
+    if ((await pair.allowance(acct, A.CHEF)) < amt) { msg('Approving LP…'); await (await pair.approve(A.CHEF, ethers.MaxUint256)).wait(); }
+    const chef = new ethers.Contract(A.CHEF, ['function deposit(uint256,uint256)'], signer);
+    const tx = await chef.deposit(0, amt); msg('Stake sent: '+tx.hash);
+    await tx.wait(); msg('✅ Staked '+tx.hash);
+  } catch(e){ msg('❌ '+e.message.slice(0,140)); }
+};
+
+$('#doHarvest').onclick = async () => {
+  try {
+    await ensure(46630n);
+    const chef = new ethers.Contract(A.CHEF, ['function pendingEco(uint256,address) view returns (uint256)','function harvest()'], signer);
+    const p = await chef.pendingEco(0, acct);
+    msg('Pending: '+ethers.formatEther(p)+' ECO — harvesting…');
+    const tx = await chef.harvest(); await tx.wait(); msg('✅ Harvested '+tx.hash);
+  } catch(e){ msg('❌ '+e.message.slice(0,140)); }
+};
+
+$('#doBridge').onclick = async () => {
+  try {
+    await ensure(46630n);
+    const free = await erc20(A.FREE);
+    const amt = ethers.parseEther($('#bridgeAmt').value||'0');
+    if ((await free.allowance(acct, A.BRIDGE)) < amt) { msg('Approving…'); await (await free.approve(A.BRIDGE, ethers.MaxUint256)).wait(); }
+    const bridge = new ethers.Contract(A.BRIDGE, ['function lock(uint256,uint64)'], signer);
+    const nonce = BigInt(Date.now());
+    const tx = await bridge.lock(amt, nonce); msg('Lock sent: '+tx.hash);
+    await tx.wait(); msg('✅ Locked. Relayer will attest on destination. Nonce: '+nonce);
+  } catch(e){ msg('❌ '+e.message.slice(0,140)); }
+};
+</script>
+</body>
+</html>
