@@ -1,0 +1,31 @@
+# Orbix Protocol — deployment record (all phases, 2026-09-28)
+
+Chain: Robinhood Chain testnet, chainId 46630, RPC https://rpc.testnet.chain.robinhood.com
+Wallet: foundry keystore 'vibes-test' (pw vibetest123), address 0x253db2d543b10c94918de97eb8499ee59ab9087e
+Repo: ~/vibeswap (git committed). Dapp served on VPS port 8301.
+
+## Contracts
+- ORBIX (vibevibe launch): 0x0A7e1618582fbAd11c770670EF48048E236CC544, launchId 141266, curve 0xF7fb61d91c1F8c12f539981112565142477a5019, launch tx 0x5c6f87171a639fe3638961616f2af9a60fcd618fd9724d07369b2b608be49465
+- WETH9: 0xf5CC840BD9529eaA67D2AbB8B13dF26cF7B4F1ac
+- AMM Factory: 0x0229c777527CA7750b6b27b91e3F422BE70C8351
+- AMM Router: 0x8979aE333d624b6fCf580D22ba1D0EF179aC0691
+- FREE test token: 0x8527a10C2E7A35296253febf3B7647ac00c52edC
+- ORBIX-ECO: 0xC3D3f769441e60F6e8A3D022fA8f55b0c8c432c3 (200M minted to treasury)
+- MasterChef: 0xd79a78c40a36babf112502fa3dac78c308293f3d (pool 0 = FREE/WETH LP 0xea7d222013877c362ac78c3c80f4ee6910b5b711, 10 ECO/block)
+- BridgeOut: 0x44e46ee9E3e900a018d1e2A6B969Af008720f4B2 (5,000,000 FREE locked live; relayer relayer/relayer.py)
+- Orbix666 NFT: 0x2D11AD9d0388CbCA0A9E137F099C3fff97d1B29d — GPU salt 0x91c38445b1a3d68e6f8036cc55e84ec543fc5829680ba046634427acaa4160be, token #1 minted via PoW (nonce 15388), tier GPU(2), feeDiscountBps=2500 for holder
+- OrbixMarket: 0xf3C365Cc13bdc55ed710ac60729895b2c368DC83 (list/cancel/buy flow tested end-to-end)
+
+## Gotchas (learned the hard way)
+- vibevibe curve buy(uint256,uint256) reverts InvalidRecipient unless --from is the real EOA; deadline is UNIX seconds not block number
+- curveAt(launchId) is offset by one: our launch event said id 141265 in one view, launchIdOfToken(token)=141266 is authoritative; ALWAYS resolve curve via launchIdOfToken before trading
+- ORBIX transfers locked until bonding graduation (5 ETH raise); early liquidity for ORBIX itself impossible until then
+- OZ ERC20 forbids mint to address(0) — pair burn-slot minted to address(1)
+
+## Tests
+forge test: 10/10 passing (factory determinism, liquidity add/remove, swaps incl ETH routes, slippage guard, fee math, chef pro-rata rewards, eco max supply)
+
+## Remaining
+- GitHub push (no auth available on VPS — needs user's gh auth)
+- Pump ORBIX bonding curve to 5 ETH graduation (social/marketing)
+- Human-tier click-hunt frontend page for Orbix666
