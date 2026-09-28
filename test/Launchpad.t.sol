@@ -128,13 +128,22 @@ contract LaunchpadTest is Test {
         vm.stopPrank();
     }
 
-    function test_RevertDuplicateLaunchPerCreator() public {
-        _launch(alice, address(collateral), 10_000 ether, 10 ether, false);
-        vm.startPrank(alice);
-        collateral.approve(address(pad), type(uint256).max);
-        vm.expectRevert(OrbixLaunchpad.AlreadyLaunched.selector);
-        pad.createLaunch{value: 0.001 ether}("Second", "SEC", 1_000 ether, address(collateral), 1_000 ether, 1 ether, false);
-        vm.stopPrank();
+    function test_MultipleLaunchesPerCreatorHaveIndependentEscrow() public {
+        (address first, address firstPair) = _launch(alice, address(collateral), 10_000 ether, 10 ether, true);
+        uint256 firstId = pad.tokenLaunchId(first);
+        uint256 firstLp = pad.launchLp(firstId);
+        (address second, address secondPair) = _launch(alice, address(ecoCollateral), 20_000 ether, 20 ether, true);
+        uint256 secondId = pad.tokenLaunchId(second);
+        assertEq(pad.creatorLaunchCount(alice), 2);
+        assertEq(pad.creatorLaunchIds(alice, 0), firstId);
+        assertEq(pad.creatorLaunchIds(alice, 1), secondId);
+        assertEq(pad.launchLp(firstId), firstLp);
+        vm.warp(block.timestamp + 7 days);
+        vm.prank(alice);
+        pad.closeLaunch(firstId);
+        assertEq(OrbixPair(firstPair).balanceOf(alice), firstLp);
+        assertEq(OrbixPair(secondPair).balanceOf(address(pad)), pad.launchLp(secondId));
+        assertGt(pad.launchLp(secondId), 0);
     }
 
     function test_RevertCreationFeeMissing() public {
