@@ -58,10 +58,12 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
     function _update(uint256 bal0, uint256 bal1, uint32 blockTimestamp) private {
         if (bal0 > type(uint112).max || bal1 > type(uint112).max) revert Overflow();
         uint32 elapsed = blockTimestamp - blockTimestampLast;
+        // UQ112x112 price accumulators over the PRIOR reserves (Uniswap V2 semantics).
+        // price0 = reserve1/reserve0, price1 = reserve0/reserve1; accumulate BEFORE overwriting reserves.
         if (elapsed > 0 && reserve0 != 0 && reserve1 != 0) {
             unchecked {
-                price0CumulativeLast += uint256(uint112(bal1 - 0)) * elapsed / reserve1;
-                price1CumulativeLast += uint256(uint112(bal0 - 0)) * elapsed / reserve0;
+                price0CumulativeLast += (uint256(reserve1) << 112) / reserve0 * elapsed;
+                price1CumulativeLast += (uint256(reserve0) << 112) / reserve1 * elapsed;
             }
         }
         reserve0 = uint112(bal0);

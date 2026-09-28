@@ -200,6 +200,84 @@ contract VibeSwapTest is Test {
         assertApproxEqRel(pB, 250 ether, 1e15);
     }
 
+    // ---------- Regression: TWAP accumulators (H-01) ----------
+    function test_TWAPUsesReserveRatio() public {
+        address pair = factory.createPair(address(tokenA), address(tokenB));
+        address t0 = OrbixPair(pair).token0();
+        address t1 = OrbixPair(pair).token1();
+        // make reserves asymmetric: 100 of t0, 200 of t1
+        vm.startPrank(alice);
+        MockToken(t0).transfer(pair, 100 ether);
+        MockToken(t1).transfer(pair, 200 ether);
+        OrbixPair(pair).mint(alice);
+        vm.stopPrank();
+        (uint112 r0, uint112 r1, ) = OrbixPair(pair).getReserves();
+        assertEq(uint256(r0), 100 ether);
+        assertEq(uint256(r1), 200 ether);
+
+        // no time passed yet -> accumulators are zero
+        assertEq(OrbixPair(pair).price0CumulativeLast(), 0);
+
+        vm.warp(block.timestamp + 100);
+        OrbixPair(pair).sync();
+
+        // price0 = r1/r0 in UQ112x112 * elapsed ; price1 = r0/r1 * elapsed
+        uint256 expected0 = (uint256(r1) << 112) / r0 * 100;
+        uint256 expected1 = (uint256(r0) << 112) / r1 * 100;
+        assertEq(OrbixPair(pair).price0CumulativeLast(), expected0, "price0 accumulator");
+        assertEq(OrbixPair(pair).price1CumulativeLast(), expected1, "price1 accumulator");
+        // asymmetric pool: price0 must be ~2x price1 (ratio 4x in UQ terms: (2<<112) vs (0.5<<112))
+        assertGt(OrbixPair(pair).price0CumulativeLast(), 3 * OrbixPair(pair).price1CumulativeLast(), "ratio inverted?");
+    }
+
+    // ---------- Regression: multi-pool harvest (H-02) ----------
+    function test_MultiPoolHarvestSettlesEveryPool() public {
+        chef = new OrbixMasterChef(address(eco), 10 ether, block.number + 1);
+        vm.startPrank(minter);
+        eco.mint(address(chef), 1_000_000 ether);
+        vm.stopPrank();
+        chef.add(100, IERC20(address(tokenA)));
+        chef.add(100, IERC20(address(tokenB)));
+
+        vm.roll(block.number + 2);
+        vm.startPrank(alice);
+        tokenA.approve(address(chef), type(uint256).max);
+        tokenB.approve(address(chef), type(uint256).max);
+        chef.deposit(0, 10 ether);
+        chef.deposit(1, 10 ether);
+        vm.roll(block.number + 100);
+
+        uint256 pA = chef.pendingEco(0, alice);
+        uint256 pB = chef.pendingEco(1, alice);
+        assertGt(pA, 0, "pool0 accrues");
+        assertGt(pB, 0, "pool1 accrues");
+
+        uint256 before = eco.balanceOf(alice);
+        // harvest with NO intervening deposit/withdraw: must settle both pools
+        chef.harvest();
+        uint256 got = eco.balanceOf(alice) - before;
+        assertApproxEqRel(got, pA + pB, 1e15);
+        vm.stopPrank();
+    }
+
+    function test_PendingEcoIsPoolSpecific() public {
+        chef = new OrbixMasterChef(address(eco), 10 ether, block.number + 1);
+        vm.startPrank(minter);
+        eco.mint(address(chef), 1_000_000 ether);
+        vm.stopPrank();
+        chef.add(100, IERC20(address(tokenA)));
+        chef.add(100, IERC20(address(tokenB)));
+        vm.roll(block.number + 2);
+        vm.startPrank(alice);
+        tokenA.approve(address(chef), type(uint256).max);
+        chef.deposit(0, 10 ether);
+        vm.roll(block.number + 50);
+        // no stake in pool 1 -> pool 1 pending must be zero (not the global pending bucket)
+        assertEq(chef.pendingEco(1, alice), 0, "empty pool pending must be 0");
+        assertGt(chef.pendingEco(0, alice), 0);
+        vm.stopPrank();
+    }
+
     // ---------- EcoToken ----------
     function test_EcoMaxSupply() public {
         vm.startPrank(minter);
