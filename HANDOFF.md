@@ -40,5 +40,15 @@ Foundry keystore 'vibes-test', password vibetest123, address 0x253db2d543b10c949
 - Launch → then full super-DeFi suite: AMM/swap → staking → bridge → NFT → marketplace (all delivered)
 - Final order: "only group our vibevibe phase project into new session along with MCP and all details built and handoff md and deployment md"
 
+## Orbix666 NFT — minting system & plan (user's design)
+- Supply **666 fixed**, 3 tiers × 222 each:
+  - **HUMAN (222)**: off-chain click-hunt at hunt server (:8400, hunt/hunt_server.py + hunt.html) — server generates 222 winning 6-digit numbers, signs winner claims → `mintHuman(luckyNumber, ts, seed, sig)`. Sig bug FIXED (abi.encodePacked addr = 20 raw bytes).
+  - **BOT (222)**: open mint but must burn BURN_PRICE of ecosystem token for access → `mintBot()`
+  - **GPU (222)**: proof-of-work — keccak256(nonce, salt, minter) < difficulty → `mintGPU(nonce)`. Token #1 minted via GPU PoW (nonce 15388), GPU salt 0x91c38445b1a3d68e6f8036cc55e84ec543fc5829680ba046634427acaa4160be. Salt is owner-lockable (`lockSalt`), difficulty settable.
+- Holder perks: 25% swap fee discount (`feeDiscountBps` = 2500), launchpad priority (`isPriority`), staking boost.
+- Marketplace: OrbixMarket lists/purchases in ORBIX-ECO, 2.5% fee, holders pay 25% less fee. list/cancel/buy tested end-to-end.
+- NFT contract: 0x2D11AD9d0388CbCA0A9E137F099C3fff97d1B29d · Market: 0xf3C365Cc13bdc55ed710ac60729895b2c368DC83
+- Plan/status: public hunt launch still pending (see Next steps).
+
 ## Tooling ready
 - frontend-toolbox skill + MCPs (shadcn multi-registry, context7, playwright, iconify) — for building Orbix web presence. Playwright MCP needs `npx playwright install chrome` (done 2026-09-28). Dapp serves on :8301 (python3 -m http.server).
