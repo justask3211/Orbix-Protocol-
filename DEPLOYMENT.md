@@ -33,3 +33,4 @@ forge test: 10/10 passing (factory determinism, liquidity add/remove, swaps incl
 - GitHub push (no auth available on VPS — needs user's gh auth)
 - Pump ORBIX bonding curve to 5 ETH graduation (social/marketing)
 - Human-tier click-hunt frontend page for Orbix666
+- Cross-chain: LayerZero OFT for ORBIX/FREE — see CROSSCHAIN_PLAN.md (LZ live on RH mainnet EID 30416; Wormhole not deployed on RH; CCIP is RH's official partner)

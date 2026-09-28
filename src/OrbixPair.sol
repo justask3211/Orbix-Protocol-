@@ -46,6 +46,7 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
     event Sync(uint112 reserve0, uint112 reserve1);
 
     constructor(address _token0, address _token1) ERC20("Orbix LP Token", "ORBIX-LP") ERC20Permit("Orbix LP Token") Ownable(msg.sender) {
+        if (_token0 == address(0) || _token1 == address(0)) revert ZeroAddress();
         if (_token0 == _token1) revert IdenticalAddresses();
         (token0, token1) = _token0 < _token1 ? (_token0, _token1) : (_token1, _token0);
         factory = msg.sender;
@@ -57,7 +58,8 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
 
     function _update(uint256 bal0, uint256 bal1, uint32 blockTimestamp) private {
         if (bal0 > type(uint112).max || bal1 > type(uint112).max) revert Overflow();
-        uint32 elapsed = blockTimestamp - blockTimestampLast;
+        uint32 elapsed;
+        unchecked { elapsed = blockTimestamp - blockTimestampLast; }
         // UQ112x112 price accumulators over the PRIOR reserves (Uniswap V2 semantics).
         // price0 = reserve1/reserve0, price1 = reserve0/reserve1; accumulate BEFORE overwriting reserves.
         if (elapsed > 0 && reserve0 != 0 && reserve1 != 0) {
@@ -81,6 +83,7 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
 
         uint256 _totalSupply = totalSupply();
         if (_totalSupply == 0) {
+            if (amount0 == 0 || amount1 == 0 || amount0 * amount1 <= MINIMUM_LIQUIDITY * MINIMUM_LIQUIDITY) revert InsufficientLiquidityMinted();
             liquidity = _sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY;
             _mint(address(1), MINIMUM_LIQUIDITY); // burn-slot at address(1), not zero (OZ forbids zero receiver)
         } else {
@@ -132,7 +135,7 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
         emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
     }
 
-    function sync() external {
+    function sync() external lock {
         _update(_balance(token0), _balance(token1), uint32(block.timestamp));
     }
 

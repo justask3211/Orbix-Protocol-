@@ -46,17 +46,20 @@ Build an industry-grade Robinhood testnet ecosystem, not a demo:
 - [ ] Fix direct launch creator accounting/LP ownership semantics and add creator withdraw/lock read model.
 - [ ] Add metadata commitment/content validation and token naming/symbol/supply policy.
 - [ ] Add launch config, fee, allowlist, pause, and creator role governance.
-- [ ] Add frontend launch form, collateral selector, pool preview, lock preview, confirmation, and readback.
+- [ ] Add frontend wallet/network/account provider state and transaction lifecycle UI.
+- [ ] Add real Swap route: quote, slippage, allowance, simulation/readback, pending, receipt, and decoded errors.
+- [ ] Add real Direct Launch route: collateral approval, launch configuration, confirmation, receipt, and launch readback.
+- [ ] Keep unsupported routes visibly labeled as unavailable/testnet-only until wired and verified.
 
 ### D. Launchpad mode 2: bonding curve / current trending style
-- [ ] Write `BONDING_CURVE_SPEC.md` with exact virtual/real reserves, fee, curve formula, supply allocation, creator/platform fee, graduation target, sell policy, transfer lock, and rounding rules. Match the chosen vibevibe-style observable behavior, not vague “pump style”.
-- [ ] Add failing tests for create launch, quote buy, quote sell, min-out, deadline, recipient binding, fee, virtual reserves, and monotonic price.
-- [ ] Implement isolated curve token/curve pair with explicit launch ID and reverse lookup.
-- [ ] Implement buy/sell with quote-first slippage guard, deadline, fees, event schema, and replay-safe accounting.
-- [ ] Add transfer lock before graduation and explicit exemptions for curve/locker/router as required.
-- [ ] Add buy-driven graduation at configured raise target. Test exact boundary, overshoot/refund or allocation policy, and repeated graduation calls.
-- [ ] Implement graduation migration: seed the AMM using the curve reserves, lock/burn LP according to policy, mark curve final, and emit migration receipt.
-- [ ] Add creator/platform/treasury fee accounting and solvency invariants.
+- [x] Write `BONDING_CURVE_SPEC.md` with exact virtual/real reserves, fee, curve formula, supply allocation, creator/platform fee, graduation target, sell policy, transfer lock, and rounding rules. Match the chosen vibevibe-style observable behavior, not vague “pump style”.
+- [x] Add failing tests for create launch, quote buy, quote sell, min-out, deadline, recipient binding, fee, virtual reserves, and monotonic price.
+- [x] Implement isolated curve token/curve pair with explicit launch ID and reverse lookup.
+- [x] Implement buy/sell with quote-first slippage guard, deadline, fees, event schema, and replay-safe accounting.
+- [x] Add transfer lock before graduation and explicit exemptions for curve/locker/router as required.
+- [x] Add buy-driven graduation at configured raise target. Test exact boundary, overshoot/refund or allocation policy, and repeated graduation calls.
+- [x] Implement graduation migration: seed the AMM using the curve reserves, lock/burn LP according to policy, mark curve final, and emit migration receipt.
+- [x] Add creator/platform/treasury fee accounting and solvency invariants.
 - [ ] Add launch priority/limits for Orbix666 holders only through tested policy.
 - [ ] Add frontend mode selector: “Bonding curve” vs “Direct pool”, launch preview, curve chart, buy/sell, progress-to-graduation, holders/trades, graduation status, and migration receipt.
 
