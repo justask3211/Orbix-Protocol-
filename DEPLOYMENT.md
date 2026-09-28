@@ -15,6 +15,10 @@ Repo: ~/vibeswap (git committed). Dapp served on VPS port 8301.
 - BridgeOut: 0x44e46ee9E3e900a018d1e2A6B969Af008720f4B2 (5,000,000 FREE locked live; relayer relayer/relayer.py)
 - Orbix666 NFT: 0x2D11AD9d0388CbCA0A9E137F099C3fff97d1B29d — GPU salt 0x91c38445b1a3d68e6f8036cc55e84ec543fc5829680ba046634427acaa4160be, token #1 minted via PoW (nonce 15388), tier GPU(2), feeDiscountBps=2500 for holder
 - OrbixMarket: 0xf3C365Cc13bdc55ed710ac60729895b2c368DC83 (list/cancel/buy flow tested end-to-end)
+- OrbixLaunchpad: 0xbd3a9263bc366735a8678099123ea4e72a20878a (deploy tx 0xe1bcdff85e1791245047b1e5be5e8dc1cde51f2b18bd291299ee4605051123ec, creationFee 0.001 ETH, lock 7d, treasury = deployer)
+  - FREE approved as collateral: tx 0xadfa9693759b8e225d69fc2b8b0c5f84c2ead92fca05d402e076039962540d33
+  - Bytecode verified on-chain (forge verify-bytecode): creation + runtime FULL match vs src/OrbixLaunchpad.sol:OrbixLaunchpad
+  - Live launch #1: OTT 0x2F2ED74d8288ab3C334752320e92c09b5F14790d, tx 0x8e1ff70d0dc734795e9154039ac44475dd6461aea9830f66c8476116493d5a0f, pair 0x55a0984bfaa9ec5658a4df528f69e118f52b8907 seeded 100k OTT / 1000 FREE, 900k to creator, LP held by pad (lockLiquidity=false)
 
 ## Gotchas (learned the hard way)
 - vibevibe curve buy(uint256,uint256) reverts InvalidRecipient unless --from is the real EOA; deadline is UNIX seconds not block number
