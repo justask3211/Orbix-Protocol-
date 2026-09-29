@@ -20,6 +20,13 @@ Repo: ~/vibeswap (git committed). Dapp served on VPS port 8301.
   - Bytecode verified on-chain (forge verify-bytecode): creation + runtime FULL match vs src/OrbixLaunchpad.sol:OrbixLaunchpad
   - Live launch #1: OTT 0x2F2ED74d8288ab3C334752320e92c09b5F14790d, tx 0x8e1ff70d0dc734795e9154039ac44475dd6461aea9830f66c8476116493d5a0f, pair 0x55a0984bfaa9ec5658a4df528f69e118f52b8907 seeded 100k OTT / 1000 FREE, 900k to creator, LP held by pad (lockLiquidity=false)
 
+## Web app (deployed + browser-verified 2026-09-29)
+- URL: https://dozens-geographical-mountain-appearing.trycloudflare.com (cloudflared tunnel → local http.server :8302 serving web/dist; daemon processes 4dc0d8397492/909dc5fb6642 must stay alive)
+- Build: web/ React+TS, `npm run build` clean (0 TS errors), UI wired to all contracts above via web/src/addresses.ts + abis.ts
+- Tabs browser-verified live: Discover (all contract addresses + explorer links), Swap (5-token router quotes), Pools (add/remove LP, live FREE/WETH reserves 8337.50/0.0001), Bridge (RH ETH canonical inbox lane + xORBIX LayerZero OFT lane, live proofs shown), Launch (reads live launch count from nextLaunchId — showed 1), Staking (MasterChef), Orbix666, Marketplace
+- Bridge live proofs: RH ETH 0xe08abf02…188587 (Sepolia→RH delivered), xORBIX OFT 0xc6194e4f…2fc08 (Sepolia→Arb Sepolia via LayerZero V2)
+- Launchpad collateral getter is `collateralAllowed(address)` (NOT collateralEnabled) — returns true for FREE 0x8527a10C…52edC, confirmed on-chain 2026-09-29
+
 ## Gotchas (learned the hard way)
 - vibevibe curve buy(uint256,uint256) reverts InvalidRecipient unless --from is the real EOA; deadline is UNIX seconds not block number
 - curveAt(launchId) is offset by one: our launch event said id 141265 in one view, launchIdOfToken(token)=141266 is authoritative; ALWAYS resolve curve via launchIdOfToken before trading
