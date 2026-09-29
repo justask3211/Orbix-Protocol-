@@ -23,6 +23,11 @@ Repo: ~/vibeswap (git committed). Dapp served on VPS port 8301.
 ## Web app (deployed + browser-verified 2026-09-29)
 - URL: https://dozens-geographical-mountain-appearing.trycloudflare.com (cloudflared tunnel → local http.server :8302 serving web/dist; daemon processes 4dc0d8397492/909dc5fb6642 must stay alive)
 - Build: web/ React+TS, `npm run build` clean (0 TS errors), UI wired to all contracts above via web/src/addresses.ts + abis.ts
+- UI v2 (2026-09-29, user feedback round 1):
+  - Smart router (web/src/smartRouter.ts): scans ALL factory pairs (launchpad pools included), finds best-rate path up to 3 hops via getAmountsOut — verified live: 1 ETH → OTT routed WETH→FREE→OTT (launchpad pool), 87029 OTT quoted
+  - Token select: dark searchable modal with LAUNCH/LIQUID badges replaces native <select> (Swap from/to + Pools token); Bridge direction = styled buttons
+  - Wallet modal: MetaMask/injected + WalletConnect v2 (@walletconnect/ethereum-provider, projectId 8e6b9213… REPLACE with own projectId before mainnet)
+  - Overview: 4 image cards (swap/bridge/pools/launch, generated web/public/card-*.jpg) click into modules; Discover merged into it
 - Tabs browser-verified live: Discover (all contract addresses + explorer links), Swap (5-token router quotes), Pools (add/remove LP, live FREE/WETH reserves 8337.50/0.0001), Bridge (RH ETH canonical inbox lane + xORBIX LayerZero OFT lane, live proofs shown), Launch (reads live launch count from nextLaunchId — showed 1), Staking (MasterChef), Orbix666, Marketplace
 - Bridge live proofs: RH ETH 0xe08abf02…188587 (Sepolia→RH delivered), xORBIX OFT 0xc6194e4f…2fc08 (Sepolia→Arb Sepolia via LayerZero V2)
 - Launchpad collateral getter is `collateralAllowed(address)` (NOT collateralEnabled) — returns true for FREE 0x8527a10C…52edC, confirmed on-chain 2026-09-29
