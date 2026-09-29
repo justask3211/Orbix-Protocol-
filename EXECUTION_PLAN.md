@@ -109,8 +109,8 @@ Autonomy granted by user. Work top-to-bottom. Every item needs real evidence (te
 84. V7 Final live-URL smoke test of every section
 
 ## Status
-- [ ] W1-W8
-- [ ] S1-S10
+- [x] W1-W8
+- [x] S1-S10
 - [ ] L1-L10
 - [ ] B1-B6
 - [ ] K1-K8
