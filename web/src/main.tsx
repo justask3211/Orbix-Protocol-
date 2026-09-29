@@ -5,6 +5,8 @@ import { robinhoodTestnet } from 'viem/chains'
 import { amountWithSlippage, parsePositiveAmount, validateLaunch, priceImpactPct, formatPriceImpact, impactSeverity, decodeRevertReason, friendlyError } from './trade'
 import { CHAIN_ID, RPC_URL, ADDRESSES, LAUNCHPAD_ADDRESS, LZ, RH_BRIDGE_L1, explorerTxUrl, explorerAddressUrl } from './addresses'
 import { ERC20_ABI, PAIR_ABI, FACTORY_ABI, ROUTER_ABI, LAUNCHPAD_ABI, CHEF_ABI, NFT_ABI, MARKET_ABI, OFT_ABI, RH_INBOX_ABI } from './abis'
+import { findBestPath, loadGraph } from './smartRouter'
+import { EthereumProvider } from '@walletconnect/ethereum-provider'
 
 declare global { interface Window { ethereum?: { request(args: { method: string; params?: unknown[] }): Promise<unknown>; on?: (event: string, cb: (...args: unknown[]) => void) => void; removeListener?: (event: string, cb: (...args: unknown[]) => void) => void } } }
 
@@ -84,6 +86,82 @@ async function sendWithToasts(push: PushToast, update: (id: number, patch: Parti
   }
 }
 
+// ---------- TokenSelect modal (dark, searchable, replaces native select) ----------
+type TokenOption = { address: Address; symbol: string; source: 'base' | 'launch' | 'pool'; hasPool: boolean }
+function TokenSelectModal({ open, onClose, onPick, options, balances, title }: {
+  open: boolean; onClose: () => void; onPick: (t: TokenOption) => void
+  options: TokenOption[]; balances?: Map<string, string>; title: string
+}) {
+  const [q, setQ] = useState('')
+  useEffect(() => { if (open) setQ('') }, [open])
+  if (!open) return null
+  const filtered = options.filter(t =>
+    !q || t.symbol.toLowerCase().includes(q.toLowerCase()) || t.address.toLowerCase().includes(q.toLowerCase()))
+  return <div className="modal-overlay" onClick={onClose}>
+    <div className="token-modal" onClick={e => e.stopPropagation()}>
+      <h3>Select a token</h3><p className="sub">{title}</p>
+      <input className="token-search" autoFocus placeholder="Search name, symbol or 0x address…" value={q} onChange={e => setQ(e.target.value)}/>
+      {filtered.map(t => <button key={t.address} className="token-row" onClick={() => { onPick(t); onClose() }}>
+        <span className="tk-ic">{t.symbol.slice(0, 2).toUpperCase()}</span>
+        <span className="tk-name"><b>{t.symbol}</b><small>{t.address.slice(0, 6)}…{t.address.slice(-4)}</small></span>
+        <span className="tk-badges">
+          {t.source === 'launch' && <span className="badge launch">LAUNCH</span>}
+          {t.hasPool && <span className="badge pool">LIQUID</span>}
+          {!t.hasPool && <span className="badge zero">NO POOL</span>}
+          {balances?.get(t.address.toLowerCase()) && <span className="tk-bal">{balances.get(t.address.toLowerCase())}</span>}
+        </span>
+      </button>)}
+      {!filtered.length && <p className="sub" style={{ padding: 12 }}>No tokens match “{q}”.</p>}
+    </div>
+  </div>
+}
+
+// Token pill button that opens the modal (styled, no native select)
+function TokenPill({ symbol, onClick }: { symbol: string; onClick: () => void }) {
+  return <button className="token-pill" style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer' }} onClick={onClick}>
+    <span className="tk-ic" style={{ width: 18, height: 18, fontSize: 8 }}>{symbol.slice(0, 2).toUpperCase()}</span>
+    {symbol} <span style={{ color: '#777', fontSize: 10 }}>▾</span>
+  </button>
+}
+
+// ---------- Wallet connect modal (MetaMask / injected + WalletConnect v2) ----------
+let wcProviderPromise: Promise<unknown> | null = null
+async function getWcProvider() {
+  if (!wcProviderPromise) wcProviderPromise = EthereumProvider.init({
+    projectId: '8e6b92132523a1c0f149318f0f2c8f8d', // public demo-project id — replace with your own for production
+    chains: [CHAIN_ID],
+    optionalChains: [1, 11155111, 421614],
+    showQrModal: true,
+    metadata: { name: 'Orbix Protocol', description: 'Orbix super-DeFi cockpit', url: location.origin, icons: [] },
+  })
+  return wcProviderPromise
+}
+function WalletModal({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (kind: 'injected' | 'walletconnect') => void }) {
+  if (!open) return null
+  const hasInjected = Boolean(window.ethereum)
+  return <div className="modal-overlay" onClick={onClose}>
+    <div className="wallet-modal" onClick={e => e.stopPropagation()}>
+      <h3>Connect a wallet</h3>
+      <button className="wallet-option" onClick={() => onPick('injected')}>
+        <span className="w-ic">🦊</span>
+        <span><b>MetaMask / Browser wallet</b><small>{hasInjected ? 'Detected in your browser' : 'Not detected — install MetaMask'}</small></span>
+        <span className={'w-tag' + (hasInjected ? '' : ' off')}>{hasInjected ? 'READY' : 'OFF'}</span>
+      </button>
+      <button className="wallet-option" onClick={() => onPick('walletconnect')}>
+        <span className="w-ic">🔗</span>
+        <span><b>WalletConnect</b><small>Rabby, Zerion, Trust, mobile wallets — scan or deep-link</small></span>
+        <span className="w-tag">SECURE</span>
+      </button>
+      <button className="wallet-option" onClick={() => { location.href = 'https://metamask.io/download/' ; onClose() }}>
+        <span className="w-ic">⬇️</span>
+        <span><b>Get a wallet</b><small>Install MetaMask — open source, audited</small></span>
+        <span className="w-tag off">NEW</span>
+      </button>
+      <p className="action-note" style={{ marginTop: 6 }}><ShieldCheck size={13}/> Keys never leave your wallet. We only request a read-only address + network switch.</p>
+    </div>
+  </div>
+}
+
 type NavItem = { label: string; icon: React.ComponentType<{size?: number}>; badge?: string }
 const nav: NavItem[] = [
   { label: 'Overview', icon: LayoutDashboard }, { label: 'Discover', icon: Sparkles }, { label: 'Swap', icon: ArrowUpRight }, { label: 'Pools', icon: Boxes }, { label: 'Bridge', icon: ArrowLeftRight, badge: 'NEW' }, { label: 'Launch', icon: GitBranch }, { label: 'Staking', icon: CircleDollarSign }, { label: 'Orbix666', icon: Cpu }, { label: 'Marketplace', icon: BarChart3 },
@@ -99,12 +177,27 @@ async function connectWallet(): Promise<{ address: Address; chainId: number }> {
   return { address: accounts[0] as Address, chainId: Number.parseInt(chain, 16) }
 }
 
-type WalletState = { address?: Address; chainId?: number; error?: string }
+type WalletState = { address?: Address; chainId?: number; error?: string; via?: 'injected' | 'walletconnect' }
 function useWallet() {
   const [wallet, setWallet] = useState<WalletState>({})
-  const connect = async () => { try { setWallet({ ...(await connectWallet()) }) } catch (e) { setWallet({ error: friendlyError(e) }) } }
+  const [walletModalOpen, setWalletModalOpen] = useState(false)
+  const connect = async () => { setWalletModalOpen(true) }
+  const pick = async (kind: 'injected' | 'walletconnect') => {
+    setWalletModalOpen(false)
+    try {
+      if (kind === 'walletconnect') {
+        const p = await getWcProvider() as { connect: () => Promise<void>; accounts: string[]; chainId: number; on: (e: string, cb: (...a: unknown[]) => void) => void }
+        await p.connect()
+        setWallet({ address: p.accounts[0] as Address, chainId: p.chainId, via: 'walletconnect' })
+        p.on('accountsChanged', (a: unknown) => setWallet(x => ({ ...x, address: ((a as string[])[0] as Address) || undefined })))
+        p.on('chainChanged', (c: unknown) => setWallet(x => ({ ...x, chainId: Number(c) })))
+      } else {
+        setWallet({ ...(await connectWallet()), via: 'injected' })
+      }
+    } catch (e) { setWallet({ error: friendlyError(e) }) }
+  }
   useEffect(() => { const eth = window.ethereum; if (!eth?.on) return; const accountsChanged = (a: unknown) => setWallet(x => ({ ...x, address: (a as string[])[0] as Address | undefined })); const chainChanged = (c: unknown) => setWallet(x => ({ ...x, chainId: Number.parseInt(String(c), 16) })); eth.on('accountsChanged', accountsChanged); eth.on('chainChanged', chainChanged); return () => { eth.removeListener?.('accountsChanged', accountsChanged); eth.removeListener?.('chainChanged', chainChanged) } }, [])
-  return { wallet, connect }
+  return { wallet, connect, pick, walletModalOpen, setWalletModalOpen }
 }
 
 // ETH + token balances on Robinhood testnet.
@@ -129,21 +222,22 @@ function useBalances(address?: Address) {
 }
 
 function App() {
-  const [active, setActive] = useState('Overview'); const [mobileOpen, setMobileOpen] = useState(false); const { wallet, connect } = useWallet()
+  const [active, setActive] = useState('Overview'); const [mobileOpen, setMobileOpen] = useState(false); const { wallet, connect, pick, walletModalOpen, setWalletModalOpen } = useWallet()
   const { toasts, push, dismiss, update } = useToasts()
   const connected = Boolean(wallet.address)
   const greeting = useMemo(() => active === 'Overview' ? 'Good evening, operator.' : active, [active])
   const header = <Header active={active} connected={connected} address={wallet.address} onConnect={connect} setMobileOpen={setMobileOpen}/>
   const toastLayer = <ToastStack toasts={toasts} dismiss={dismiss}/>
+  const walletModal = <WalletModal open={walletModalOpen} onClose={() => setWalletModalOpen(false)} onPick={pick}/>
   const props = { wallet, onConnect: connect, pushToast: push, updateToast: update }
-  if (active === 'Swap') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<SwapView {...props}/></main>{toastLayer}</div>
-  if (active === 'Pools') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<PoolsView {...props}/></main>{toastLayer}</div>
-  if (active === 'Bridge') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<BridgeView {...props}/></main>{toastLayer}</div>
-  if (active === 'Launch') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<LaunchView {...props}/></main>{toastLayer}</div>
-  if (active === 'Staking') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<StakingView {...props}/></main>{toastLayer}</div>
-  if (active === 'Orbix666') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<NftView {...props}/></main>{toastLayer}</div>
-  if (active === 'Marketplace') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<MarketView {...props}/></main>{toastLayer}</div>
-  if (active === 'Overview') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<DiscoverView/></main>{toastLayer}</div>
+  if (active === 'Swap') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<SwapView {...props}/></main>{toastLayer}{walletModal}</div>
+  if (active === 'Pools') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<PoolsView {...props}/></main>{toastLayer}{walletModal}</div>
+  if (active === 'Bridge') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<BridgeView {...props}/></main>{toastLayer}{walletModal}</div>
+  if (active === 'Launch') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<LaunchView {...props}/></main>{toastLayer}{walletModal}</div>
+  if (active === 'Staking') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<StakingView {...props}/></main>{toastLayer}{walletModal}</div>
+  if (active === 'Orbix666') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<NftView {...props}/></main>{toastLayer}{walletModal}</div>
+  if (active === 'Marketplace') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<MarketView {...props}/></main>{toastLayer}{walletModal}</div>
+  if (active === 'Overview') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<OverviewView setActive={setActive} wallet={wallet}/></main>{toastLayer}{walletModal}</div>
   return <div className="app">
     <Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/>
     <main><header><button className="mobile-menu" onClick={()=>setMobileOpen(true)} aria-label="Open menu"><Menu size={20}/></button><div className="crumb">COCKPIT <ChevronRight size={13}/> {active.toUpperCase()}</div><div className="header-actions"><button className="icon-btn" aria-label="Search"><Search size={18}/></button><button className="connect" onClick={connect}><Wallet size={16}/>{connected?'0x253d…9087':'Connect wallet'}</button></div></header>
@@ -194,6 +288,32 @@ function SwapView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
   const WETH: Side = { kind: 'erc20', address: ADDRESSES.WETH, symbol: 'WETH' }
   const tokens: Side[] = [ETH, WETH, FREE, ORBIX, ECO]
   const [from, setFrom] = useState<Side>(ETH); const [to, setTo] = useState<Side>(FREE)
+  const [pickSide, setPickSide] = useState<null | 'from' | 'to'>(null)
+  // token options: base list + everything the smart router discovers (launchpad tokens etc.)
+  const [extraTokens, setExtraTokens] = useState<TokenOption[]>([])
+  useEffect(() => { (async () => {
+    try {
+      const { tokens: discovered } = await loadGraph()
+      const baseSet = new Set(tokens.map(t => t.kind === 'erc20' ? t.address.toLowerCase() : 'eth'))
+      const opts: TokenOption[] = []
+      for (const [addrL, meta] of discovered) {
+        if (baseSet.has(addrL)) continue
+        opts.push({ address: meta.address as Address, symbol: meta.symbol, source: 'launch', hasPool: true })
+      }
+      setExtraTokens(opts)
+    } catch { /* graph load is best-effort */ }
+  })() }, [])
+  const allOptions: TokenOption[] = [
+    ...tokens.map(t => t.kind === 'eth'
+      ? { address: '0x0000000000000000000000000000000000000000' as Address, symbol: 'ETH', source: 'base' as const, hasPool: true }
+      : { address: t.address, symbol: t.symbol, source: 'base' as const, hasPool: true }),
+    ...extraTokens,
+  ]
+  const applyPick = (side: 'from' | 'to', t: TokenOption) => {
+    const isEthSel = t.symbol === 'ETH'
+    const next: Side = isEthSel ? { kind: 'eth' } : { kind: 'erc20', address: t.address, symbol: t.symbol }
+    if (side === 'from') setFrom(next); else setTo(next)
+  }
   const [amount, setAmount] = useState(''); const [slippage, setSlippage] = useState('2.5')
   const [quote, setQuote] = useState(''); const [quoting, setQuoting] = useState(false)
   const [impact, setImpact] = useState<number | null>(null)
@@ -207,27 +327,33 @@ function SwapView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
   const quoteSeq = useRef(0)
 
   const path = useMemo(() => routePath(from.kind === 'eth' ? ADDRESSES.WETH : from.address, to.kind === 'eth' ? ADDRESSES.WETH : to.address), [from, to])
+  const [pathState, setPathState] = useState<Address[]>(path)
+  const effectivePath = pathState.length && pathState[0].toLowerCase() === (from.kind === 'eth' ? ADDRESSES.WETH : from.address).toLowerCase() ? pathState : path
   const needsApprove = from.kind === 'erc20' && allowance !== null && amount && (() => { try { return allowance < parsePositiveAmount(amount, 18) } catch { return false } })()
 
-  // Debounced live quote + price impact from reserves.
-  const runQuote = useCallback(async (amt: string, p: Address[]) => {
+  // Debounced live quote + price impact from reserves. Uses the smart router: best path over all factory pairs.
+  const runQuote = useCallback(async (amt: string, fromSide: Side, toSide: Side) => {
     const seq = ++quoteSeq.current
     setQuoting(true); setStatus('')
     try {
       const input = parsePositiveAmount(amt, 18)
-      const out = await publicClient.readContract({ address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'getAmountsOut', args: [input, p] })
+      const src = fromSide.kind === 'eth' ? ADDRESSES.WETH : fromSide.address
+      const dst = toSide.kind === 'eth' ? ADDRESSES.WETH : toSide.address
+      const best = await findBestPath(src as Address, dst as Address, input)
       if (seq !== quoteSeq.current) return
-      const outAmt = out[out.length - 1]
+      if (!best) { setQuote(''); setImpact(null); setStatus('No route found — no liquidity path between these tokens yet.'); return }
+      const outAmt = best.amounts[best.amounts.length - 1]
       setQuote(formatEther(outAmt))
+      setPathState(best.path)
       try {
-        const pair = await publicClient.readContract({ address: ADDRESSES.FACTORY, abi: FACTORY_ABI, functionName: 'getPair', args: [p[0], p[1]] })
+        const pair = await publicClient.readContract({ address: ADDRESSES.FACTORY, abi: FACTORY_ABI, functionName: 'getPair', args: [best.path[0], best.path[1]] })
         if (pair !== '0x0000000000000000000000000000000000000000' && seq === quoteSeq.current) {
           const [reserves, token0] = await Promise.all([
             publicClient.readContract({ address: pair, abi: PAIR_ABI, functionName: 'getReserves' }),
             publicClient.readContract({ address: pair, abi: PAIR_ABI, functionName: 'token0' }),
           ])
-          const rIn = p[0].toLowerCase() === token0.toLowerCase() ? reserves[0] : reserves[1]
-          const rOut = p[0].toLowerCase() === token0.toLowerCase() ? reserves[1] : reserves[0]
+          const rIn = best.path[0].toLowerCase() === token0.toLowerCase() ? reserves[0] : reserves[1]
+          const rOut = best.path[0].toLowerCase() === token0.toLowerCase() ? reserves[1] : reserves[0]
           setImpact(priceImpactPct(rIn, rOut, input, outAmt))
         } else setImpact(null)
       } catch { setImpact(null) }
@@ -239,9 +365,9 @@ function SwapView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
   useEffect(() => {
     if (!amount) { setQuote(''); setImpact(null); return }
     clearTimeout(debounce.current)
-    debounce.current = setTimeout(() => { runQuote(amount, path) }, 500)
+    debounce.current = setTimeout(() => { runQuote(amount, from, to) }, 500)
     return () => clearTimeout(debounce.current)
-  }, [amount, path, runQuote])
+  }, [amount, from, to, runQuote])
 
   // Check allowance for the token side.
   useEffect(() => {
@@ -269,16 +395,16 @@ function SwapView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
     let input: bigint, minOut: bigint, outAmt: bigint
     try {
       input = parsePositiveAmount(amount, 18)
-      const out = await publicClient.readContract({ address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'getAmountsOut', args: [input, path] })
+      const out = await publicClient.readContract({ address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'getAmountsOut', args: [input, effectivePath] })
       outAmt = out[out.length - 1]
       minOut = amountWithSlippage(outAmt, slippage)
     } catch (e) { return setStatus(`Quote failed: ${decodeRevertReason(e)}`) }
     const client = getWalletClient()
     const sim = from.kind === 'eth'
-      ? () => publicClient.simulateContract({ address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactETHForTokens', args: [minOut, path, address, deadlineTs()], account: address, value: input }) as never
+      ? () => publicClient.simulateContract({ address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactETHForTokens', args: [minOut, effectivePath, address, deadlineTs()], account: address, value: input }) as never
       : from.kind === 'erc20' && to.kind === 'eth'
-        ? () => publicClient.simulateContract({ address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactTokensForETH', args: [input, minOut, path, address, deadlineTs()], account: address }) as never
-        : () => publicClient.simulateContract({ address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactTokensForTokens', args: [input, minOut, path, address, deadlineTs()], account: address }) as never
+        ? () => publicClient.simulateContract({ address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactTokensForETH', args: [input, minOut, effectivePath, address, deadlineTs()], account: address }) as never
+        : () => publicClient.simulateContract({ address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactTokensForTokens', args: [input, minOut, effectivePath, address, deadlineTs()], account: address }) as never
     try { await sim() } catch (e) {
       const reason = decodeRevertReason(e)
       setRetryTx(() => () => doSwap())
@@ -286,9 +412,9 @@ function SwapView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
     }
     setBusy(true); setStatus('Confirm the swap in your wallet…')
     const ok = await sendWithToasts(pushToast, updateToast, 'Swap', async () => {
-      if (from.kind === 'eth') return client.writeContract({ account: address, address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactETHForTokens', args: [minOut, path, address, deadlineTs()], value: input })
-      if (to.kind === 'eth') return client.writeContract({ account: address, address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactTokensForETH', args: [input, minOut, path, address, deadlineTs()] })
-      return client.writeContract({ account: address, address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactTokensForTokens', args: [input, minOut, path, address, deadlineTs()] })
+      if (from.kind === 'eth') return client.writeContract({ account: address, address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactETHForTokens', args: [minOut, effectivePath, address, deadlineTs()], value: input })
+      if (to.kind === 'eth') return client.writeContract({ account: address, address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactTokensForETH', args: [input, minOut, effectivePath, address, deadlineTs()] })
+      return client.writeContract({ account: address, address: ADDRESSES.ROUTER, abi: ROUTER_ABI, functionName: 'swapExactTokensForTokens', args: [input, minOut, effectivePath, address, deadlineTs()] })
     })
     setBusy(false)
     if (ok) { setStatus(`Swap confirmed. Received ~${formatEther(outAmt).slice(0, 10)} ${to.kind === 'eth' ? 'ETH' : to.symbol}.`); setRetryTx(null); refreshBalances() }
@@ -306,17 +432,15 @@ function SwapView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
       <div className="swap-tabs"><button className="selected">Swap</button><span className="action-note">Router {ADDRESSES.ROUTER.slice(0,8)}…</span></div>
       <div className="swap-field"><label>You pay{address && <span className="balance-chip">{balFor(from) ?? '—'} {from.kind === 'eth' ? 'ETH' : from.symbol}</span>}</label>
         <div><input value={amount} onChange={e=>{setAmount(e.target.value)}} placeholder="0.00" inputMode="decimal"/>
-        <select className="token-pill" value={from.kind === 'eth' ? 'ETH' : from.address} onChange={e=>{ const v=e.target.value; setFrom(tokens.find(t=>t.kind==='eth'? v==='ETH' : t.kind==='erc20' && t.address.toLowerCase()===v.toLowerCase()) ?? from) }}>
-          {tokens.map(t=><option key={t.kind==='eth'?'ETH':t.address} value={t.kind==='eth'?'ETH':t.address}>{t.kind==='eth'?'ETH':t.symbol}</option>)}
-        </select></div><small>{quoting ? 'Fetching quote…' : quote ? 'Live quote · debounced 500ms' : 'Enter an amount to quote'}</small></div>
+        <TokenPill symbol={from.kind === 'eth' ? 'ETH' : from.symbol} onClick={() => setPickSide('from')}/></div><small>{quoting ? 'Fetching quote…' : quote ? `Live quote via ${path.length - 1} hop${path.length > 2 ? 's' : ''} · smart-routed` : 'Enter an amount to quote'}</small></div>
       <div className="swap-switch"><button onClick={flip} aria-label="Flip direction"><ArrowUpRight size={15}/></button></div>
       <div className="swap-field"><label>You receive{address && <span className="balance-chip">{balFor(to) ?? '—'} {to.kind === 'eth' ? 'ETH' : to.symbol}</span>}</label>
-        <div><input value={quoting ? '…' : quote} readOnly placeholder="Quote"/><span className="token-pill">{to.kind === 'eth' ? 'ETH' : to.symbol}</span></div><small>{quote ? `Minimum received ${minReceived} ${to.kind === 'eth' ? 'ETH' : to.symbol}` : 'Enter an amount to quote'}</small></div>
+        <div><input value={quoting ? '…' : quote} readOnly placeholder="Quote"/><TokenPill symbol={to.kind === 'eth' ? 'ETH' : to.symbol} onClick={() => setPickSide('to')}/></div><small>{quote ? `Minimum received ${minReceived} ${to.kind === 'eth' ? 'ETH' : to.symbol}` : 'Enter an amount to quote'}</small></div>
       <div className="swap-details">
         <span>Slippage</span><label><input className="slippage-input" value={slippage} onChange={e=>setSlippage(e.target.value)} aria-label="Slippage percentage"/> %</label>
         <span>Deadline</span><b>20 minutes</b>
         <span>Price impact</span><b className={severity === 'high' ? 'impact-high' : severity === 'warn' ? 'impact-warn' : ''}>{impact === null ? '—' : formatPriceImpact(impact)}</b>
-        <span>Path</span><b>{path.map(a => a.toLowerCase() === ADDRESSES.WETH.toLowerCase() ? 'WETH' : a.toLowerCase() === ADDRESSES.FREE.toLowerCase() ? 'FREE' : a.toLowerCase() === ADDRESSES.ORBIX.toLowerCase() ? 'ORBIX' : a.toLowerCase() === ADDRESSES.ECO.toLowerCase() ? 'ECO' : '?').join(' → ')}</b>
+        <span>Path</span><b>{effectivePath.map(a => a.toLowerCase() === ADDRESSES.WETH.toLowerCase() ? 'WETH' : a.toLowerCase() === ADDRESSES.FREE.toLowerCase() ? 'FREE' : a.toLowerCase() === ADDRESSES.ORBIX.toLowerCase() ? 'ORBIX' : a.toLowerCase() === ADDRESSES.ECO.toLowerCase() ? 'ECO' : allOptions.find(o => o.address.toLowerCase() === a.toLowerCase())?.symbol ?? '→').join(' → ')}</b>
         <span>Balances</span><b>{balances.loading ? '…' : `${balances.eth ?? '—'} ETH · ${balances.free ?? '—'} FREE · ${balances.orbix ?? '—'} ORBIX`}{address && <button className="icon-btn inline" onClick={refreshBalances} aria-label="Refresh balances"><RefreshCw size={13}/></button>}</b>
       </div>
       {needsApprove
@@ -325,12 +449,18 @@ function SwapView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
       {(status || wallet.error) && <p className="action-note error-note">{status || wallet.error}</p>}
       {retryTx && <button className="secondary full" onClick={retryTx}><RefreshCw size={15}/> Retry swap</button>}
       <p className="action-note"><ShieldCheck size={14}/> Debounced quote, price impact, minOut, approval, simulation, pending receipt and explorer links handled before send.</p>
+      <TokenSelectModal open={pickSide !== null} onClose={() => setPickSide(null)} title={pickSide === 'from' ? 'Token you pay with' : 'Token you receive'}
+        options={allOptions} onPick={t => applyPick(pickSide!, t)}
+        balances={address ? new Map(allOptions.map(o => [o.address.toLowerCase(), balFor({ kind: 'erc20', address: o.address, symbol: o.symbol }) ?? ''])) : undefined}/>
     </div></section>
 }
 
 // ---------------- POOLS (add / remove liquidity) ----------------
 function PoolsView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
   const [pairToken, setPairToken] = useState<Address>(ADDRESSES.FREE)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [poolSymbols, setPoolSymbols] = useState<Map<string, string>>(new Map())
+  useEffect(() => { (async () => { try { const { tokens } = await loadGraph(); setPoolSymbols(new Map([...tokens.entries()].map(([k, v]) => [k, v.symbol]))) } catch {} })() }, [])
   const [amountA, setAmountA] = useState('') // token
   const [amountETH, setAmountETH] = useState('') // ETH side
   const [status, setStatus] = useState(''); const [busy, setBusy] = useState(false)
@@ -409,9 +539,8 @@ function PoolsView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
     <div className="swap-card panel">
       <div className="swap-tabs"><button className="selected">Add</button><span className="action-note">Pool: {pool ? `${pool.token}/WETH · ${Number(pool.reserveToken).toFixed(2)} / ${Number(pool.reserveWeth).toFixed(4)} ETH` : 'not created yet'}</span></div>
       <div className="swap-field"><label>Token side</label><div><input value={amountA} onChange={e=>setAmountA(e.target.value)} placeholder="0.00 token" inputMode="decimal"/>
-        <select className="token-pill" value={pairToken} onChange={e=>setPairToken(e.target.value as Address)}>
-          <option value={ADDRESSES.FREE}>FREE</option><option value={ADDRESSES.ORBIX}>ORBIX</option><option value={ADDRESSES.ECO}>ECO</option>
-        </select></div><small>Half of the pool</small></div>
+        <TokenPill symbol={poolSymbols.get(pairToken.toLowerCase()) ?? 'FREE'} onClick={() => setPickerOpen(true)}/>
+        </div><small>Half of the pool</small></div>
       <div className="swap-field"><label>ETH side</label><div><input value={amountETH} onChange={e=>setAmountETH(e.target.value)} placeholder="0.00 ETH" inputMode="decimal"/><span className="token-pill">ETH</span></div><small>Paid as native ETH</small></div>
       <button className="primary full" disabled={busy || !amountA || !amountETH} onClick={addLiq}>{busy ? 'Working…' : address ? (pool ? 'Add liquidity' : 'Create pool + add liquidity') : 'Connect wallet'} <Plus size={16}/></button>
       <div className="swap-tabs" style={{marginTop:16}}><button className="selected">Remove</button><span className="action-note">{pool ? `Your LP: ${pool.lp}` : '—'}</span></div>
@@ -419,6 +548,9 @@ function PoolsView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
       <button className="secondary full" disabled={busy || !lpRemove || !pool} onClick={removeLiq}>{busy ? 'Working…' : 'Remove liquidity'} <Minus size={16}/></button>
       {(status || wallet.error) && <p className="action-note error-note">{status || wallet.error}</p>}
       <p className="action-note"><ShieldCheck size={14}/> 5% slippage guard, approval checks and receipt tracking included.</p>
+      <TokenSelectModal open={pickerOpen} onClose={() => setPickerOpen(false)} title="Pool token (paired with WETH)"
+        options={[...poolSymbols.entries()].filter(([a]) => a !== ADDRESSES.WETH.toLowerCase()).map(([a, sym]) => ({ address: a as Address, symbol: sym, source: 'pool' as const, hasPool: true }))}
+        onPick={t => setPairToken(t.address)}/>
     </div></section>
 }
 
@@ -504,11 +636,14 @@ function BridgeView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
         <button className="primary full" disabled={busy || !ethAmount} onClick={bridgeEthToRh}>{busy ? 'Working…' : 'Bridge ETH → Robinhood testnet'} <ArrowLeftRight size={16}/></button>
       </> : <>
         <div className="swap-details"><span>xORBIX on Sepolia</span><b>{balances.sepOft ?? '—'}</b><span>xORBIX on Arbitrum</span><b>{balances.arbOft ?? '—'}</b></div>
-        <div className="swap-field"><label>Direction</label><div>
-          <select className="token-pill" style={{width:'100%'}} value={dir} onChange={e=>setDir(e.target.value as 'sepolia_to_arb')}>
-            <option value="sepolia_to_arb">Sepolia (EID 40161) → Arbitrum Sepolia (EID 40231)</option>
-            <option value="arb_to_sepolia">Arbitrum Sepolia (EID 40231) → Sepolia (EID 40161)</option>
-          </select></div><small>Wallet must hold gas on the source chain</small></div>
+        <div className="swap-field"><label>Direction</label><div style={{ display: 'grid', gap: 6, width: '100%' }}>
+          <button className={'wallet-option' + (dir === 'sepolia_to_arb' ? '' : ' dim')} style={{ padding: 10 }} onClick={() => setDir('sepolia_to_arb')}>
+            <span><b style={{ fontSize: 12 }}>Sepolia → Arbitrum Sepolia</b><small>EID 40161 → EID 40231</small></span>
+          </button>
+          <button className={'wallet-option' + (dir === 'arb_to_sepolia' ? '' : ' dim')} style={{ padding: 10 }} onClick={() => setDir('arb_to_sepolia')}>
+            <span><b style={{ fontSize: 12 }}>Arbitrum Sepolia → Sepolia</b><small>EID 40231 → EID 40161</small></span>
+          </button>
+        </div><small>Wallet must hold gas on the source chain</small></div>
         <div className="swap-field"><label>Amount of xORBIX</label><div><input value={oftAmount} onChange={e=>setOftAmount(e.target.value)} placeholder="1.0" inputMode="decimal"/><span className="token-pill">xORBIX</span></div><small>90% min-out guard; fee quoted live via LayerZero EndpointV2</small></div>
         <button className="primary full" disabled={busy || !oftAmount} onClick={sendOft}>{busy ? 'Working…' : address ? 'Send via LayerZero' : 'Connect wallet'} <ArrowLeftRight size={16}/></button>
       </>}
@@ -652,16 +787,40 @@ function MarketView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
     </div></section>
 }
 
-// ---------------- DISCOVER ----------------
-function DiscoverView() {
-  return <section className="action-page"><div className="eyebrow orange">DISCOVER</div><h1>The ecosystem,<br/><i>at a glance.</i></h1><p className="lead">Deployed Orbix contracts on Robinhood Chain testnet.</p>
-    <div className="launch-choice">{[
-      ['ORBIX token', ADDRESSES.ORBIX], ['WETH9', ADDRESSES.WETH], ['FREE test token', ADDRESSES.FREE], ['ECO', ADDRESSES.ECO],
-      ['AMM Factory', ADDRESSES.FACTORY], ['AMM Router', ADDRESSES.ROUTER], ['MasterChef', ADDRESSES.MASTER_CHEF], ['BridgeOut', ADDRESSES.BRIDGE_OUT],
-      ['Orbix666 NFT', ADDRESSES.ORBIX666], ['OrbixMarket', ADDRESSES.MARKET], ['OrbixLaunchpad', ADDRESSES.LAUNCHPAD],
-    ].map(([name, addr]) => <article className="panel choice" key={addr as string}><h2>{name as string}</h2><p className="mono">{addr as string}</p><a href={explorerAddressUrl(addr as string)} target="_blank" rel="noreferrer"><button className="secondary full">Explorer <ExternalLink size={14}/></button></a></article>)}</div>
+// ---------------- OVERVIEW (hero image cards → click into Swap/Bridge/Pools) ----------------
+function OverviewView({ setActive, wallet }: { setActive: (x: string) => void; wallet: WalletState }) {
+  const cards: { tab: string; img: string; title: string; sub: string }[] = [
+    { tab: 'Swap', img: 'card-swap.jpg', title: 'Swap', sub: 'Smart-routed trades across every Orbix pool' },
+    { tab: 'Bridge', img: 'card-bridge.jpg', title: 'Bridge', sub: 'RH ⇄ Sepolia ⇄ Arbitrum — canonical + LayerZero' },
+    { tab: 'Pools', img: 'card-pools.jpg', title: 'Pools', sub: 'Provide liquidity, earn LP and staking yield' },
+    { tab: 'Launch', img: 'card-launch.jpg', title: 'Launch', sub: 'Permissionless token launches with FREE collateral' },
+  ]
+  return <section className="action-page" style={{ maxWidth: 1100 }}>
+    <div className="eyebrow orange">COCKPIT / OVERVIEW</div>
+    <h1 style={{ fontSize: 38 }}>One cockpit.<br/><i>Everything connected.</i></h1>
+    <p className="lead">Pick an action — every module shares the same liquidity, router and wallet.</p>
+    <div className="ov-cards">
+      {cards.map(c => <div key={c.tab} className="ov-card" onClick={() => setActive(c.tab)}>
+        <img src={c.img} alt={c.title}/>
+        <span className="ov-go"><ArrowUpRight size={17}/></span>
+        <div className="ov-body"><b>{c.title}</b><span>{c.sub}</span></div>
+      </div>)}
+    </div>
+    <div className="launch-choice" style={{ marginTop: 14, maxWidth: 'none' }}>
+      <article className="panel choice" style={{ minHeight: 0, padding: 18 }}>
+        <div className="choice-number">LIVE</div><h2 style={{ fontSize: 16 }}>Protocol status</h2>
+        <p style={{ minHeight: 0 }}>Launchpad, AMM, staking, NFT market and two bridge lanes are live on Robinhood testnet 46630. Wallet: {wallet.address ? `${wallet.address.slice(0,6)}…${wallet.address.slice(-4)}` : 'not connected'}.</p>
+        <a href={explorerAddressUrl(ADDRESSES.REGISTRY)} target="_blank" rel="noreferrer"><button className="secondary full">Registry on explorer <ExternalLink size={13}/></button></a>
+      </article>
+      <article className="panel choice" style={{ minHeight: 0, padding: 18 }}>
+        <div className="choice-number">DOCS</div><h2 style={{ fontSize: 16 }}>How routing works</h2>
+        <p style={{ minHeight: 0 }}>The smart router scans every factory pair (including launchpad pools) and picks the best-rate path up to 3 hops — like Jumper, on-chain.</p>
+        <button className="secondary full" onClick={() => setActive('Swap')}>Try the smart router <ArrowUpRight size={13}/></button>
+      </article>
+    </div>
   </section>
 }
+
 
 function Metric({label,value,foot,icon,muted}:{label:string,value:string,foot:string,icon:React.ReactNode,muted?:boolean}){return <article className={'metric '+(muted?'muted':'')}><div className="metric-label"><span>{icon}</span>{label}</div><strong>{value}</strong><small>{foot}</small></article>}
 

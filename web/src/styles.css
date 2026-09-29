@@ -33,3 +33,58 @@ footer{display:flex;justify-content:space-between;padding:26px 0 30px;color:#686
 .swap-switch button{background:none;border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .swap-switch button:hover{border-color:rgba(251,146,60,.5)}
 .icon-btn.inline{width:auto;padding:4px}
+
+/* ---- Token select modal (replaces native <select>) ---- */
+.modal-overlay{position:fixed;inset:0;background:rgba(5,6,8,.72);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;animation:fade-in .15s ease}
+.token-modal{background:var(--panel);border:1px solid #2c2f33;border-radius:14px;width:min(420px,92vw);max-height:70vh;overflow:auto;padding:18px;animation:pop-in .18s ease}
+.token-modal h3{margin:0 0 4px;font-size:16px}
+.token-modal .sub{color:#73777c;font-size:11px;margin:0 0 14px}
+.token-search{width:100%;background:#0d0f11;border:1px solid #2c2f32;border-radius:8px;color:#f2f0ec;padding:11px 13px;font:13px 'DM Mono';margin-bottom:12px;outline:0}
+.token-search:focus{border-color:var(--orange)}
+.token-row{display:flex;align-items:center;gap:11px;width:100%;padding:11px 10px;border-radius:9px;border:0;background:none;cursor:pointer;text-align:left;color:#e8e6e1}
+.token-row:hover{background:#1b1e21}
+.token-row.selected{background:#241b16;border:1px solid #45372e}
+.token-row .tk-ic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:11px 'DM Mono';background:#2a2d30;flex:0 0 30px}
+.token-row .tk-name{display:flex;flex-direction:column;gap:2px}
+.token-row .tk-name b{font-size:13px}
+.token-row .tk-name small{color:#73777c;font:10px 'DM Mono'}
+.token-row .tk-bal{margin-left:auto;font:11px 'DM Mono';color:#a7aaa5}
+.token-row .tk-badges{margin-left:auto;display:flex;gap:5px}
+.badge{font:9px 'DM Mono';padding:3px 7px;border-radius:20px;border:1px solid #333}
+.badge.launch{color:#ffab7e;border-color:#6b4229}
+.badge.pool{color:#a4d46d;border-color:#3e5230}
+.badge.zero{color:#666b70;border-color:#2c2f32}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes pop-in{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+
+/* ---- Wallet modal ---- */
+.wallet-modal{background:var(--panel);border:1px solid #2c2f33;border-radius:14px;width:min(400px,92vw);padding:20px;animation:pop-in .18s ease}
+.wallet-modal h3{margin:0 0 12px;font-size:16px}
+.wallet-option{display:flex;align-items:center;gap:12px;width:100%;padding:14px;border-radius:10px;border:1px solid #2c2f32;background:#141618;cursor:pointer;color:#e8e6e1;margin-bottom:8px}
+.wallet-option:hover{border-color:var(--orange);background:#1a1715}
+.wallet-option .w-ic{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;background:#222528;font-size:18px}
+.wallet-option b{display:block;font-size:13px}
+.wallet-option small{color:#73777c;font-size:11px}
+.wallet-option .w-tag{margin-left:auto;font:9px 'DM Mono';color:#a4d46d;border:1px solid #3e5230;padding:3px 7px;border-radius:20px}
+.wallet-option .w-tag.off{color:#8a6d3b;border-color:#5a4a22}
+.wallet-option.dim{opacity:.45}
+.wallet-option.dim:hover{opacity:.85}
+.wallet-option small{display:block}
+
+/* ---- Overview hero cards with images ---- */
+.ov-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:34px}
+.ov-card{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);cursor:pointer;min-height:190px;display:flex;align-items:flex-end;background:#121416;transition:transform .18s ease,border-color .18s ease}
+.ov-card:hover{transform:translateY(-3px);border-color:var(--orange)}
+.ov-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55;transition:opacity .2s ease,transform .4s ease}
+.ov-card:hover img{opacity:.72;transform:scale(1.04)}
+.ov-card .ov-body{position:relative;z-index:1;padding:18px;width:100%;background:linear-gradient(transparent,rgba(8,9,11,.92) 55%)}
+.ov-card .ov-body b{font-size:19px;letter-spacing:-.03em;display:block}
+.ov-card .ov-body span{color:#b6b3ae;font-size:11px;display:block;margin-top:3px}
+.ov-card .ov-go{position:absolute;top:14px;right:14px;z-index:1;width:34px;height:34px;border-radius:50%;background:rgba(10,11,13,.65);border:1px solid rgba(255,255,255,.18);display:grid;place-items:center;color:#fff}
+.ov-card:hover .ov-go{background:var(--orange);border-color:var(--orange)}
+@media(max-width:900px){.ov-cards{grid-template-columns:1fr}}
+@media(max-width:680px){.ov-cards{grid-template-columns:1fr}}
+
+/* keep select look consistent if any remain */
+select.token-pill{appearance:none;-webkit-appearance:none;outline:0;cursor:pointer}
+select.token-pill:focus{border-color:var(--orange)}
