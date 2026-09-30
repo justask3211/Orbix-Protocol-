@@ -11,5 +11,4 @@ center/tests
 center/deployments
 center/*.db*
 *.log
-deploy/site/assets
 deploy/hunt/hunt_state.json
