@@ -1,0 +1,15 @@
+node_modules
+out
+cache
+broadcast
+lib
+.git
+web/node_modules
+center/.venv
+center/__pycache__
+center/tests
+center/deployments
+center/*.db*
+*.log
+deploy/site/assets
+deploy/hunt/hunt_state.json

@@ -1,0 +1,11 @@
+# Orbix Center runtime. Pinned to the versions the local test suite ran against.
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+websockets==17.1
+pydantic==2.13.5
+httpx==0.28.1
+eth-account==0.14.0
+eth-abi==6.0.0
+eth-utils==6.0.0
+eth-hash==0.8.0
+pycryptodome==3.23.0
