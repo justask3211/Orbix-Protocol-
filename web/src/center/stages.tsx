@@ -110,6 +110,17 @@ export function NumberHuntStage({ state, act, me, finished }: StageProps) {
         </button>
       </div>
       {flash && <p className="st-note ok">{flash}</p>}
+      {state.lastGuess && (
+        <p className="st-note" role="status">
+          {state.lastGuess.who === me ? 'Your' : short(state.lastGuess.who)} guess: {state.lastGuess.number}
+          {state.lastGuess.hit ? ' — target found' : ''}
+        </p>
+      )}
+      {state.hintVisibility === 'public' && state.lastGuess?.hint && (
+        <p className="st-note hint-public" role="status">
+          {short(state.lastGuess.hint.who)} guessed {state.lastGuess.hint.number} — target is {state.lastGuess.hint.direction}
+        </p>
+      )}
       {state.targets && <p className="st-note">Targets revealed: {state.targets.join(', ')}</p>}
       <p className="st-note">Guess counts: {Object.entries(state.guessCount ?? {}).map(([k, v]) => `${short(k)}:${v}`).join('  ')}</p>
     </div>
