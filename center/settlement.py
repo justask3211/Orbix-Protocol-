@@ -17,6 +17,7 @@ Internal nodes hash the sorted pair, matching OZ `Hashes.commutativeKeccak256`:
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from dataclasses import dataclass
 
@@ -194,20 +195,35 @@ def sign_settlement(private_key: str, **kwargs) -> str:
 
 def checksum(payload: str) -> str:
     """Short typo-detection suffix. NOT authentication — deliberately documented as such."""
-    return hashlib.sha256(("orbix-center/code/v1|" + payload).encode()).hexdigest()[:6].upper()
+    return hashlib.sha256(("orbix-center/code/v1|" + payload).encode()).hexdigest()[:12].upper()
 
 
 def payment_code(claim_id_hex: str) -> str:
-    ref = claim_id_hex[2:10].upper()
-    return f"OC1-{ref}-{checksum(claim_id_hex)}"
+    """Encode the complete 256-bit claim ID; never expose an enumerable prefix."""
+    if not isinstance(claim_id_hex, str) or len(claim_id_hex) != 66 or not claim_id_hex.startswith("0x"):
+        raise ValueError("expected a 32-byte claim ID")
+    try:
+        int(claim_id_hex[2:], 16)
+    except ValueError as exc:
+        raise ValueError("expected a hexadecimal claim ID") from exc
+    ref = claim_id_hex[2:].upper()
+    return f"OC2-{ref}-{checksum('OC2-' + ref)[:12]}"
 
 
 def parse_payment_code(code: str) -> str | None:
-    """Return the short reference inside a code, or None when the shape is wrong."""
-    parts = (code or "").strip().split("-")
-    if len(parts) != 3 or parts[0] != "OC1" or len(parts[1]) != 8 or len(parts[2]) != 6:
+    """Accept only intact, canonical v2 codes; legacy short codes require migration."""
+    if not isinstance(code, str):
         return None
-    return parts[1]
+    parts = code.split("-")
+    if len(parts) != 3 or parts[0] != "OC2" or len(parts[1]) != 64 or len(parts[2]) != 12:
+        return None
+    ref = parts[1]
+    if any(ch not in "0123456789ABCDEF" for ch in ref):
+        return None
+    expected = checksum("OC2-" + ref)[:12]
+    if not hmac.compare_digest(parts[2], expected):
+        return None
+    return "0x" + ref.lower()
 
 
 @dataclass

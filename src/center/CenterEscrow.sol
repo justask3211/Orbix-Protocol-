@@ -28,7 +28,8 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
         None,
         Registration,
         Cancelled,
-        Settled
+        Settled,
+        Funding
     }
 
     enum AssetKind {
@@ -103,6 +104,8 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
     mapping(bytes32 => bool) public claimed;
     mapping(bytes32 => mapping(bytes32 => uint256)) public reserved; // roundId => assetKey => units
     mapping(bytes32 => mapping(address => bool)) public entryRefunded;
+    mapping(bytes32 => bytes32[]) internal _rewardKeys;
+    mapping(bytes32 => mapping(bytes32 => uint256)) public declaredReward;
 
     event RoundCreated(bytes32 indexed roundId, address indexed creator, bytes32 indexed templateId, bytes32 configHash);
     event RegistrationOpened(bytes32 indexed roundId);
@@ -140,6 +143,8 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
     error InsufficientReserved();
     error TransferMismatch();
     error ZeroAddress();
+    error RewardNotFunded();
+    error PlayNotEnded();
 
     constructor(ICenterRegistry registry_, ISettlementVerifier verifier_)
         EIP712("OrbixCenterEscrow", "1")
@@ -179,11 +184,19 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
         r.authorityEpoch = spec.authorityEpoch;
         r.feeBps = spec.feeBps;
         r.payoutPolicyHash = spec.payoutPolicyHash;
-        r.state = State.Registration;
-
+        r.state = State.Funding;
         emit RoundCreated(spec.roundId, msg.sender, spec.templateId, spec.configHash);
-        emit RegistrationOpened(spec.roundId);
         return spec.roundId;
+    }
+
+    /// @notice Commit exact reward inventory before accepting any entrants.
+    function declareReward(bytes32 roundId, bytes32 key, uint256 amount) external {
+        Round storage r = _requireCreator(roundId);
+        if (r.state != State.Funding) revert RoundClosed();
+        if (amount == 0 || key == bytes32(0)) revert BadAmount();
+        if (declaredReward[roundId][key] != 0) revert AlreadyEntered();
+        declaredReward[roundId][key] = amount;
+        _rewardKeys[roundId].push(key);
     }
 
     function fundERC20(bytes32 roundId, address token, uint256 amount) external {
@@ -220,8 +233,15 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
 
     function openRegistration(bytes32 roundId) external {
         Round storage r = _rounds[roundId];
-        if (r.state != State.Registration) revert NotOpen();
+        if (r.creator != msg.sender) revert NotCreator();
+        if (r.state != State.Funding) revert NotOpen();
         if (block.timestamp < r.registrationStart) revert RegistrationWindowClosed();
+        bytes32[] storage keys = _rewardKeys[roundId];
+        if (keys.length == 0) revert RewardNotFunded();
+        for (uint256 i; i < keys.length; ++i) {
+            if (reserved[roundId][keys[i]] != declaredReward[roundId][keys[i]]) revert RewardNotFunded();
+        }
+        r.state = State.Registration;
         emit RegistrationOpened(roundId);
     }
 
@@ -269,6 +289,7 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
     ) external {
         Round storage r = _rounds[roundId];
         if (r.state != State.Registration) revert RoundClosed();
+        if (block.timestamp < r.playEnd) revert PlayNotEnded();
         if (deadline != r.settlementDeadline) revert WrongDeadline();
         if (block.timestamp > deadline) revert SignatureExpired();
 

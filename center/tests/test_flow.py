@@ -151,9 +151,19 @@ def test_merkle_proof_rebuilds_the_root():
 def test_payment_code_shape_and_reference():
     cid = "0x" + "ab" * 32
     code = st.payment_code(cid)
-    assert code.startswith("OC1-")
-    assert st.parse_payment_code(code) == cid[2:10].upper()
+    assert code.startswith("OC2-")
+    assert len(code.split("-")[1]) == 64
+    assert st.parse_payment_code(code) == cid.lower()
+    assert st.parse_payment_code("OC1-AAAAAAAA-000000") is None
     assert st.parse_payment_code("nonsense") is None
+
+
+def test_payment_code_rejects_tampered_checksum():
+    cid = "0x" + "ab" * 32
+    code = st.payment_code(cid)
+    prefix, reference, checksum = code.split("-")
+    replacement = "0" if checksum[0] != "0" else "1"
+    assert st.parse_payment_code(f"{prefix}-{reference}-{replacement}{checksum[1:]}") is None
 
 
 def test_settlement_signature_is_deterministic_and_verifiable():
@@ -333,7 +343,7 @@ def test_two_player_websocket_round_settles(tmp_path, monkeypatch):
                 alloc = settled["payload"]["allocations"][0]
                 assert alloc["winner"].lower() == guest.address.lower()
                 assert alloc["points"] == 100
-                assert alloc["code"].startswith("OC1-")
+                assert alloc["code"].startswith("OC2-")
 
         results = client.get(f"{API_PREFIX}/rooms/{room_id}/results").json()
         assert results["state"] == lc.CLAIMABLE
@@ -352,8 +362,11 @@ def test_two_player_websocket_round_settles(tmp_path, monkeypatch):
         replay.start(0.0)
         assert replay.targets == rt.engine.targets
 
-        claim = client.get(f"{API_PREFIX}/claims/{alloc['code']}").json()
-        assert claim["winner"].lower() == guest.address.lower()
+        claim = client.get(f"{API_PREFIX}/claims/{alloc['code']}")
+        assert claim.status_code == 401
+        claim = client.get(f"{API_PREFIX}/claims/{alloc['code']}", headers=g)
+        assert claim.status_code == 200
+        assert claim.json()["winner"].lower() == guest.address.lower()
         lookup = client.post(f"{API_PREFIX}/claims/lookup", json={"code": alloc["code"]}, headers=g).json()
         assert lookup["payable"] is False  # preview points are honestly not payable
         assert "preview" in lookup["reason"]
@@ -362,6 +375,11 @@ def test_two_player_websocket_round_settles(tmp_path, monkeypatch):
         other = sign_in(client, Account.create())
         bad = client.post(f"{API_PREFIX}/claims/lookup", json={"code": alloc["code"]}, headers=other)
         assert bad.status_code == 403
+        assert "proof" not in bad.text
+        assert client.get(f"{API_PREFIX}/claims/{alloc['code']}", headers=other).status_code == 403
+        assert client.get(f"{API_PREFIX}/claims/{alloc['claimId']}", headers=g).status_code == 404
+        assert client.post(f"{API_PREFIX}/claims/lookup", json={"code": alloc["code"][:12]}, headers=g).status_code == 404
+        assert client.post(f"{API_PREFIX}/claims/lookup", json={"code": "OC1-" + alloc["claimId"][2:10].upper() + "-000000"}, headers=g).status_code == 404
 
         # Ledger export is a real download.
         csv = client.get(f"{API_PREFIX}/wallet/ledger.csv", headers=h)

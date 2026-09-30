@@ -67,12 +67,33 @@ contract CenterVaultTest is Test {
         vault.refundDeduction(intent);
 
         vm.prank(creator);
+        vm.expectRevert(CenterVault.NotRefundable.selector);
+        vault.refundDeduction(intent);
+
+        vm.prank(other);
+        vm.expectRevert(CenterVault.NotCoordinator.selector);
+        vault.markRefundable(intent);
+        vault.markRefundable(intent);
+
+        vm.prank(creator);
         vault.refundDeduction(intent);
         assertEq(vault.balanceOf(creator), 100e18);
 
         vm.prank(creator);
         vm.expectRevert(CenterVault.AlreadyRefunded.selector);
         vault.refundDeduction(intent);
+    }
+
+    function test_coordinator_cannot_authorize_unknown_or_reauthorize_refund() public {
+        bytes32 intent = keccak256("missing");
+        vm.expectRevert(CenterVault.IntentNotConsumed.selector);
+        vault.markRefundable(intent);
+        _fund(creator, 10e18);
+        vm.prank(creator);
+        vault.deduct(intent, 7e18, keccak256("room"));
+        vault.markRefundable(intent);
+        vm.expectRevert(CenterVault.AlreadyRefundable.selector);
+        vault.markRefundable(intent);
     }
 
     function test_withdraw_requires_delay_and_cannot_exceed_balance() public {
