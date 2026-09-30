@@ -87,7 +87,11 @@ class NumberHuntEngine(Engine):
                 patch["targets"] = list(self.targets)
         elif self.rules.hints == "on":
             nearest = min(self.targets, key=lambda t: abs(t - raw))
-            private["hint"] = "higher" if nearest > raw else "lower"
+            direction = "higher" if nearest > raw else "lower"
+            if self.rules.hint_visibility == "public":
+                patch["lastGuess"]["hint"] = {"who": who, "number": raw, "direction": direction}
+            else:
+                private["hint"] = direction
 
         self.log.append({"who": who, "number": raw, "hit": hit, "at": round(now, 3)})
         return ActionResult(
@@ -125,6 +129,7 @@ class NumberHuntEngine(Engine):
             "min": self.rules.min,
             "max": self.rules.max,
             "hints": self.rules.hints,
+            "hintVisibility": self.rules.hint_visibility,
             "guessBudget": self.rules.guess_budget,
             "targetCount": self.rules.target_count,
             "claimedTargets": len(self.claimed),

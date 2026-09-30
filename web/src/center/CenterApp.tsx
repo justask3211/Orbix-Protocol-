@@ -134,7 +134,7 @@ export function Catalog({ session: _session }: { session: ReturnType<typeof useS
       <header className="ct-head">
         <div>
           <h1>Orbix Center</h1>
-          <p className="sub">Create a room, drop a link, play it live. Eight game formats at launch.</p>
+          <p className="sub">Create a room, drop a link, play it live. Nineteen formats across puzzles, strategy, duels and co-op.</p>
         </div>
         <button className="btn-primary" onClick={() => go('/center/create')}>
           Create a room
@@ -213,6 +213,9 @@ type DraftState = {
   requiredAmount: number
   joinerFee: number
   absorbsJoinerFee: boolean
+  entryToken: string
+  entryAmount: number
+  hintVisibility: 'private' | 'public'
   durationSeconds: number
   playerCap: number
   minReady: number
@@ -289,6 +292,9 @@ function initialDraft(templateId = 'number-hunt'): DraftState {
     requiredAmount: 25,
     joinerFee: 0,
     absorbsJoinerFee: false,
+    entryToken: '',
+    entryAmount: 0,
+    hintVisibility: 'private',
     durationSeconds: defaultDuration(templateId),
     playerCap: SOLO.has(templateId) ? 1 : 8,
     minReady: SOLO.has(templateId) ? 1 : 2,
@@ -341,6 +347,7 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
       rules.min = Number(rules.min)
       rules.max = Number(rules.max)
       rules.target_count = Number(rules.target_count)
+      rules.hint_visibility = draft.hintVisibility
     }
     if (draft.templateId === 'reaction-duel') rules.rounds = Number(rules.rounds)
     if (draft.templateId === 'puzzle-sprint') rules.board = Number(rules.board)
@@ -379,7 +386,7 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
         joiner_fee: draft.joinerFee,
         creator_absorbs_joiner_fee: draft.absorbsJoinerFee,
       },
-      entry: { kind: 'free' },
+      entry: { kind: 'free' }, // paid creator-entry stays disabled until the on-chain gate is enabled
       rewards: { kind: 'preview-points', slots: [{ rank: 1, points: draft.rewardPoints }, { rank: 2, points: Math.round(draft.rewardPoints / 2) }] },
       branding: { preset: 'solar' },
     }
@@ -557,7 +564,7 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
       </section>
 
       <section className="ct-panel">
-        <h2>4 · Vault and rewards</h2>
+        <h2>4 · Vault and rewards (preview points only)</h2>
         <div className="ct-form">
           <label>
             <span>Play fee from your vault</span>
@@ -570,6 +577,23 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
           <label className="inline">
             <input type="checkbox" checked={draft.absorbsJoinerFee} onChange={(e) => set('absorbsJoinerFee', e.target.checked)} />
             <span>I absorb the joiner fee (players join free; it comes from my balance)</span>
+          </label>
+          <label>
+            <span>Hint feed</span>
+            <select value={draft.hintVisibility} onChange={(e) => set('hintVisibility', e.target.value as DraftState['hintVisibility'])}>
+              <option value="private">Private — only the guessing player</option>
+              <option value="public">Public — room feed shows higher/lower</option>
+            </select>
+            <small>Number Hunt only for now; other formats get their own safe hint method in the upgrade pass.</small>
+          </label>
+          <label>
+            <span>Creator entry token</span>
+            <input value={draft.entryToken} disabled placeholder="Available after funded testnet gate" onChange={(e) => set('entryToken', e.target.value)} />
+            <small>Paid entry is designed in the upgrade plan but stays disabled until escrow and swap-route verification pass.</small>
+          </label>
+          <label>
+            <span>Entry amount</span>
+            <input type="number" min={0} disabled value={draft.entryAmount} onChange={(e) => set('entryAmount', Number(e.target.value))} />
           </label>
           <label>
             <span>Winner points</span>

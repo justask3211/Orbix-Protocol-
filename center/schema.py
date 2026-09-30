@@ -36,6 +36,7 @@ class NumberHuntRules(Strict):
     guess_budget: int = Field(ge=1, le=50)
     duration_seconds: int = Field(ge=15, le=300)
     hints: Literal["off", "on"] = "off"
+    hint_visibility: Literal["private", "public"] = "private"
     target_count: int = Field(default=1, ge=1, le=20)
     win_mode: Literal["first-hit", "split-at-end"] = "first-hit"
     guess_cooldown_ms: int = Field(default=500, ge=300, le=2000)
@@ -329,6 +330,8 @@ class RoomConfig(Strict):
             raise ValueError(f"rules object does not match template {self.template_id!r}")
         if self.mode == "preview" and self.access.vault_mode != "simulated":
             raise ValueError("preview rooms must use the simulated vault")
+        if self.mode == "preview" and self.entry.kind != "free":
+            raise ValueError("preview rooms cannot require on-chain entry payment")
         if self.access.vault_mode == "simulated" and self.access.token:
             raise ValueError("simulated vault must not name a token")
         if self.rewards.kind == "funded-assets" and self.mode != "testnet":
