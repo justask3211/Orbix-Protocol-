@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbix 666 — Human Hunt</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+<style>
+  :root{--bg:#0b0d12;--card:#141824;--acc:#7c5cff;--txt:#e8eaf2;--dim:#8b91a8}
+  *{box-sizing:border-box;margin:0;font-family:'Segoe UI',system-ui,sans-serif}
+  body{background:var(--bg);color:var(--txt);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px}
+  h1{font-size:28px;margin-bottom:6px}h1 span{color:var(--acc)}
+  p.sub{color:var(--dim);margin-bottom:28px;text-align:center}
+  #screen{background:var(--card);border:1px solid #222840;border-radius:20px;padding:36px 28px;width:340px;text-align:center}
+  #digits{font-size:44px;font-weight:800;letter-spacing:8px;font-family:monospace;margin:18px 0;min-height:56px}
+  .btn{width:100%;padding:15px;margin-top:14px;border:0;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;color:#fff}
+  #roll{background:linear-gradient(135deg,var(--acc),#4f8cff)}
+  #claim{background:linear-gradient(135deg,#2ecc71,#1abc9c);display:none}
+  #attempts{color:var(--dim);font-size:13px;margin-top:14px}
+  #msg{margin-top:16px;font-size:14px;min-height:20px;color:var(--acc)}
+  .win{color:#2ecc71 !important;animation:pulse .6s ease infinite alternate}
+  @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.06)}}
+</style>
+</head>
+<body>
+<h1>Orbix <span>666</span> — Human Hunt</h1>
+<p class="sub">222 mints for humans only. Roll the dice — hit a winning 6-digit number and the server signs your claim.<br>Same energy as the number hunts you know. No bots.</p>
+<div id="screen">
+  <div style="color:var(--dim);font-size:13px">YOUR NUMBER</div>
+  <div id="digits">······</div>
+  <button class="btn" id="roll">🎲 Roll</button>
+  <button class="btn" id="claim">Mint on-chain →</button>
+  <div id="attempts">0 rolls</div>
+  <div id="msg"></div>
+</div>
+<script>
+let n = 0, attempts = 0, winData = null, account = null, connecting = false, rolling = false;
+const $ = s => document.querySelector(s);
+const setMsg = (t) => { $('#msg').textContent = t; };
+
+async function connect(){
+  if (!window.ethereum) { setMsg('Install MetaMask or Rabby to mint.'); return null; }
+  if (connecting) return account;
+  connecting = true;
+  try {
+    await window.ethereum.request({method:'wallet_addEthereumChain', params:[{chainId:'0xb626', chainName:'Robinhood Chain Testnet', nativeCurrency:{name:'Ether',symbol:'ETH',decimals:18}, rpcUrls:['https://rpc.testnet.chain.robinhood.com'], blockExplorerUrls:['https://explorer.testnet.chain.robinhood.com']}]}).catch(()=>{});
+    account = (await window.ethereum.request({method:'eth_requestAccounts'}))[0];
+    setMsg('Wallet: '+account.slice(0,6)+'…'+account.slice(-4));
+    return account;
+  } catch(e) {
+    setMsg('Wallet connection failed: '+(e.shortMessage||e.message||'rejected'));
+    return null;
+  } finally { connecting = false; }
+}
+
+async function roll(){
+  if (rolling) return;
+  if (!account) { setMsg('Connect your wallet first.'); const a = await connect(); if (!a) return; }
+  rolling = true;
+  $('#roll').disabled = true;
+  n = Math.floor(111111 + Math.random() * (999999 - 111111));
+  attempts++;
+  $('#digits').textContent = n;
+  $('#attempts').textContent = attempts + ' rolls';
+  $('#claim').style.display = 'none';
+  $('#digits').classList.remove('win');
+  try {
+    const r = await fetch('/check', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({number:n, address:account})});
+    if (!r.ok) { setMsg('Server unavailable (HTTP '+r.status+'). Try again.'); return; }
+    const d = await r.json();
+    if (d.winner) {
+      winData = d;
+      $('#digits').classList.add('win');
+      setMsg('WINNER. Server signed your claim — mint it on-chain.');
+      $('#claim').style.display = 'block';
+    } else {
+      setMsg('Not a winner. Roll again.');
+    }
+  } catch(e) {
+    setMsg('Request failed. Check your connection and roll again.');
+  } finally {
+    rolling = false;
+    $('#roll').disabled = false;
+  }
+}
+
+async function mint(){
+  if (!winData) return;
+  if (typeof ethers === 'undefined') { setMsg('ethers.js failed to load. Reload the page.'); return; }
+  if (!account) { const a = await connect(); if (!a) return; }
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  const signer = await provider.getSigner();
+  const c = new ethers.Contract(winData.contract, [
+    'function mintHuman(uint256,uint256,bytes32,bytes)'], signer);
+  try {
+    const tx = await c.mintHuman(winData.luckyNumber, winData.timestamp, winData.seed, winData.signature);
+    setMsg('Mint sent: '+tx.hash.slice(0,18)+'…');
+    await tx.wait();
+    setMsg('Minted. You hold an Orbix 666.');
+  } catch(e){ setMsg('Mint failed: '+(e.shortMessage||e.message).slice(0,120)); }
+}
+
+$('#roll').onclick = () => { roll(); };
+$('#claim').onclick = mint;
+</script>
+</body>
+</html>

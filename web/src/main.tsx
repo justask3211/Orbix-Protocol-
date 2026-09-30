@@ -26,6 +26,7 @@ const routePath = (from: Address, to: Address): Address[] => {
 
 import { Activity, ArrowUpRight, BarChart3, Boxes, ChevronRight, CircleDollarSign, Cpu, GitBranch, LayoutDashboard, Menu, Network, Search, Settings2, ShieldCheck, Sparkles, Wallet, X, ExternalLink, RefreshCw, CheckCircle2, AlertTriangle, Loader2, ArrowLeftRight, Plus, Minus } from 'lucide-react'
 import './styles.css'
+import { CenterApp } from './center/CenterApp'
 
 // ---- tx toast system (instant, submitted/confirmed/failed, explorer links) ----
 type ToastKind = 'pending' | 'success' | 'error'
@@ -222,6 +223,18 @@ function useBalances(address?: Address) {
 }
 
 function App() {
+  // /center is a separate product surface (creator game platform) with its own shell.
+  const [inCenter, setInCenter] = useState(() => window.location.pathname.startsWith('/center'))
+  useEffect(() => {
+    const sync = () => setInCenter(window.location.pathname.startsWith('/center'))
+    window.addEventListener('popstate', sync)
+    return () => window.removeEventListener('popstate', sync)
+  }, [])
+  if (inCenter) return <CenterApp/>
+  return <Cockpit/>
+}
+
+function Cockpit() {
   const [active, setActive] = useState('Overview'); const [mobileOpen, setMobileOpen] = useState(false); const { wallet, connect, pick, walletModalOpen, setWalletModalOpen } = useWallet()
   const { toasts, push, dismiss, update } = useToasts()
   const connected = Boolean(wallet.address)

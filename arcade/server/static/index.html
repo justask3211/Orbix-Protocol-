@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibe Arcade — Number Jackpot</title>
+<style>
+:root{--bg:#0b0e14;--panel:#12161f;--line:#1e2530;--green:#00ff9d;--mag:#ff3df5;--amber:#ffb347;--txt:#e8ecf1;--dim:#8a93a3}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 600px at 50% -10%,#141a26 0%,var(--bg) 60%);color:var(--txt);font-family:'Space Grotesk',Inter,system-ui,sans-serif;min-height:100vh}
+.wrap{max-width:960px;margin:0 auto;padding:24px 16px 80px}
+h1{font-size:clamp(26px,5vw,40px);letter-spacing:.5px}
+h1 .g{color:var(--green)}h1 .m{color:var(--mag)}
+.sub{color:var(--dim);margin:6px 0 22px;font-size:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.room{cursor:pointer;transition:.15s;border:1px solid var(--line);border-radius:12px;padding:14px;background:#0e1219}
+.room:hover{border-color:var(--green);transform:translateY(-2px)}
+.room h3{font-size:16px;margin-bottom:6px}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;background:#0a2b1f;color:var(--green);border:1px solid #0f4030}
+.badge.open{background:#0a2b1f;color:var(--green)}
+.badge.won{background:#2b0a26;color:var(--mag)}
+.badge.expired{background:#2b230a;color:var(--amber)}
+.meta{display:flex;justify-content:space-between;color:var(--dim);font-size:12px;margin-top:8px}
+.pot{color:var(--green);font-weight:700}
+button{background:linear-gradient(90deg,#00c26f,#00ff9d);color:#04130c;border:none;border-radius:10px;padding:12px 22px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;letter-spacing:.3px}
+button:disabled{opacity:.4;cursor:default}
+input{background:#0a0d13;border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:12px 14px;font-size:18px;font-family:'Space Grotesk',monospace;width:100%;letter-spacing:2px}
+input:focus{outline:none;border-color:var(--green)}
+.row{display:flex;gap:10px;margin-top:12px}
+.guesses{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{font-size:11px;padding:3px 9px;border-radius:8px;background:#0a0d13;border:1px solid var(--line);color:var(--dim)}
+.chip.hi{border-color:#3a1030;color:var(--mag)}
+.chip.lo{border-color:#0f3a2b;color:var(--green)}
+.feed{max-height:180px;overflow-y:auto;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:4px}
+.feed div b{color:var(--txt)}
+.status{font-size:13px;margin-top:10px;min-height:18px}
+.status.err{color:var(--mag)}.status.ok{color:var(--green)}
+.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.pill{font-size:12px;color:var(--dim);border:1px solid var(--line);padding:4px 10px;border-radius:20px}
+.timer{color:var(--amber);font-variant-numeric:tabular-nums}
+.back{color:var(--dim);cursor:pointer;font-size:13px;margin-bottom:12px;display:inline-block}
+.back:hover{color:var(--green)}
+@media(max-width:600px){.row{flex-direction:column}}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>VIBE <span class="g">ARCADE</span> <span class="m">▮</span></h1>
+    <div class="pill" id="conn">● connecting…</div>
+  </div>
+  <p class="sub">Number Jackpot MVP — pick a room, spend your guesses, hit the secret number, split the pot. <span style="color:var(--amber)">Sneak peek build.</span></p>
+
+  <div id="lobby" class="panel">
+    <h3 style="margin-bottom:12px">Live rooms</h3>
+    <div class="grid" id="rooms"></div>
+    <div class="row">
+      <button id="refreshBtn">↻ Refresh</button>
+      <span class="status" id="lobbyStatus"></span>
+    </div>
+  </div>
+
+  <div id="game" class="panel hidden">
+    <span class="back" onclick="leave()">← back to lobby</span>
+    <div class="top">
+      <h3 id="roomName">Room</h3>
+      <div class="pill">🪙 pot <span class="pot" id="pot">-</span> <span id="rtok"></span> · ⏱ <span class="timer" id="timeLeft">-</span></div>
+    </div>
+    <p class="sub" id="roomMeta"></p>
+    <input id="guessInput" type="number" inputmode="numeric" placeholder="Enter your guess (111111–999999)" min="111111" max="999999">
+    <div class="row">
+      <button id="guessBtn">GUESS</button>
+      <span class="status" id="status"></span>
+    </div>
+    <div class="guesses" id="chips"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px" id="sidePanels">
+      <div>
+        <h3 style="font-size:13px;color:var(--dim);margin-bottom:8px">YOUR GUESSES LEFT</h3>
+        <div style="font-size:28px;font-weight:800;color:var(--green)" id="left">-</div>
+      </div>
+      <div>
+        <h3 style="font-size:13px;color:var(--dim);margin-bottom:8px">ROOM FEED</h3>
+        <div class="feed" id="feed"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const API = new URLSearchParams(location.search).get('api') || location.origin;
+let ws=null, room=null, timers=[];
+const $=id=>document.getElementById(id);
+const fmt=n=>n.toLocaleString('en-US');
+
+async function loadRooms(){
+  $('lobbyStatus').textContent=''; $('lobbyStatus').className='status';
+  try{
+    const rs=await (await fetch(API+'/rooms')).json();
+    const el=$('rooms'); el.innerHTML='';
+    if(!rs.length){el.innerHTML='<p class="sub">No rooms yet — server seeds a demo on boot.</p>'}
+    rs.forEach(r=>{
+      const d=document.createElement('div'); d.className='room';
+      d.innerHTML=`<h3>${r.name}</h3><span class="badge ${r.state}">${r.state.toUpperCase()}</span>
+      <div class="meta"><span>${fmt(r.lo)}–${fmt(r.hi)}</span><span class="pot">${fmt(r.pot)} ${r.rewardToken}</span></div>
+      <div class="meta"><span>${r.players} player${r.players==1?'':'s'}</span><span>${r.timeLeft?r.timeLeft+'s left':'—'}</span></div>`;
+      d.onclick=()=>join(r.id); el.appendChild(d);
+    });
+  }catch(e){$('lobbyStatus').textContent='server unreachable';$('lobbyStatus').className='status err'}
+}
+$('refreshBtn').onclick=loadRooms;
+
+function connectRoom(id){
+  const proto=location.protocol==='https:'?'wss':'ws';
+  return new WebSocket(`${proto}://${new URL(API).host}/ws/${id}`);
+}
+async function join(id){
+  try{
+    room={id};
+    ws=connectRoom(id);
+    $('lobby').classList.add('hidden'); $('game').classList.remove('hidden');
+    $('feed').innerHTML=''; $('chips').innerHTML=''; $('status').textContent='joining…';
+    ws.onopen=()=>{ $('conn').textContent='● connected'; $('conn').style.color='var(--green)';
+      ws.send(JSON.stringify({t:'join',addr:'0xguest'})); };
+    ws.onclose=()=>{ $('conn').textContent='● disconnected'; $('conn').style.color='var(--mag)';
+      $('status').textContent='disconnected'; $('status').className='status err'; $('guessBtn').disabled=true; };
+    ws.onmessage=ev=>{
+      const m=JSON.parse(ev.data);
+      if(m.t==='welcome'){
+        const r=m.room;
+        $('roomName').textContent=r.name||'Number Jackpot';
+        $('pot').textContent=fmt(r.pot); $('rtok').textContent=r.rewardToken;
+        $('roomMeta').textContent=`Range ${fmt(r.lo)}–${fmt(r.hi)} · ${r.guesses} guesses · ${r.seconds}s rounds`;        setLeft(m.you.guessesLeft); tick(r.timeLeft);
+        $('status').textContent=''; $('guessBtn').disabled=false;
+      }
+      else if(m.t==='result'){ addChip(m.n,m.hint); setLeft(m.left);
+        $('status').textContent=m.hint==='higher'?'↗ go higher':'↘ go lower';
+        $('status').className='status'; }
+      else if(m.t==='guessFeed'){ feedAdd(`<b>${m.who}</b> guessed (${m.left} left)`); }
+      else if(m.t==='playerJoined'){ feedAdd(`👋 <b>${m.addr}</b> joined`); }
+      else if(m.t==='winner'){ feedAdd(`🏆 <b style="color:var(--green)">${m.who}</b> hit it! n=${fmt(m.n)} — pot ${fmt(m.share)} ${m.rewardToken} each`);
+        $('status').textContent=`🏆 ${m.who} won! new round soon…`; $('status').className='status ok'; }
+      else if(m.t==='youWon'){ $('status').textContent=`🏆 YOU WON ${fmt(m.share)} ${m.rewardToken}!`; $('status').className='status ok'; }
+      else if(m.t==='noGuesses'){ $('status').textContent='out of guesses'; $('status').className='status err'; $('guessBtn').disabled=true; }
+      else if(m.t==='roundOver'){ $('status').textContent='round over — back to lobby'; $('guessBtn').disabled=true; }
+      else if(m.t==='slowDown'){ $('status').textContent='easy tiger — too fast'; $('status').className='status err'; }
+    };
+  }catch(e){ $('status').textContent='failed to join'; }
+}
+function setLeft(n){ $('left').textContent=n; }
+function addChip(n,hint){ const c=document.createElement('span'); c.className='chip '+(hint==='higher'?'lo':'hi');
+  c.textContent=`${fmt(n)} ${hint==='higher'?'↗':'↘'}`; $('chips').prepend(c); }
+function feedAdd(html){ const d=document.createElement('div'); d.innerHTML=html; $('feed').prepend(d);
+  while($('feed').children.length>30) $('feed').lastChild.remove(); }
+function tick(s){ clearInterval(timers[0]); const iv=setInterval(()=>{ if(s<=0){clearInterval(iv);return;}
+  $('timeLeft').textContent=s+'s'; s--; },1000); timers[0]=iv; }
+function leave(){ try{ws&&ws.close()}catch(e){} $('game').classList.add('hidden'); $('lobby').classList.remove('hidden'); loadRooms(); }
+
+$('guessBtn').onclick=()=>{
+  const v=$('guessInput').value.replace(/\D/g,'');
+  if(!v||+v<111111||+v>999999){ $('status').textContent='6 digits: 111111–999999'; $('status').className='status err'; return; }
+  if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'guess',n:+v}));
+  $('guessInput').value='';
+};
+$('guessInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('guessBtn').click(); });
+
+loadRooms(); setInterval(loadRooms,15000);
+</script>
+</body>
+</html>
