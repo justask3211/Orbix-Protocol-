@@ -813,6 +813,12 @@ function OverviewView({ setActive, wallet }: { setActive: (x: string) => void; w
     <h1 style={{ fontSize: 38 }}>One cockpit.<br/><i>Everything connected.</i></h1>
     <p className="lead">Pick an action — every module shares the same liquidity, router and wallet.</p>
     <div className="ov-cards">
+      <a className="ov-card ov-card-main" href="/center" onClick={(e)=>{e.preventDefault(); window.location.assign('/center')}}>
+        <img src="card-center.jpg" alt="Orbix Center"/>
+        <span className="ov-tag">MAIN PRODUCT</span>
+        <span className="ov-go"><ArrowUpRight size={17}/></span>
+        <div className="ov-body"><b>Orbix Center</b><span>Our main product — create a live game room in seconds, share one link, play with anyone in real time. 19 formats, live leaderboard, on-chain rewards.</span></div>
+      </a>
       {cards.map(c => <div key={c.tab} className="ov-card" onClick={() => setActive(c.tab)}>
         <img src={c.img} alt={c.title}/>
         <span className="ov-go"><ArrowUpRight size={17}/></span>

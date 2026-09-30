@@ -47,7 +47,12 @@ app.use('/center', express.static(centerDist, { maxAge: '1h' }));
 app.get('/center/*', (_req, res) => res.sendFile(path.join(centerDist, 'index.html')));
 
 // --- cockpit (unchanged) ---------------------------------------------------
-app.use(express.static(__dirname, { maxAge: '1h' }));
+// Hashed assets may cache; index.html must revalidate or every deploy needs a hard refresh.
+app.use(express.static(__dirname, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'orbixcore-site' }));
 app.get('/api-base', (_req, res) => res.json({ hunt: process.env.HUNT_URL || null }));
 
