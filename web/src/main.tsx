@@ -88,7 +88,7 @@ async function sendWithToasts(push: PushToast, update: (id: number, patch: Parti
 }
 
 // ---------- TokenSelect modal (dark, searchable, replaces native select) ----------
-type TokenOption = { address: Address; symbol: string; source: 'base' | 'launch' | 'pool'; hasPool: boolean }
+type TokenOption = { address: Address; symbol: string; source: 'base' | 'launch' | 'pool' | 'center'; hasPool: boolean }
 function TokenSelectModal({ open, onClose, onPick, options, balances, title }: {
   open: boolean; onClose: () => void; onPick: (t: TokenOption) => void
   options: TokenOption[]; balances?: Map<string, string>; title: string
@@ -107,6 +107,7 @@ function TokenSelectModal({ open, onClose, onPick, options, balances, title }: {
         <span className="tk-name"><b>{t.symbol}</b><small>{t.address.slice(0, 6)}…{t.address.slice(-4)}</small></span>
         <span className="tk-badges">
           {t.source === 'launch' && <span className="badge launch">LAUNCH</span>}
+          {t.source === 'center' && <span className="badge center">CENTER · PREVIEW</span>}
           {t.hasPool && <span className="badge pool">LIQUID</span>}
           {!t.hasPool && <span className="badge zero">NO POOL</span>}
           {balances?.get(t.address.toLowerCase()) && <span className="tk-bal">{balances.get(t.address.toLowerCase())}</span>}
@@ -251,13 +252,14 @@ function Cockpit() {
   if (active === 'Orbix666') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<NftView {...props}/></main>{toastLayer}{walletModal}</div>
   if (active === 'Marketplace') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<MarketView {...props}/></main>{toastLayer}{walletModal}</div>
   if (active === 'Overview') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<OverviewView setActive={setActive} wallet={wallet}/></main>{toastLayer}{walletModal}</div>
+  if (active === 'Discover') return <div className="app"><Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><main>{header}<DiscoverView setActive={setActive}/></main>{toastLayer}{walletModal}</div>
   return <div className="app">
     <Sidebar active={active} setActive={setActive} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/>
     <main><header><button className="mobile-menu" onClick={()=>setMobileOpen(true)} aria-label="Open menu"><Menu size={20}/></button><div className="crumb">COCKPIT <ChevronRight size={13}/> {active.toUpperCase()}</div><div className="header-actions"><button className="icon-btn" aria-label="Search"><Search size={18}/></button><button className="connect" onClick={connect}><Wallet size={16}/>{connected?'0x253d…9087':'Connect wallet'}</button></div></header>
       <section className="hero"><div><div className="eyebrow"><span className="live-dot"/> NETWORK LIVE <span className="rule"/> Robinhood Chain testnet</div><h1>{greeting}</h1><p>One interface for the entire Orbix ecosystem.</p></div><div className="hero-orbit"><div className="orbit-ring r1"/><div className="orbit-ring r2"/><div className="orbit-core">O</div><span className="sat s1"/><span className="sat s2"/></div></section>
       <section className="metric-grid"><Metric label="TOTAL VALUE LOCKED" value="—" foot="Awaiting indexer" icon={<ShieldCheck size={16}/>} muted/><Metric label="24H VOLUME" value="—" foot="No indexed trades" icon={<Activity size={16}/>} muted/><Metric label="ACTIVE POOLS" value="—" foot="Read from factory" icon={<Network size={16}/>} muted/><Metric label="YOUR PORTFOLIO" value="—" foot={connected?'Connected account':'Connect wallet to view'} icon={<Wallet size={16}/>} muted/></section>
       <div className="section-head"><div><span className="eyebrow orange">MARKET PULSE</span><h2>Watchlist</h2></div><button className="text-btn" onClick={()=>setActive('Discover')}>Explore ecosystem <ArrowUpRight size={15}/></button></div>
-      <section className="watch-grid"><TokenCard token="ORBIX" pair="ORBIX / WETH" addr={ADDRESSES.ORBIX} color="orange"/><TokenCard token="ECO" pair="ECO / ORBIX" addr={ADDRESSES.ECO} color="green"/><TokenCard token="FREE" pair="FREE / WETH" addr={ADDRESSES.FREE} color="purple"/></section>
+      <section className="watch-grid"><TokenCard token="ORBIX" pair="ORBIX / WETH · legacy launchpad" addr={ADDRESSES.ORBIX} color="orange" note="Legacy launchpad token"/><TokenCard token="CENTER" pair="CENTER · preview asset" addr={CENTER_TOKEN} color="teal" note="New Center token · preview only"/><TokenCard token="ECO" pair="ECO / ORBIX" addr={ADDRESSES.ECO} color="green"/><TokenCard token="FREE" pair="FREE / WETH" addr={ADDRESSES.FREE} color="purple"/></section>
       <section className="lower-grid"><article className="panel launch-panel"><div className="section-head compact"><div><span className="eyebrow orange">LAUNCHPAD</span><h2>Build the next signal.</h2></div><GitBranch size={24} className="panel-icon"/></div><p>Deploy into a direct pool with FREE collateral. Every launch is transparent, composable, and yours.</p><div className="launch-options"><button onClick={()=>setActive('Launch')}><span>01</span><b>Direct pool</b><small>Seed liquidity & lock LP</small><ArrowUpRight size={15}/></button><button onClick={()=>setActive('Launch')}><span>02</span><b>Launchpad</b><small>Permissionless launches</small><ArrowUpRight size={15}/></button></div></article><article className="panel activity-panel"><div className="section-head compact"><div><span className="eyebrow orange">CROSS-CHAIN</span><h2>Bridge is live</h2></div><button className="icon-btn" onClick={()=>setActive('Bridge')}><ArrowLeftRight size={17}/></button></div><div className="empty-state"><div className="empty-icon"><ArrowLeftRight size={19}/></div><b>Robinhood ↔ Ethereum ↔ Arbitrum</b><span>Bridge testnet ETH via the canonical inbox and xORBIX via LayerZero OFT. Click Bridge to start.</span><button className="secondary" onClick={()=>setActive('Bridge')}>Open Bridge</button></div></article></section>
       <footer><span><span className="pulse"/> All systems operational</span><span>Data is read from the configured testnet registry · <a href={explorerAddressUrl(ADDRESSES.ROUTER)} target="_blank" rel="noreferrer"><button>View explorer <ArrowUpRight size={12}/></button></a></span></footer>
     </main>
@@ -265,7 +267,9 @@ function Cockpit() {
   </div>
 }
 
-function TokenCard({ token, pair, addr, color }: { token: string; pair: string; addr: Address; color: string }) {
+const CENTER_TOKEN = ADDRESSES.CENTER_TOKEN
+
+function TokenCard({ token, pair, addr, color, note }: { token: string; pair: string; addr: Address; color: string; note?: string }) {
   const [price, setPrice] = useState<string | null>(null)
   useEffect(() => { (async () => {
     try {
@@ -282,7 +286,7 @@ function TokenCard({ token, pair, addr, color }: { token: string; pair: string; 
       if (tokenReserve > 0n) setPrice(formatEther((wethReserve * 10n ** 18n) / tokenReserve).slice(0, 8))
     } catch {}
   })() }, [addr])
-  return <article className="token-card"><div className="token-top"><div className={'token-icon '+color}>{token[0]}</div><div><b>{token}</b><small>{pair}</small></div><button className="more">•••</button></div><div className="token-price"><strong>{price ? `${price} ETH` : '—'}</strong><span className={price ? '' : 'down'}>{price ? 'live' : 'no pool'}</span></div><div className="spark"><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/></div><div className="card-foot"><span>{price ? 'Spot from reserves' : 'Pool data unavailable'}</span><ArrowUpRight size={14}/></div></article>
+  return <article className="token-card"><div className="token-top"><div className={'token-icon '+color}>{token[0]}</div><div><b>{token}</b><small>{pair}</small>{note && <em className="token-note">{note}</em>}</div><button className="more" aria-label={`More ${token} options`}>•••</button></div><div className="token-price"><strong>{price ? `${price} ETH` : '—'}</strong><span className={price ? '' : 'down'}>{price ? 'live' : note?.includes('preview') ? 'preview' : 'no pool'}</span></div><div className="spark"><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/></div><div className="card-foot"><span>{price ? 'Spot from reserves' : note?.includes('preview') ? 'No funded pool yet' : 'Pool data unavailable'}</span><ArrowUpRight size={14}/></div></article>
 }
 
 function Sidebar({active,setActive,mobileOpen,setMobileOpen}:{active:string,setActive:(x:string)=>void,mobileOpen:boolean,setMobileOpen:(x:boolean)=>void}){return <aside className={mobileOpen?'sidebar open':'sidebar'}><div className="brand"><div className="orb-mark"><span/></div><div><b>ORBIX</b><small>PROTOCOL</small></div><button className="close" onClick={()=>setMobileOpen(false)}><X size={18}/></button></div><div className="network"><span className="pulse"/> Robinhood testnet <span className="chain">46630</span></div><nav>{nav.map(({label,icon:Icon,badge})=><button key={label} className={active===label?'nav-item active':'nav-item'} onClick={()=>{setActive(label);setMobileOpen(false)}}><Icon size={17}/><span>{label}</span>{badge&&<em>{badge}</em>}</button>)}</nav><div className="sidebar-bottom"><button className="nav-item"><Settings2 size={17}/><span>Protocol status</span><span className="status-dot"/></button><div className="version">ORBIX OS <span>v0.9.0</span></div></div></aside>}
@@ -320,6 +324,7 @@ function SwapView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
     ...tokens.map(t => t.kind === 'eth'
       ? { address: '0x0000000000000000000000000000000000000000' as Address, symbol: 'ETH', source: 'base' as const, hasPool: true }
       : { address: t.address, symbol: t.symbol, source: 'base' as const, hasPool: true }),
+    { address: CENTER_TOKEN, symbol: 'CENTER', source: 'center' as const, hasPool: false },
     ...extraTokens,
   ]
   const applyPick = (side: 'from' | 'to', t: TokenOption) => {
@@ -800,6 +805,15 @@ function MarketView({ wallet, onConnect, pushToast, updateToast }: ViewProps) {
     </div></section>
 }
 
+function DiscoverView({ setActive }: { setActive: (x: string) => void }) {
+  const entries = [
+    { symbol: 'CENTER', title: 'Center token', detail: 'New ecosystem asset · preview only', addr: CENTER_TOKEN, color: 'teal', action: 'Open Center', onClick: () => { window.location.assign('/center') } },
+    { symbol: 'ORBIX', title: 'Legacy launchpad token', detail: 'Original ORBIX asset · keep distinct', addr: ADDRESSES.ORBIX, color: 'orange', action: 'Swap', onClick: () => setActive('Swap') },
+    { symbol: 'FREE', title: 'Routing collateral', detail: 'Core liquidity route asset', addr: ADDRESSES.FREE, color: 'purple', action: 'Swap', onClick: () => setActive('Swap') },
+  ]
+  return <section className="action-page discover-page"><div className="eyebrow orange">COCKPIT / DISCOVER</div><h1>Know what<br/><i>you’re touching.</i></h1><p className="lead">A clear view of the assets that power Orbix. Preview assets are labelled; no funded liquidity is implied.</p><div className="discover-grid">{entries.map(e => <article className="panel discover-card" key={e.symbol}><div className={'token-icon '+e.color}>{e.symbol[0]}</div><div><span className="eyebrow">{e.symbol}</span><h2>{e.title}</h2><p>{e.detail}</p><code>{e.addr}</code></div><button className="secondary" onClick={e.onClick}>{e.action} <ArrowUpRight size={13}/></button></article>)}</div></section>
+}
+
 // ---------------- OVERVIEW (hero image cards → click into Swap/Bridge/Pools) ----------------
 function OverviewView({ setActive, wallet }: { setActive: (x: string) => void; wallet: WalletState }) {
   const cards: { tab: string; img: string; title: string; sub: string }[] = [
@@ -817,7 +831,7 @@ function OverviewView({ setActive, wallet }: { setActive: (x: string) => void; w
         <img src="card-center.jpg" alt="Orbix Center"/>
         <span className="ov-tag">MAIN PRODUCT</span>
         <span className="ov-go"><ArrowUpRight size={17}/></span>
-        <div className="ov-body"><b>Orbix Center</b><span>Our main product — create a live game room in seconds, share one link, play with anyone in real time. 19 formats, live leaderboard, on-chain rewards.</span></div>
+        <div className="ov-body"><b>Orbix Center</b><span>Create a live game room, share a link and play together. 19 formats with preview points and claim codes; rewards are not funded on-chain.</span></div>
       </a>
       {cards.map(c => <div key={c.tab} className="ov-card" onClick={() => setActive(c.tab)}>
         <img src={c.img} alt={c.title}/>

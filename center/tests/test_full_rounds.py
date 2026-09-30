@@ -222,7 +222,7 @@ async def test_full_round_for_every_engine(tmp_path, template_id):
     rows = rt.store.entitlements_for_round(rt.round_id)
     assert rows, f"{template_id} produced no entitlement"
     assert rows[0]["claim_id"].startswith("0x")
-    assert st.payment_code(rows[0]["claim_id"]).startswith("OC1-")
+    assert st.payment_code(rows[0]["claim_id"]).startswith("OC2-")
 
     # Every stored proof must rebuild the recorded merkle root.
     for row in rows:

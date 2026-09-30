@@ -110,6 +110,46 @@ contract CenterEscrowTest is Test {
     }
 
     // ------------------------------------------------------------------ entry
+    function test_paid_entry_requires_declared_fully_funded_reward() public {
+        vm.prank(creator);
+        escrow.createRound(_spec(address(token), 10e18, 2));
+        vm.prank(alice);
+        vm.expectRevert(CenterEscrow.NotOpen.selector);
+        escrow.enter(ROUND);
+
+        vm.prank(creator);
+        vm.expectRevert(CenterEscrow.RewardNotFunded.selector);
+        escrow.openRegistration(ROUND);
+
+        bytes32 key = escrow.assetKey(CenterEscrow.AssetKind.ERC20, address(token), 0);
+        vm.prank(creator);
+        escrow.declareReward(ROUND, key, 100e18);
+        vm.prank(creator);
+        escrow.fundERC20(ROUND, address(token), 99e18);
+        vm.prank(creator);
+        vm.expectRevert(CenterEscrow.RewardNotFunded.selector);
+        escrow.openRegistration(ROUND);
+
+        vm.prank(creator);
+        escrow.fundERC20(ROUND, address(token), 1e18);
+        vm.prank(creator);
+        escrow.openRegistration(ROUND);
+        _enter(alice);
+        assertEq(token.balanceOf(alice), 990e18);
+    }
+
+    function test_early_signed_settlement_reverts_before_play_end() public {
+        _createRound(address(0), 0, 2);
+        _enter(alice);
+        bytes32 root = keccak256("early");
+        bytes32 digest = escrow.settlementDigest(ROUND, root, ALLOC, keccak256("transcript"), settleDeadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PK, digest);
+        vm.expectRevert(CenterEscrow.PlayNotEnded.selector);
+        escrow.publishSettlement(ROUND, root, ALLOC, keccak256("transcript"), settleDeadline, abi.encodePacked(r, s, v));
+        vm.warp(playEnd);
+        escrow.publishSettlement(ROUND, root, ALLOC, keccak256("transcript"), settleDeadline, abi.encodePacked(r, s, v));
+    }
+
 
     function test_paid_entry_and_cap_enforcement() public {
         _createRound(address(token), 10e18, 1);
@@ -257,6 +297,7 @@ contract CenterEscrowTest is Test {
         vm.prank(creator);
         escrow.fundERC20(ROUND, address(token), 1e18);
         bytes32 root = keccak256("root");
+        vm.warp(playEnd);
 
         // wrong signer
         (, bytes32 r1, bytes32 s1) = vm.sign(0xDEAD, escrow.settlementDigest(ROUND, root, ALLOC, keccak256("t"), settleDeadline));
@@ -282,6 +323,7 @@ contract CenterEscrowTest is Test {
         _createRound(address(token), 0, 4);
         verifier.revokeEpoch(uint32(EPOCH));
         bytes32 root = keccak256("root");
+        vm.warp(playEnd);
         (, bytes32 r, bytes32 s) = vm.sign(SIGNER_PK, escrow.settlementDigest(ROUND, root, ALLOC, keccak256("t"), settleDeadline));
         vm.expectRevert(CenterEscrow.BadSignature.selector);
         escrow.publishSettlement(ROUND, root, ALLOC, keccak256("t"), settleDeadline, abi.encodePacked(r, s, uint8(27)));
@@ -340,7 +382,7 @@ contract CenterEscrowTest is Test {
         uint256 before = token.balanceOf(creator);
         vm.prank(creator);
         escrow.reclaimUnusedReward(ROUND, CenterEscrow.AssetKind.ERC20, address(token), 0);
-        assertEq(token.balanceOf(creator), before + 100e18);
+        assertEq(token.balanceOf(creator), before + 100e18 + 1);
     }
 
     function test_reclaim_is_creator_only() public {
@@ -372,16 +414,16 @@ contract CenterEscrowTest is Test {
         escrow.claim(a, pa);
 
         bytes32 key = escrow.assetKey(CenterEscrow.AssetKind.ERC20, address(token), 0);
-        // 100 funded - 30 already claimed == 70 still reserved (20 of it claimable by bob)
-        assertEq(escrow.reserved(ROUND, key), 70e18);
+        // The helper prefunds 1 wei; 100e18 + 1 funded - 30e18 claimed remains.
+        assertEq(escrow.reserved(ROUND, key), 70e18 + 1);
 
         vm.warp(claimDeadline + 1);
         uint256 creatorBefore = token.balanceOf(creator);
         vm.prank(creator);
         escrow.reclaimUnusedReward(ROUND, CenterEscrow.AssetKind.ERC20, address(token), 0);
         assertEq(escrow.reserved(ROUND, key), 0);
-        // Invariant: claimed (30 to alice) + reclaimed (70 to creator) == funded (100).
-        assertEq(token.balanceOf(creator), creatorBefore + 70e18);
+        // Invariant: claimed (30) + reclaimed (70 + 1 wei) == funded (100 + 1 wei).
+        assertEq(token.balanceOf(creator), creatorBefore + 70e18 + 1);
     }
 
     function test_claim_after_claim_window_is_closed() public {
@@ -426,6 +468,13 @@ contract CenterEscrowTest is Test {
     function _createRound(address entryAsset, uint256 entryAmount, uint32 cap) internal {
         vm.prank(creator);
         escrow.createRound(_spec(entryAsset, entryAmount, cap));
+        bytes32 key = escrow.assetKey(CenterEscrow.AssetKind.ERC20, address(token), 0);
+        vm.prank(creator);
+        escrow.declareReward(ROUND, key, 1);
+        vm.prank(creator);
+        escrow.fundERC20(ROUND, address(token), 1);
+        vm.prank(creator);
+        escrow.openRegistration(ROUND);
     }
 
     function _enter(address who) internal {
@@ -453,6 +502,7 @@ contract CenterEscrowTest is Test {
     }
 
     function _settle(bytes32 root) internal {
+        vm.warp(playEnd);
         bytes32 transcript = keccak256("transcript");
         bytes32 digest = escrow.settlementDigest(ROUND, root, ALLOC, transcript, settleDeadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PK, digest);

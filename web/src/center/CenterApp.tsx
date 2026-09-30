@@ -131,14 +131,13 @@ export function Catalog({ session: _session }: { session: ReturnType<typeof useS
   return (
     <div className="ct-page">
       <Banner />
+      <section className="ct-hero">
+        <div><span className="ct-kicker">ORBITAL PLAYGROUND · CENTER</span><h1>Make a room<br/><i>worth joining.</i></h1><p className="sub">Create a game, share one link, and watch the room come alive. Center is in preview: play is real-time, balances and rewards are simulated.</p><div className="ct-hero-actions"><button className="btn-primary" onClick={() => go('/center/create')}>Create a room</button><button className="btn-ghost" onClick={() => document.querySelector('.ct-sub')?.scrollIntoView({ behavior: 'smooth' })}>Browse formats ↓</button></div></div>
+        <div className="ct-hero-orbit" aria-hidden="true"><span className="ct-orbit-ring ring-a"/><span className="ct-orbit-ring ring-b"/><span className="ct-orbit-core">C</span><span className="ct-orbit-dot dot-a"/><span className="ct-orbit-dot dot-b"/></div>
+      </section>
+      <div className="ct-signal-row"><span><b>19</b> game formats</span><span><b>LIVE</b> room play</span><span><b>0</b> funded rewards today</span></div>
       <header className="ct-head">
-        <div>
-          <h1>Orbix Center</h1>
-          <p className="sub">Create a room, drop a link, play it live. Nineteen formats across puzzles, strategy, duels and co-op.</p>
-        </div>
-        <button className="btn-primary" onClick={() => go('/center/create')}>
-          Create a room
-        </button>
+        <div><span className="ct-kicker">FORMAT LIBRARY</span><h2 className="ct-sub">Find your kind of chaos.</h2><p className="sub">From quick duels to co-op raids, every format is ready to configure.</p></div>
       </header>
 
       {templates.loading && <p className="muted">Loading formats…</p>}

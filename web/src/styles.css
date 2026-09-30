@@ -5,6 +5,8 @@ footer{display:flex;justify-content:space-between;padding:26px 0 30px;color:#686
 @media(max-width:900px){main{padding:0 24px}.sidebar{width:210px;flex-basis:210px}.hero-orbit{margin-right:0}.lower-grid{grid-template-columns:1fr}.metric-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:680px){.sidebar{position:fixed;inset:0 auto 0 0;z-index:10;background:#0e1012;transform:translateX(-100%);transition:transform .25s ease;width:260px}.sidebar.open{transform:translateX(0)}.close{display:block;margin-left:auto;color:#777}.mobile-menu{display:grid;place-items:center;color:#aaa}main{padding:0 16px}header{height:65px}.crumb{display:none}.header-actions{margin-left:auto}.hero{height:235px}.hero h1{font-size:32px;max-width:210px}.hero p{font-size:12px;max-width:180px;line-height:1.5}.hero-orbit{position:absolute;right:-55px;opacity:.5;transform:scale(.75)}.metric{padding:17px 13px;min-height:112px}.metric strong{font-size:19px;margin:12px 0 5px}.metric-label{font-size:8px}.watch-grid{grid-template-columns:1fr}.section-head{margin-top:32px}.section-head h2{font-size:19px}.text-btn{font-size:10px}.lower-grid{margin-top:32px}.launch-options{grid-template-columns:1fr}footer{flex-direction:column;gap:12px;line-height:1.6}.connect{padding:0 10px;font-size:10px}.header-actions .icon-btn{display:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 .token-pill{background:#222528;border-radius:5px;padding:7px 9px;font:12px 'DM Mono';align-self:flex-start;color:#ddd}.slippage-input{width:42px;background:#0d0f11;border:1px solid #363a3d;border-radius:4px;color:#eee;padding:4px;font:10px 'DM Mono';text-align:right}.error-note{color:#ff9470!important;line-height:1.5}.launch-form{display:grid;gap:8px;margin:14px 0}.launch-form input:not([type=checkbox]){width:100%;background:#0d0f11;border:1px solid #2c2f32;border-radius:6px;color:#f4f2ee;padding:10px;font:11px 'DM Mono'}.check{display:flex;gap:8px;align-items:center;color:#85888d;font:10px 'DM Mono';margin:4px 0 8px}.check input{accent-color:var(--orange)}button:disabled{opacity:.5;cursor:not-allowed}
+.token-note{display:block;color:#6d9a99;font:9px 'DM Mono';font-style:normal;margin-top:4px}
+.token-icon.teal{background:#183b3a;color:#79d8c7}
 
 
 /* Toasts (W6/W7) */
@@ -52,6 +54,8 @@ footer{display:flex;justify-content:space-between;padding:26px 0 30px;color:#686
 .token-row .tk-badges{margin-left:auto;display:flex;gap:5px}
 .badge{font:9px 'DM Mono';padding:3px 7px;border-radius:20px;border:1px solid #333}
 .badge.launch{color:#ffab7e;border-color:#6b4229}
+.badge.center{color:#79d8c7;border-color:#28645c}
+.discover-page{max-width:1100px}.discover-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:30px}.discover-card{min-height:300px;display:flex;flex-direction:column;align-items:flex-start;gap:18px;padding:24px}.discover-card h2{font-size:23px;letter-spacing:-.045em;margin:8px 0}.discover-card p{color:#a9adaf;font-size:12px}.discover-card code{display:block;color:#78b9b2;font:10px 'DM Mono';word-break:break-all;line-height:1.6}.discover-card .secondary{margin-top:auto}.discover-card .token-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:50%}@media(max-width:850px){.discover-grid{grid-template-columns:1fr}.discover-card{min-height:0}}
 .badge.pool{color:#a4d46d;border-color:#3e5230}
 .badge.zero{color:#666b70;border-color:#2c2f32}
 @keyframes fade-in{from{opacity:0}to{opacity:1}}

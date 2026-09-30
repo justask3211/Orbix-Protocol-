@@ -24,6 +24,8 @@ contract CenterVault {
 
     IERC20 public immutable vaultToken;
 
+    address public immutable coordinator;
+
     /// @dev Delay between requesting and executing a withdrawal.
     uint256 public constant WITHDRAW_DELAY = 2 days;
 
@@ -34,6 +36,7 @@ contract CenterVault {
     mapping(bytes32 => uint256) public intentAmount;
     mapping(bytes32 => bytes32) public intentRoom;
     mapping(bytes32 => bool) public intentRefunded;
+    mapping(bytes32 => bool) public intentRefundable;
 
     mapping(address => uint256) public pendingWithdrawAmount;
     mapping(address => uint256) public pendingWithdrawAt;
@@ -54,9 +57,13 @@ contract CenterVault {
     error TooEarly();
     error NotCreator();
     error TransferMismatch();
+    error NotCoordinator();
+    error NotRefundable();
+    error AlreadyRefundable();
 
     constructor(IERC20 token) {
         vaultToken = token;
+        coordinator = msg.sender;
     }
 
     /// @notice Credit `amount` of the platform token to the caller. Requires a prior approve().
@@ -94,12 +101,21 @@ contract CenterVault {
         if (!intentConsumed[intentId]) revert IntentNotConsumed();
         if (intentRefunded[intentId]) revert AlreadyRefunded();
         if (intentCreator[intentId] != msg.sender) revert NotCreator();
+        if (!intentRefundable[intentId]) revert NotRefundable();
 
         intentRefunded[intentId] = true;
         uint256 amount = intentAmount[intentId];
         balanceOf[msg.sender] += amount;
 
         emit DeductionRefunded(intentId, msg.sender, amount);
+    }
+
+    function markRefundable(bytes32 intentId) external {
+        if (msg.sender != coordinator) revert NotCoordinator();
+        if (!intentConsumed[intentId]) revert IntentNotConsumed();
+        if (intentRefunded[intentId]) revert AlreadyRefunded();
+        if (intentRefundable[intentId]) revert AlreadyRefundable();
+        intentRefundable[intentId] = true;
     }
 
     /// @notice Start the bounded withdrawal of uncommitted balance.

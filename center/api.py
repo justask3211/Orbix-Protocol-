@@ -468,15 +468,21 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     # ------------------------------------------------------------------ claims
 
     @app.get(f"{API_PREFIX}/claims/{{reference}}")
-    def get_claim(reference: str) -> dict:
-        ref = st.parse_payment_code(reference) or reference.replace("0x", "")[:8].upper()
-        with store.tx() as c:
-            hits = c.execute(
-                "SELECT * FROM entitlements WHERE UPPER(SUBSTR(claim_id,3,8))=? LIMIT 1", (ref.upper(),)
-            ).fetchall()
-        if not hits:
+    def get_claim(reference: str, who: str = Depends(require_wallet)) -> dict:
+        claim = _get_claim(reference)
+        if claim["winner"].lower() != who:
+            raise HTTPException(403, detail={"code": "WRONG_CLAIM_WALLET", "message": "this reward belongs to a different wallet"})
+        return claim
+
+    def _get_claim(reference: str) -> dict:
+        ref = st.parse_payment_code(reference)
+        if not ref:
             raise HTTPException(404, detail={"code": "UNKNOWN_CLAIM", "message": "no entitlement for that code"})
-        e = dict(hits[0])
+        with store.tx() as c:
+            hit = c.execute("SELECT * FROM entitlements WHERE LOWER(claim_id)=? LIMIT 1", (ref.lower(),)).fetchone()
+        if not hit:
+            raise HTTPException(404, detail={"code": "UNKNOWN_CLAIM", "message": "no entitlement for that code"})
+        e = dict(hit)
         return {
             "claimId": e["claim_id"], "roundId": e["round_id"], "roomId": e["room_id"],
             "winner": e["winner"], "slotId": e["slot_id"], "points": e["points"],
@@ -489,7 +495,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/claims/lookup")
     def lookup_claim(body: dict, who: str = Depends(require_wallet)) -> dict:
         reference = str(body.get("code") or "")
-        claim = get_claim(reference)
+        claim = _get_claim(reference)
         # Ownership is checked before payability: a reward's status is never disclosed to
         # a wallet that does not own it.
         if claim["winner"].lower() != who:
