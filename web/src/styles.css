@@ -82,6 +82,11 @@ footer{display:flex;justify-content:space-between;padding:26px 0 30px;color:#686
 .ov-card .ov-body span{color:#b6b3ae;font-size:11px;display:block;margin-top:3px}
 .ov-card .ov-go{position:absolute;top:14px;right:14px;z-index:1;width:34px;height:34px;border-radius:50%;background:rgba(10,11,13,.65);border:1px solid rgba(255,255,255,.18);display:grid;place-items:center;color:#fff}
 .ov-card:hover .ov-go{background:var(--orange);border-color:var(--orange)}
+.ov-card-main{grid-column:1 / -1;min-height:230px;text-decoration:none;color:inherit}
+.ov-card-main img{opacity:.72}
+.ov-card-main .ov-body b{font-size:23px}
+.ov-card-main .ov-body span{font-size:13px;max-width:640px;line-height:1.5}
+.ov-tag{position:absolute;top:14px;left:14px;z-index:1;padding:5px 12px;border-radius:999px;background:linear-gradient(90deg,var(--orange),#ee0979);color:#fff;font-size:10px;font-weight:800;letter-spacing:.14em}
 @media(max-width:900px){.ov-cards{grid-template-columns:1fr}}
 @media(max-width:680px){.ov-cards{grid-template-columns:1fr}}
 
