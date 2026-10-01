@@ -247,6 +247,9 @@ LATER_POLICIES: dict[str, HintPolicy] = {
 }
 LATER_POLICIES.pop("live-quiz", None)
 LATER_POLICIES.pop("token-catch", None)
+LATER_POLICIES.pop("reward-grid", None)
+LATER_POLICIES.pop("logo-bingo", None)
+LATER_POLICIES.pop("grid-bingo", None)
 LIVE_QUIZ = HintPolicy(
     template_id="live-quiz",
     version=1,
@@ -265,20 +268,52 @@ LIVE_QUIZ = HintPolicy(
         ),
     ),
 )
-LATER_POLICIES["logo-bingo"] = HintPolicy(
-    template_id="logo-bingo", version=1, implemented=False,
-    kinds=(HintKind(id="planned", audience="public",
-                    description="Shared call history and accessible board state."),),
-)
+
 
 #: All policies, by template id. Room publish hashes MUST include the policy
 #: object for the chosen template (config-hash domain covers it via rules + this
 #: registry lookup at publish time).
+REWARD_GRID = HintPolicy(
+    template_id="reward-grid",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="proximity",
+            audience="private",
+            budget=2,
+            description=(
+                "Answers only a coarse distance band (near / mid / far) to the nearest "
+                "hidden reward tile. Never names a tile, a direction, or a row/column, "
+                "so a hint cannot identify a reward slot. Two uses per player, logged "
+                "in the fairness transcript."
+            ),
+        ),
+    ),
+)
+
+LOGO_BINGO = HintPolicy(
+    template_id="logo-bingo",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="call-history",
+            audience="public",
+            description=(
+                "The full shared call history is public state and only grows; future "
+                "calls stay server-side until drawn. Board claims are verified against "
+                "the calls actually issued."
+            ),
+        ),
+    ),
+)
+
 HINT_POLICIES: dict[str, HintPolicy] = {
     p.template_id: p
     for p in (
         NUMBER_HUNT, HASH_HUNT, BOSS_RAID, BINGO, LOGO_BINGO_LIVE, RPS_DUEL,
-        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, LIVE_QUIZ, TOKEN_CATCH, *LATER_POLICIES.values(),
+        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, LIVE_QUIZ, TOKEN_CATCH, REWARD_GRID, LOGO_BINGO, *LATER_POLICIES.values(),
     )
 }
 
