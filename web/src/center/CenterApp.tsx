@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RoundPending, STAGES } from './stages'
 import { GameArt, TEMPLATE_META } from './gameArt'
 import { QuizEditor, TEMPLATE_FORMS, ruleNumber, type QuizQuestion, type RuleField } from './wizardForms'
-import { center, explainError, type Allocation, type RoomDetail, type RoomSummary, type Settlement, type TemplateMeta, type VaultState } from './api'
+import { center, explainError, type Allocation, type OnchainBalance, type RoomDetail, type RoomSummary, type Settlement, type TemplateMeta, type VaultState } from './api'
 import { playerHue, shortAddress, useSession } from './session'
 import { useRoomChannel } from './ws'
 import './center.css'
@@ -77,6 +77,33 @@ function WalletChip({ session }: { session: ReturnType<typeof useSession> }) {
     () => (session.token ? center.vault(session.token) : Promise.resolve(null)),
     [session.token],
   )
+  // Live on-chain balances, polled so the number in the bar is always real.
+  const [live, setLive] = useState<OnchainBalance | null>(null)
+  useEffect(() => {
+    if (!session.token) return
+    let alive = true
+    const pull = () =>
+      center
+        .onchainBalance(session.token!)
+        .then((b) => {
+          if (alive) setLive(b)
+        })
+        .catch(() => undefined)
+    pull()
+    const t = setInterval(pull, 20_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [session.token])
+  const fmt = (n: number | null | undefined) => {
+    if (n == null) return null
+    const v = n / 1e18
+    return v >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : v.toFixed(v >= 1 ? 2 : 4)
+  }
+  const liveLabel = live?.live
+    ? `${fmt(live.vaultCredit) ?? '0'} ${live.symbol}`
+    : null
   const [copied, setCopied] = useState(false)
   const copy = () => {
     navigator.clipboard?.writeText(session.address).then(() => {
@@ -92,7 +119,9 @@ function WalletChip({ session }: { session: ReturnType<typeof useSession> }) {
         {copied ? ' ✓' : ''}
       </button>
       <span className="ct-wallet-bal">
-        {vault.data ? `${vault.data.balance} ${vault.data.label}` : session.token ? '…' : '—'}
+        {liveLabel
+          ? <><i className="live-dot" /> {liveLabel}</>
+          : vault.data ? `${vault.data.balance} ${vault.data.label}` : session.token ? '…' : '—'}
       </span>
       {session.token ? (
         <button className="link" onClick={session.signOut}>sign out</button>
@@ -969,6 +998,7 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
                   {v.balance} <span className="muted">{v.label}</span>
                 </p>
                 {v.simulated && <p className="warn">Simulated balance — no real tokens are held or moved on this deployment.</p>}
+                <OnchainPanel token={session.token} />
                 <div className="ct-actions">
                   <input className="pad-input" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
                   <button className="btn-primary" onClick={topUp} disabled={busy || !v.simulated}>
@@ -997,6 +1027,28 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
           </section>
         </>
       )}
+    </div>
+  )
+}
+
+function OnchainPanel({ token }: { token: string }) {
+  const [live, setLive] = useState<OnchainBalance | null>(null)
+  useEffect(() => {
+    let alive = true
+    const pull = () => center.onchainBalance(token).then((b) => { if (alive) setLive(b) }).catch(() => undefined)
+    pull()
+    const t = setInterval(pull, 20_000)
+    return () => { alive = false; clearInterval(t) }
+  }, [token])
+  if (!live?.live) return null
+  const fmt = (n: number | null) => (n == null ? '0' : (n / 1e18).toLocaleString('en-US', { maximumFractionDigits: 4 }))
+  return (
+    <div className="ct-onchain">
+      <p>
+        <i className="live-dot" /> <b>{fmt(live.vaultCredit)} {live.symbol}</b> credited in the vault
+        {live.wallet != null && <> · <b>{fmt(live.wallet)} {live.symbol}</b> in wallet</>}
+      </p>
+      <p className="muted mono">vault {shortAddress(live.vaultAddress ?? '')} · chain {live.chainId}</p>
     </div>
   )
 }

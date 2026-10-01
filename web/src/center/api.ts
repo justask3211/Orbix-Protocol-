@@ -76,6 +76,16 @@ export type VaultState = {
   ledger: { id: number; kind: string; amount: string; unit: string; room_id?: string | null; created_at: number }[]
 }
 
+export type OnchainBalance = {
+  live: boolean
+  wallet: number | null
+  vaultCredit: number | null
+  symbol: string | null
+  token?: string | null
+  vaultAddress?: string | null
+  chainId?: number
+}
+
 export class ApiError extends Error {
   code: string
   status: number
@@ -149,6 +159,7 @@ export const center = {
 
   // ---- wallet / vault
   vault: (token: string) => request<VaultState>('/wallet/vault', {}, token),
+  onchainBalance: (token: string) => request<OnchainBalance>('/wallet/onchain-balance', {}, token),
   deposit: (amount: number, token: string) => request<{ balance: number }>('/wallet/vault/deposit', { method: 'POST', body: JSON.stringify({ amount }) }, token),
   ledgerCsvUrl: () => `${API_BASE}/wallet/ledger.csv`,
 }
