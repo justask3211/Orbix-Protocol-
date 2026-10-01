@@ -345,11 +345,16 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [intentNonce] = useState(() => Math.random().toString(36).slice(2))
+  // Format picker: collapsed chip after a choice; the full grid shows only while picking.
+  const [picking, setPicking] = useState(!initialTemplateId)
 
   const setRule = (key: string, value: unknown) => setDraft((d) => ({ ...d, rules: { ...d.rules, [key]: value } }))
   const set = <K extends keyof DraftState>(key: K, value: DraftState[K]) => setDraft((d) => ({ ...d, [key]: value }))
 
-  const chooseTemplate = (templateId: string) => setDraft(initialDraft(templateId))
+  const chooseTemplate = (templateId: string) => {
+    setDraft(initialDraft(templateId))
+    setPicking(false)
+  }
   const capMax = caps.max ?? (SOLO.has(draft.templateId) ? 1 : 100)
   const capMin = caps.min ?? 1
   useEffect(() => {
@@ -463,25 +468,41 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
         </button>
       </header>
 
-      <section className="ct-panel">
+      <section className="ct-panel" id="wiz-format">
         <h2>1 · Format</h2>
-        <div className="ct-grid ct-grid-formats">
-          {(templates.data?.templates ?? []).map((t: TemplateMeta) => (
-            <button
-              key={t.templateId}
-              className={`ct-format${draft.templateId === t.templateId ? ' on' : ''}`}
-              onClick={() => chooseTemplate(t.templateId)}
-              aria-pressed={draft.templateId === t.templateId}
-            >
-              <GameArt templateId={t.templateId} />
-              <b>{t.label}</b>
-              <span>{TEMPLATE_META[t.templateId]?.blurb ?? t.blurb}</span>
+        {picking ? (
+          <div className="ct-grid ct-grid-formats">
+            {(templates.data?.templates ?? []).map((t: TemplateMeta) => (
+              <button
+                key={t.templateId}
+                className={`ct-format${draft.templateId === t.templateId ? ' on' : ''}`}
+                onClick={() => chooseTemplate(t.templateId)}
+                aria-pressed={draft.templateId === t.templateId}
+              >
+                <GameArt templateId={t.templateId} />
+                <b>{t.label}</b>
+                <span>{TEMPLATE_META[t.templateId]?.blurb ?? t.blurb}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          /* Chosen format collapses to one compact row so the page never jumps when
+             the giant grid disappears — the selection is a chip, change is one click. */
+          <div className="wiz-picked">
+            <GameArt templateId={draft.templateId} />
+            <b>{(templates.data?.templates ?? []).find((t: TemplateMeta) => t.templateId === draft.templateId)?.label ?? draft.templateId}</b>
+            <span>{TEMPLATE_META[draft.templateId]?.blurb}</span>
+            <button className="btn-ghost" onClick={() => document.getElementById('wiz-room')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+              Continue ↓
             </button>
-          ))}
-        </div>
+            <button className="link" onClick={() => setPicking(true)} title="Pick a different format">
+              change
+            </button>
+          </div>
+        )}
       </section>
 
-      <section className="ct-panel">
+      <section className="ct-panel" id="wiz-room">
         <h2>2 · Room</h2>
         <div className="ct-form">
           <label>
