@@ -880,6 +880,13 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
   const templateId = String(room?.config?.template_id ?? '')
   const Stage = STAGES[templateId]
   const me = session.address.toLowerCase()
+  // F5 pre-sign disclosure fields (typed reads; the server config is the source)
+  const access = (room?.config?.access ?? {}) as { required_amount?: number; joiner_fee?: number; creator_absorbs_joiner_fee?: boolean }
+  const rewardsCfg = (room?.config?.rewards ?? {}) as { kind?: string }
+  const requiredAmount = Number(access.required_amount ?? 0)
+  const joinerFee = Number(access.joiner_fee ?? 0)
+  const absorbsFee = Boolean(access.creator_absorbs_joiner_fee)
+  const rewardKind = String(rewardsCfg.kind ?? 'preview-points')
   const players = (room?.participants ?? []).filter((p) => p.role === 'player').map((p) => p.who.toLowerCase())
   const amPlayer = players.includes(me)
   const finished = Boolean(state.finished) || Boolean(settlement) || room?.status === 'claimable'
@@ -919,6 +926,52 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
           {(room?.participants ?? []).length === 0 && <span className="muted">Nobody yet.</span>}
         </div>
         <div className="ct-actions">
+          {!ticket && (
+            <details className="ct-presign" open>
+              <summary>Before you join — read the room terms</summary>
+              <ul className="ct-presign-list">
+                <li>
+                  <strong>Entry:</strong> joining costs{' '}
+                  <span className="mono">{requiredAmount}</span> preview
+                  points from your vault
+                  {joinerFee > 0 && (
+                    <>
+                      {' '}plus a joiner fee of{' '}
+                      <span className="mono">{joinerFee}</span>
+                      {absorbsFee ? ' (paid by the creator)' : ''}
+                    </>
+                  )}
+                  . Paid token entry is disabled while the funded gate is off.
+                </li>
+                <li>
+                  <strong>Reward mode:</strong>{' '}
+                  {rewardKind === 'funded-assets'
+                    ? 'funded on-chain assets — check the locked inventory below before joining'
+                    : 'preview points only; these are not transferable assets'}
+                </li>
+                <li>
+                  <strong>Payout:</strong>{' '}
+                  {rewardKind === 'funded-assets'
+                    ? 'settled by the room settlement authority; the pot split and claim deadline were fixed at publish and cannot change'
+                    : 'winners receive the configured points when the round settles'}
+                </li>
+                <li>
+                  <strong>Refunds:</strong>{' '}
+                  {room?.status === 'cancelled'
+                    ? 'this room was cancelled — you can refund your entry from the vault panel'
+                    : 'if the creator cancels before settlement, every entrant is refunded exactly what they paid'}
+                </li>
+                <li>
+                  <strong>Claims:</strong> unclaimed rewards expire at the published claim deadline, after
+                  which the creator may reclaim them
+                </li>
+                <li>
+                  <strong>Network:</strong> Robinhood testnet (chain 46630). Gas is test ETH; never sign a
+                  transaction you have not read.
+                </li>
+              </ul>
+            </details>
+          )}
           {!ticket && (
             <button className="btn-primary" onClick={join} disabled={busy || !session.token}>
               {players.includes(me) ? 'Reconnect to room' : 'Join room'}
