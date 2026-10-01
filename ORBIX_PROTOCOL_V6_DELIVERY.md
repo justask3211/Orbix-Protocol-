@@ -1,5 +1,15 @@
 # Orbix Protocol + Center — V6 delivery ledger
 
+Status legend: `[x]` verified complete; `[~]` implemented but not independently verified/live; `[!]` blocked by an external prerequisite; `[ ]` not started. Never mark a blocked value-bearing gate complete by substituting a preview.
+
+## Current release state
+
+- [x] Preview UI/backend is deployed and browser-verified.
+- [x] Solidity Center safety baseline passes 30 tests.
+- [x] Python Center suite passes 105 tests.
+- [x] Candidate token identity is verified on testnet, but transferability and burn semantics are not proven.
+- [!] Funded ORBIX Center mode is intentionally disabled until the candidate token restriction and custody deployment gates pass.
+
 Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a claim that items are complete. Existing V4 manual and V5 audit remain governing specifications. The two ORBIX addresses are distinct assets: the original vibevibe launch token is `0x0A7e1618582fbAd11c770670EF48048E236CC544`; the newly supplied Center candidate is `0x16C5451763eC2E0E7f041E2DB761A0491FdB6db1`. Never silently merge balances, liquidity or branding. Admin is the exact address `0x253db2d543b10c94918de97eb8499ee59ab9087e`, not a suffix check.
 
 ## Verified starting evidence
@@ -43,13 +53,13 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 
 ## Gate C — on-chain custody and economics
 
-- [ ] C01 Write a failing test that creator cannot self-refund a consumed publication fee.
+- [x] C01 Write a failing test that creator cannot self-refund a consumed publication fee.
 - [ ] C02 Bind publication intent to creator, room/config hash, chain, vault, price, nonce and deadline.
 - [ ] C03 Create one-way consumed/refundable/refunded transitions linked to authorized cancellation.
 - [ ] C04 Enforce withdrawal delay and available-vs-committed accounting.
 - [ ] C05 Verify exact-balance ERC-20 deposits and reject fee-on-transfer/rebasing semantics.
 - [ ] C06 Require signed-wallet payment for creator fees; backend never transfers user funds itself.
-- [ ] C07 Require reward funding before registration can open.
+- [x] C07 Require reward funding before registration can open.
 - [ ] C08 Declare required reward inventory by `(kind, contract, tokenId)` and verify every reserve.
 - [ ] C09 Track native ETH, ERC-20, ERC-721 and ERC-1155 rewards by typed asset.
 - [ ] C10 Validate NFT ERC-165 interfaces, reject mismatched entitlement kinds.
@@ -62,9 +72,9 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - [ ] C17 Support native ETH entry payment only with exact payable accounting.
 - [ ] C18 Prevent duplicate entry, wrong wallet, replay, chain mismatch and room-cap races.
 - [ ] C19 Bind event receipt and finality to server admission; reject a submitted-but-unmined hash.
-- [ ] C20 Enforce settlement after playEnd and after server-authoritative terminal outcome.
+- [x] C20 Enforce settlement after playEnd and after server-authoritative terminal outcome.
 - [ ] C21 Bind EIP-712 settlement to config hash, signer epoch, allocations and deadline.
-- [ ] C22 Make reward claims wallet-bound and proof-bound; mark claimed before transfer.
+- [x] C22 Make reward claims wallet-bound and proof-bound; mark claimed before transfer.
 - [ ] C23 Ensure one failed recipient cannot lock unrelated winners' claims.
 - [ ] C24 Define expired-claim grace and recovery policy; expose it before room creation.
 - [ ] C25 Implement pull refunds after cancellation or settlement failure deadline.
@@ -93,10 +103,10 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 
 ## Gate E — backend and claims
 
-- [ ] E01 Replace short claim-id prefix with random opaque 128-bit+ reference and unique index.
-- [ ] E02 Validate entire code/checksum, reject prefixes and ambiguous lookups.
-- [ ] E03 Authenticate claimant wallet before disclosing reward details/proof.
-- [ ] E04 Return indistinguishable not-found/wrong-wallet responses to unauthenticated callers.
+- [x] E01 Replace short claim-id prefix with random opaque 128-bit+ reference and unique index.
+- [x] E02 Validate entire code/checksum, reject prefixes and ambiguous lookups.
+- [x] E03 Authenticate claimant wallet before disclosing reward details/proof.
+- [x] E04 Return indistinguishable not-found/wrong-wallet responses to unauthenticated callers.
 - [ ] E05 Preserve wallet-bound Merkle entitlement; reference is convenience, not bearer authority.
 - [ ] E06 Export durable proof receipt so claim works during API outage.
 - [ ] E07 Make ledger write PENDING until mined confirmation and reconciled event.

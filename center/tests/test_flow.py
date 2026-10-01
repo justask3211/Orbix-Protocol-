@@ -252,7 +252,31 @@ def test_publish_requires_a_funded_vault(tmp_path):
         assert r.json()["detail"]["code"] == "INSUFFICIENT_BALANCE"
 
 
-# --------------------------------------------------------------------- full round
+def test_admin_pricing_requires_exact_wallet_and_snapshots_new_room(tmp_path):
+    with TestClient(make_app(tmp_path)) as client:
+        admin = Account.create()
+        user = Account.create()
+        # Normal wallet auth is not sufficient for admin mutations.
+        user_headers = sign_in(client, user)
+        denied = client.patch(f"{API_PREFIX}/admin/pricing", json={"creatorFee": 7, "joinerFee": 3}, headers=user_headers)
+        assert denied.status_code == 403
+
+        # The configured exact admin address is authenticated through the same nonce flow.
+        import center.api as api_module
+        original = api_module.ADMIN_ADDRESS
+        api_module.ADMIN_ADDRESS = admin.address.lower()
+        try:
+            headers = sign_in(client, admin)
+            changed = client.patch(f"{API_PREFIX}/admin/pricing", json={"creatorFee": 7, "joinerFee": 3}, headers=headers)
+            assert changed.status_code == 200
+            assert changed.json()["pricing"] == {"creatorFee": 7, "joinerFee": 3}
+            assert client.get(f"{API_PREFIX}/admin/pricing").json()["pricing"] == {"creatorFee": 7, "joinerFee": 3}
+            audit = client.get(f"{API_PREFIX}/admin/audit", headers=headers)
+            assert audit.status_code == 200
+            assert audit.json()["entries"][0]["actor"].lower() == admin.address.lower()
+        finally:
+            api_module.ADMIN_ADDRESS = original
+
 
 
 class WsReader:

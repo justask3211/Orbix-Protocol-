@@ -129,15 +129,16 @@ export function Catalog({ session: _session }: { session: ReturnType<typeof useS
   }, [templates.data, query, kind])
 
   return (
-    <div className="ct-page">
+    <div className="ct-page ct-catalog">
       <Banner />
       <section className="ct-hero">
-        <div><span className="ct-kicker">ORBITAL PLAYGROUND · CENTER</span><h1>Make a room<br/><i>worth joining.</i></h1><p className="sub">Create a game, share one link, and watch the room come alive. Center is in preview: play is real-time, balances and rewards are simulated.</p><div className="ct-hero-actions"><button className="btn-primary" onClick={() => go('/center/create')}>Create a room</button><button className="btn-ghost" onClick={() => document.querySelector('.ct-sub')?.scrollIntoView({ behavior: 'smooth' })}>Browse formats ↓</button></div></div>
-        <div className="ct-hero-orbit" aria-hidden="true"><span className="ct-orbit-ring ring-a"/><span className="ct-orbit-ring ring-b"/><span className="ct-orbit-core">C</span><span className="ct-orbit-dot dot-a"/><span className="ct-orbit-dot dot-b"/></div>
+        <div className="ct-hero-copy"><span className="ct-kicker">ORBITAL PLAYGROUND · CENTER</span><h1>Make a room<br/><i>worth joining.</i></h1><p className="sub">Create a game, share one link, and watch the room come alive. Center is in preview: play is real-time, balances and rewards are simulated.</p><div className="ct-hero-actions"><button className="btn-primary" onClick={() => go('/center/create')}>Create a room <span aria-hidden>↗</span></button><button className="btn-ghost" onClick={() => document.querySelector('.ct-sub')?.scrollIntoView({ behavior: 'smooth' })}>Browse formats <span aria-hidden>↓</span></button></div><div className="ct-hero-meta"><span><i className="live-dot"/> Rooms update live</span><span>19 formats ready</span></div></div>
+        <div className="ct-hero-orbit" aria-hidden="true"><span className="ct-orbit-label">CENTER / 01</span><span className="ct-orbit-ring ring-a"/><span className="ct-orbit-ring ring-b"/><span className="ct-orbit-core">C</span><span className="ct-orbit-dot dot-a"/><span className="ct-orbit-dot dot-b"/></div>
       </section>
       <div className="ct-signal-row"><span><b>19</b> game formats</span><span><b>LIVE</b> room play</span><span><b>0</b> funded rewards today</span></div>
       <header className="ct-head">
         <div><span className="ct-kicker">FORMAT LIBRARY</span><h2 className="ct-sub">Find your kind of chaos.</h2><p className="sub">From quick duels to co-op raids, every format is ready to configure.</p></div>
+        <div className="ct-head-count"><b>{String(shown.length).padStart(2, '0')}</b><span>FORMATS</span></div>
       </header>
 
       {templates.loading && <p className="muted">Loading formats…</p>}
@@ -169,31 +170,41 @@ export function Catalog({ session: _session }: { session: ReturnType<typeof useS
         {shown.map((t) => (
           <article key={t.templateId} className={`ct-card t-${t.templateId}`}>
             <GameArt templateId={t.templateId} />
-            <h3>{t.label}</h3>
-            <p>{TEMPLATE_META[t.templateId]?.blurb ?? t.blurb}</p>
-            <div className="ct-tags">
-              <span>{t.modes}</span>
-              <span>{t.multiplayer ? 'multiplayer' : 'solo'}</span>
-              <span className="tag-preview">{t.availability}</span>
+            <div className="ct-card-body">
+              <div className="ct-card-top">
+                <h3>{t.label}</h3>
+                <span className="ct-card-kind">{t.multiplayer ? 'MP' : 'SOLO'}</span>
+              </div>
+              <p>{TEMPLATE_META[t.templateId]?.blurb ?? t.blurb}</p>
+              <div className="ct-tags">
+                <span>{t.modes}</span>
+                <span>{t.multiplayer ? 'multiplayer' : 'solo'}</span>
+                <span className="tag-preview">{t.availability}</span>
+              </div>
             </div>
-            <button className="btn-ghost" onClick={() => go(`/center/create?template=${t.templateId}`)}>
-              Create {t.label}
+            <button className="btn-ghost ct-card-cta" onClick={() => go(`/center/create?template=${t.templateId}`)}>
+              Create {t.label} <span aria-hidden>↗</span>
             </button>
           </article>
         ))}
       </div>
 
-      <h2 className="ct-sub">Open rooms</h2>
+      <div className="ct-rooms-head">
+        <div><span className="ct-kicker">LIVE ROOMS</span><h2 className="ct-sub">Open now.</h2></div>
+        <span className="ct-live-badge"><i className="live-dot"/> {rooms.data?.rooms.length ?? 0} open</span>
+      </div>
       {rooms.loading && <p className="muted">Loading rooms…</p>}
       {rooms.data?.rooms.length === 0 && <p className="muted">No public rooms yet — create the first one.</p>}
       <div className="ct-rooms">
         {(rooms.data?.rooms ?? []).map((r: RoomSummary) => (
           <button key={r.roomId} className="ct-room" onClick={() => go(`/center/rooms/${r.roomId}`)}>
             <span className={`pill s-${r.status}`}>{STATUS_LABEL[r.status] ?? r.status}</span>
-            <b>{r.name}</b>
-            <span className="muted">
-              {r.templateId} · {r.players} player(s) · {r.rewards}
+            <span className="ct-room-name"><b>{r.name}</b><small>{r.templateId}</small></span>
+            <span className="ct-room-meta">
+              <span>{r.players} player{r.players === 1 ? '' : 's'}</span>
+              <span>{r.rewards} pts</span>
             </span>
+            <span className="ct-room-go" aria-hidden>↗</span>
           </button>
         ))}
       </div>
