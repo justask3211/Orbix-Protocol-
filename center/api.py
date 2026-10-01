@@ -171,6 +171,20 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         raise RuntimeError("Center refuses to start: " + "; ".join(problems))
 
     store = Store(db_path)
+    if onchain is None and flags.real_burn and flags.vault_token and flags.vault_address:
+        # Funded mode: build the on-chain adapter from environment configuration.
+        # The signer key never leaves the process; only the deposit path is signed.
+        signer_key = os.environ.get("CENTER_SIGNER_KEY")
+        if not signer_key:
+            raise RuntimeError("CENTER_REAL_BURN requires CENTER_SIGNER_KEY")
+        rpc_url = os.environ.get("CENTER_RPC_URL", "https://rpc.testnet.chain.robinhood.com")
+        onchain = OnchainVault(
+            rpc=JsonRpc(rpc_url, flags.chain_id),
+            vault_address=flags.vault_address,
+            token_address=flags.vault_token,
+            private_key=signer_key,
+            chain_id=flags.chain_id,
+        )
     vault = VaultService(store, onchain=onchain)
     hub = Hub()
     auth = authenticator or Auth()
@@ -590,6 +604,49 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             "note": "Balance is simulated. Hard wallet validation is disabled." if vault.is_simulated(unit) else "",
             "spent": store.spent_by_creator(who, unit),
             "ledger": vault.ledger(who, limit=25),
+        }
+
+    @app.get(f"{API_PREFIX}/wallet/onchain-balance")
+    def wallet_onchain_balance(who: str = Depends(require_wallet)) -> dict:
+        """Live on-chain balances: wallet token balance + credited vault balance.
+
+        Reads directly from the chain with a short TTL cache so the UI can show
+        real numbers without hammering the RPC. Returns simulated:null when no
+        funded token is configured, so the client can fall back cleanly.
+        """
+        token = flags.vault_token
+        if not (flags.real_burn and token and flags.vault_address):
+            return {"live": False, "wallet": None, "vaultCredit": None, "symbol": None}
+        rpc_client = getattr(app.state, "balance_rpc", None)
+        if rpc_client is None:
+            rpc_url = os.environ.get("CENTER_RPC_URL", "https://rpc.testnet.chain.robinhood.com")
+            rpc_client = JsonRpc(rpc_url, flags.chain_id)
+            app.state.balance_rpc = rpc_client
+        who_l = who.lower()
+        now = time.time()
+        cache = getattr(app.state, "balance_cache", {})
+        entry = cache.get(who_l)
+        if entry and now - entry[0] < 15:
+            wallet_bal, vault_credit = entry[1], entry[2]
+        else:
+            call = lambda to, data_hex: rpc_client.call("eth_call", [{"to": to, "data": data_hex}, "latest"])
+            token_addr = token
+            vault_addr = flags.vault_address
+            bal_sel = "0x70a08231"
+            wallet_hex = str(call(token_addr, bal_sel + who_l.removeprefix("0x").rjust(64, "0")) or "0x")
+            vault_hex = str(call(vault_addr, bal_sel + who_l.removeprefix("0x").rjust(64, "0")) or "0x")
+            wallet_bal = int(wallet_hex, 16) if wallet_hex not in (None, "0x") else 0
+            vault_credit = int(vault_hex, 16) if vault_hex not in (None, "0x") else 0
+            cache[who_l] = (now, wallet_bal, vault_credit)
+            app.state.balance_cache = cache
+        return {
+            "live": True,
+            "wallet": wallet_bal,
+            "vaultCredit": vault_credit,
+            "symbol": os.environ.get("CENTER_VAULT_SYMBOL", "ORBIX"),
+            "token": token,
+            "vaultAddress": flags.vault_address,
+            "chainId": flags.chain_id,
         }
 
     @app.get(f"{API_PREFIX}/wallet/ledger.csv", response_class=PlainTextResponse)

@@ -297,3 +297,14 @@ button:active:not(:disabled){transform:translateY(1px) scale(.99)}
 .runner-lane{border:1px dashed var(--line);border-radius:8px;padding:22px 10px;background:#0f1113;font:12px 'DM Mono';color:#8d9095}
 .runner-lane.on{border-style:solid;border-color:var(--orange);color:var(--orange);background:#1a120c}
 .code-block{margin:0;background:#0d0f11;border:1px solid var(--line);border-radius:8px;padding:12px;font:11.5px 'DM Mono';color:#c9d4c9;overflow-x:auto;white-space:pre-wrap}
+
+
+/* live on-chain balance panel (vault page) */
+.ct-onchain {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(120, 255, 190, 0.25);
+  border-radius: 10px;
+  background: rgba(120, 255, 190, 0.06);
+}
+.ct-onchain p { margin: 2px 0; }
