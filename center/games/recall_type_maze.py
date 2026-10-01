@@ -293,17 +293,55 @@ class MazeRaceEngine(Engine):
         self.pos: dict[str, int] = {}
         self.finished: bool = False
         self.solved_by: str | None = None
+        # D16: per-player directional clue budget
+        self.hints_left: dict[str, int] = {}
 
     def start(self, now: float = 0.0) -> None:
         self.links, self.start_cell, self.finish_cell = _carve(self.rules.maze_size, self.rng)
         self.pos = {p: self.start_cell for p in self.participants}
         self.finished = False
         self.solved_by = None
+        self.hints_left = {p: 3 for p in self.participants}
+
+    def _direction_hint(self, who: str) -> ActionResult:
+        """D16: which open direction from MY cell reduces distance to the exit.
+
+        Non-leak invariant: the hint names at most a coarse direction (one of the
+        four open moves that lowers Manhattan distance to the finish), never a
+        route, never the full path. Budget 3 per player. The maze layout is
+        already public; the hint only saves pathfinding effort, capped.
+        """
+        if self.hints_left.get(who, 0) <= 0:
+            return ActionResult(False, "HINT_BUDGET_EXHAUSTED")
+        here = self.pos[who]
+        size = self.rules.maze_size
+        fr, fc = divmod(self.finish_cell, size)
+        hr, hc = divmod(here, size)
+        open_moves = [c for c in _neighbours(here, size)
+                      if frozenset((here, c)) in self.links]
+        if not open_moves:
+            return ActionResult(False, "NO_HINTS_LEFT")
+        best = min(open_moves, key=lambda c: abs(c // size - fr) + abs(c % size - fc))
+        br, bc = divmod(best, size)
+        improving = (abs(br - fr) + abs(bc - fc)) < (abs(hr - fr) + abs(hc - fc))
+        self.hints_left[who] -= 1
+        if not improving:
+            return ActionResult(True, patch={"hintUsed": {"who": who}},
+                                private={"direction": "no-improving-move",
+                                         "hintsLeft": self.hints_left[who]})
+        dr = "north" if br < hr else "south" if br > hr else ""
+        dc = "west" if bc < hc else "east" if bc > hc else ""
+        direction = "-".join(part for part in (dr, dc) if part) or "stay"
+        return ActionResult(True, patch={"hintUsed": {"who": who}},
+                            private={"direction": direction,
+                                     "hintsLeft": self.hints_left[who]})
 
     def act(self, who: str, action: dict, now: float) -> ActionResult:
         self._require_participant(who)
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
+        if action.get("kind") == "hint":
+            return self._direction_hint(who)
         if action.get("kind") != "move":
             return ActionResult(False, "BAD_ACTION")
         to = action.get("to")
@@ -337,6 +375,7 @@ class MazeRaceEngine(Engine):
             "start": self.start_cell,
             "finish": self.finish_cell,
             "positions": dict(self.pos),
+            "hintsEnabled": any(v > 0 for v in self.hints_left.values()),
             "finished": self.finished,
         }
 
@@ -347,6 +386,7 @@ class MazeRaceEngine(Engine):
             "start": self.start_cell,
             "finish": self.finish_cell,
             "pos": self.pos,
+            "hintsLeft": self.hints_left,
             "solvedBy": self.solved_by,
             "finished": self.finished,
         }
@@ -356,6 +396,9 @@ class MazeRaceEngine(Engine):
         self.start_cell = int(snapshot.get("start", 0))
         self.finish_cell = int(snapshot.get("finish", 0))
         self.pos = dict(snapshot.get("pos", {}))
+        self.hints_left = dict(snapshot.get("hintsLeft", {}))
+        for p in self.participants:
+            self.hints_left.setdefault(p, 0)
         self.solved_by = snapshot.get("solvedBy")
         self.finished = bool(snapshot.get("finished", False))
 

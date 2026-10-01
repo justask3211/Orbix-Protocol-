@@ -36,6 +36,8 @@ class LevelRunnerEngine(Engine):
         self.progress: dict[str, int] = {}  # server-computed distance, not client-reported
         self.crashed: set[str] = set()
         self.finished: bool = False
+        # D17: per-player checkpoint-telemetry hint budget
+        self.hints_left: dict[str, int] = {}
 
     def start(self, now: float = 0.0) -> None:
         # obstacles[i] = lane of the obstacle at distance i, 255 marks a gap
@@ -44,6 +46,26 @@ class LevelRunnerEngine(Engine):
         self.progress = {p: 0 for p in self.participants}
         self.crashed = set()
         self.finished = False
+        self.hints_left = {p: 3 for p in self.participants}
+
+    def _checkpoint_hint(self, who: str) -> ActionResult:
+        """D17: PRIVATE checkpoint telemetry from the asker's own run.
+
+        Non-leak invariant: reports only the asker's own distance, personal best
+        segment, and remaining capacity — never the upcoming obstacle stream
+        (that stays secret until each reveal), never another player's run.
+        """
+        if self.hints_left.get(who, 0) <= 0:
+            return ActionResult(False, "HINT_BUDGET_EXHAUSTED")
+        self.hints_left[who] -= 1
+        return ActionResult(
+            True,
+            patch={"hintUsed": {"who": who}},
+            private={"distance": self.progress.get(who, 0),
+                     "lane": self.lane.get(who),
+                     "crashed": who in self.crashed,
+                     "hintsLeft": self.hints_left[who]},
+        )
 
     def act(self, who: str, action: dict, now: float) -> ActionResult:
         self._require_participant(who)
@@ -51,6 +73,8 @@ class LevelRunnerEngine(Engine):
             return ActionResult(False, "ROUND_FINISHED")
         if who in self.crashed:
             return ActionResult(False, "ALREADY_CRASHED")
+        if action.get("kind") == "hint":
+            return self._checkpoint_hint(who)
         kind = action.get("kind")
         if kind == "step":  # one tick of forward motion from the client's frame clock
             move = action.get("lane")
@@ -166,11 +190,38 @@ class ContractDetectiveEngine(Engine):
         self.answers = {p: {} for p in self.participants}
         self.correct = {p: 0 for p in self.participants}
         self.finished = False
+        self.hints_left = {p: 1 for p in self.participants}
+
+    def _evidence_hint(self, who: str, action: dict) -> ActionResult:
+        """D18: ONE curated evidence cue per question, never the answer.
+
+        Non-leak invariant: the hint is the question's own category-derived
+        guidance (which line of the snippet to focus on), taken from static
+        per-question metadata — it cannot encode which choice is correct, and it
+        is one use per player for the whole round.
+        """
+        if self.hints_left.get(who, 0) <= 0:
+            return ActionResult(False, "HINT_BUDGET_EXHAUSTED")
+        q = action.get("question")
+        if not isinstance(q, int) or not (0 <= q < len(self.picks)):
+            return ActionResult(False, "BAD_ACTION")
+        if q in self.answers[who]:
+            return ActionResult(False, "ACTION_DUPLICATE")
+        self.hints_left[who] -= 1
+        focus = [
+            "Read the order of state updates versus the external call.",
+            "Compare what changed against the patched pattern.",
+            "Check every unchecked arithmetic boundary.",
+        ][q % 3]
+        return ActionResult(True, patch={"hintUsed": {"who": who}},
+                            private={"evidence": focus, "hintsLeft": self.hints_left[who]})
 
     def act(self, who: str, action: dict, now: float) -> ActionResult:
         self._require_participant(who)
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
+        if action.get("kind") == "hint":
+            return self._evidence_hint(who, action)
         if action.get("kind") != "answer":
             return ActionResult(False, "BAD_ACTION")
         q, a = action.get("question"), action.get("choice")
@@ -238,6 +289,7 @@ class MevRushEngine(Engine):
         self._cursor: int = 0
         self._next_at: float = 0.0
         self.finished: bool = False
+        self.hints_left: dict[str, int] = {}
 
     def start(self, now: float = 0.0) -> None:
         # a simulated pending queue: each opportunity is live for a short window
@@ -251,6 +303,7 @@ class MevRushEngine(Engine):
         self._cursor = 0
         self._next_at = now
         self.finished = False
+        self.hints_left = {p: 3 for p in self.participants}
 
     def tick(self, now: float) -> ActionResult | None:
         if self.finished:
@@ -272,6 +325,8 @@ class MevRushEngine(Engine):
         self._require_participant(who)
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
+        if action.get("kind") == "hint":
+            return self._queue_hint(who, now)
         if action.get("kind") != "capture":
             return ActionResult(False, "BAD_ACTION")
         slot = action.get("slot")
@@ -285,6 +340,24 @@ class MevRushEngine(Engine):
         self.captured[who].add(slot)
         self.score[who] += 1
         return ActionResult(True, scores=self.scores())
+
+    def _queue_hint(self, who: str, now: float) -> ActionResult:
+        """D19: SIMULATED queue position only.
+
+        Non-leak invariant: the feed reports which simulated slot is live and the
+        asker's own capture count. It never claims live mempool access, never
+        reveals future opportunity kinds (the kind is only in already-live slots'
+        public state), and never another player's captures.
+        """
+        if self.hints_left.get(who, 0) <= 0:
+            return ActionResult(False, "HINT_BUDGET_EXHAUSTED")
+        self.hints_left[who] -= 1
+        live = self._cursor - 1
+        return ActionResult(True, patch={"hintUsed": {"who": who}},
+                            private={"queuePosition": live,
+                                     "simulated": True,
+                                     "myCaptures": self.score.get(who, 0),
+                                     "hintsLeft": self.hints_left[who]})
 
     def scores(self) -> dict[str, float]:
         return {p: float(self.score.get(p, 0)) for p in self.participants}
@@ -375,6 +448,8 @@ class IdleRigEngine(Engine):
         self._require_participant(who)
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
+        if action.get("kind") == "hint":
+            return self._efficiency_hint(who, now)
         if action.get("kind") != "upgrade":
             return ActionResult(False, "BAD_ACTION")
         if self.level[who] >= self.rules.upgrade_tiers:
@@ -385,6 +460,19 @@ class IdleRigEngine(Engine):
         self.earned[who] -= cost
         self.level[who] += 1
         return ActionResult(True, scores=self.scores())
+
+    def _efficiency_hint(self, who: str, now: float) -> ActionResult:
+        """D20: server-clock-verified efficiency readout for the asker only.
+
+        Non-leak invariant: reports the asker's own verified accrual rate and
+        next-upgrade cost from the server clock — never implies off-chain earning,
+        never another player's rig.
+        """
+        cost = 10 * self._rate(self.level.get(who, 1))
+        return ActionResult(True, patch={"hintUsed": {"who": who}},
+                            private={"ratePerSecond": self._rate(self.level.get(who, 1)),
+                                     "nextUpgradeCost": cost,
+                                     "earned": self.earned.get(who, 0)})
 
     def scores(self) -> dict[str, float]:
         return {p: float(self.earned.get(p, 0)) for p in self.participants}
@@ -443,6 +531,8 @@ class AirdropQuestEngine(Engine):
 
     def act(self, who: str, action: dict, now: float) -> ActionResult:
         self._require_participant(who)
+        if action.get("kind") == "hint":
+            return self._remaining_hint(who)
         if action.get("kind") != "complete":
             return ActionResult(False, "BAD_ACTION")
         achievement = str(action.get("achievement", ""))
@@ -452,6 +542,18 @@ class AirdropQuestEngine(Engine):
             return ActionResult(False, "ACTION_DUPLICATE")     # one entitlement per quest, ever
         self.achieved[who].add(achievement)
         return ActionResult(True, scores=self.scores())
+
+    def _remaining_hint(self, who: str) -> ActionResult:
+        """D21: wallet-bound remaining requirements only.
+
+        Non-leak invariant: lists which quests THIS wallet has not completed and
+        nothing about other players; it never issues an entitlement.
+        """
+        done = self.achieved.get(who, set())
+        remaining = [a for a in self.rules.achievements if a not in done]
+        return ActionResult(True, patch={"hintUsed": {"who": who}},
+                            private={"remaining": remaining,
+                                     "completed": sorted(done)})
 
     def scores(self) -> dict[str, float]:
         return {p: float(len(v)) for p, v in self.achieved.items()}
