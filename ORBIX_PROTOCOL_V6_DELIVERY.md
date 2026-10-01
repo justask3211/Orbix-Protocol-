@@ -223,6 +223,12 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - New `test/center/CenterGamePotInvariants.t.sol` pins the formal accounting properties: I1 custody >= liabilities (tokenCommitted never exceeds contract balance, checked across every lifecycle step); I2 sweepDust can never move committed value (max-amount sweep attempt leaves treasury untouched); I3 no double payout (one-time claim nonces + settle digest replay rejected with exact revert); I4 exact conservation (rake + creator cut + winner payout + retained liability = total entry fees, verified to the wei in AUTO and MANUAL flows, and refund path returns custody to zero).
 - Evidence: forge 79/79 tests green (4 new invariants). Commit 09bae0f9.
 
+### 2026-10-02 addendum 9 — P1 token identity layer (trust primitive)
+
+- New `center/token_identity.py`: TokenInspector reads name()/symbol()/decimals() via eth_call, checks bytecode presence (EOA = blocked), and detects burn-selector presence in bytecode as "possible-owner-opt-in" ONLY — burn is never auto-enabled. Verdict vocabulary is conservative: entry_ok requires on-chain-verifiable sane ERC-20 identity; unknown/reverting code is blocked by default (matching the fee-on-transfer/unknown-hook custody rule). No "trusted" concept exists.
+- API: GET /api/center/v1/token/{address} returns the verdict (422 invalid address, 503 rpc unreachable) for the UI trust badge.
+- Evidence: pytest 183/183 green (12 new: 5 decoding/classification in test_token_identity.py, 2 API in test_token_endpoint.py, plus suite). Commit 38ae6113.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
