@@ -311,7 +311,7 @@ const DEFAULT_RULES: Record<string, Record<string, unknown>> = {
   'memory-match': { pairs: 6, move_cap: 100, score_mode: 'moves', top_n: 3, hints: 'off', hint_budget: 2 },
   'token-catch': { spawn_per_second: 2, lanes: 3, fall_speed: 'normal', hazard_chance_pct: 0, combo_cap: 3, win_threshold: 20, top_n: 3 },
   'reaction-duel': { rounds: 3, choice_window_seconds: 10, reveal_window_seconds: 5, choice_set: 'classic' },
-  'puzzle-sprint': { board: 3, move_cap: 300, score_mode: 'time', top_n: 3 },
+  'puzzle-sprint': { board: 3, move_cap: 300, score_mode: 'time', top_n: 3, hints: 'off', hint_budget: 3, hint_move_penalty: 2 },
   'hash-hunt': { difficulty_bits: 18, win_mode: 'first-valid', leaderboard_size: 10 },
   'boss-raid': { min_players: 2, max_players: 8, boss_health: 10000, action_cooldown_ms: 500, contribution_cap: 1000, min_contribution: 10, reward_rule: 'proportional', top_n: 3 },
   'rps-duel': { rounds: '5', choice_window_seconds: 10, reveal_window_seconds: 5, choice_set: 'classic' },
@@ -691,6 +691,31 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
                       <option value="public">Public room feed with guesser and direction</option>
                     </select>
                   </label>
+                </>
+              ) : draft.templateId === 'puzzle-sprint' ? (
+                <>
+                  <p>Legal-move hint: asking suggests ONE legal tile beside the blank, to that player only — never the solution path. Each use adds a small move penalty to the score. Set the uses per player.</p>
+                  <label className="ct-hint-select">
+                    <span>Puzzle hints</span>
+                    <select value={draft.rules.hints === 'on' ? 'on' : 'off'} onChange={(e) => setRule('hints', e.target.value)}>
+                      <option value="off">Off</option>
+                      <option value="on">On (private legal-move)</option>
+                    </select>
+                  </label>
+                  {draft.rules.hints === 'on' && (
+                    <>
+                      <label className="ct-hint-select">
+                        <span>Hints per player</span>
+                        <input type="number" min={1} max={10} value={ruleNumber(draft.rules.hint_budget)} onChange={(e) => setRule('hint_budget', Number(e.target.value))} />
+                        <small>1 to 10 hint uses per player per round.</small>
+                      </label>
+                      <label className="ct-hint-select">
+                        <span>Move penalty per hint</span>
+                        <input type="number" min={0} max={10} value={ruleNumber(draft.rules.hint_move_penalty)} onChange={(e) => setRule('hint_move_penalty', Number(e.target.value))} />
+                        <small>Score moves added per hint use (0 to 10).</small>
+                      </label>
+                    </>
+                  )}
                 </>
               ) : draft.templateId === 'memory-match' ? (
                 <>
