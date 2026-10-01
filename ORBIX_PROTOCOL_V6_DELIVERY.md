@@ -229,6 +229,13 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - API: GET /api/center/v1/token/{address} returns the verdict (422 invalid address, 503 rpc unreachable) for the UI trust badge.
 - Evidence: pytest 183/183 green (12 new: 5 decoding/classification in test_token_identity.py, 2 API in test_token_endpoint.py, plus suite). Commit 38ae6113.
 
+### 2026-10-02 addendum 10 — C4 partial route audit (live, Playwright)
+
+- Cockpit routes swept on the LIVE deployment at 1440x900 and 390x844 via Playwright: swap, pools, bridge, launch, staking, marketplace all render with ZERO horizontal overflow at both widths (scrollWidth == innerWidth on every route) and ZERO console errors/warnings across the sweep.
+- NFT route: no nav entry found by the sweep (label mismatch or gated route) — flagged for the next pass rather than assumed fine.
+- Screenshots: audit-cockpit-1440.png, audit-cockpit-390.png (full page). Center routes were verified earlier (center-1440-desktop.png, center-390-mobile.png, center-create-wizard-1440.png): 0 overflow, 0 console errors.
+- Still open under C4: per-route state coverage (empty/loading/error), room stage-by-stage sweep, keyboard/focus pass per route, tablet 768 sweep.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
