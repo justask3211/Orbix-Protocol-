@@ -289,6 +289,12 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Post-round forgery refused (ROUND_FINISHED).
 - Evidence: pytest 231/231 green (6 new in test_attacker_model.py). Commit ac9728bb.
 
+### 2026-10-02 addendum 18 — F5 pre-sign join disclosure
+
+- Room lobby now shows an expanded "Before you join" panel above the join button, disclosing every term F5 requires BEFORE any signing: exact entry cost (vault points + joiner fee, who pays it), reward-mode truth (funded on-chain assets vs preview-points-only), payout authority and the frozen-at-publish pot split/claim deadline, the refund path (creator cancel -> exact-amount refunds; cancelled-room refund pointer), claim-deadline expiry and creator reclaim, and the network (Robinhood testnet 46630, gas is test ETH, never sign unread transactions).
+- Typed reads from the server config (room.config.access/rewards); no client-side invention of terms.
+- Evidence: tsc exit 0; vite build exit 0. Commit e7225110.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
