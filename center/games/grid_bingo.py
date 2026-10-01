@@ -27,6 +27,9 @@ class RewardGridEngine(Engine):
         self.won: dict[str, int] = {}
         self.slots_left: int = 0
         self.finished: bool = False
+        # D12: per-player proximity hint budget + fairness ledger of hint uses
+        self.hints_left: dict[str, int] = {}
+        self.hint_log: list[dict] = []
 
     def start(self, now: float = 0.0) -> None:
         """Place the reward tiles behind random tiles; never sent to any client."""
@@ -36,11 +39,49 @@ class RewardGridEngine(Engine):
         self.slots_left = self.rules.reward_slots
         self.revealed = {p: set() for p in self.participants}
         self.won = {}
+        self.hints_left = {p: 2 for p in self.participants}
+        self.hint_log = []
+
+    def _hint(self, who: str, action: dict) -> ActionResult:
+        """D12: a capped proximity cue, private, provably non-identifying.
+
+        The server picks the nearest still-hidden reward tile to the tile the
+        player names, and answers only within-grid distance bands ("near"/"mid"/
+        "far"). It never names a tile, a direction, or a row/column, so a hint
+        cannot identify a reward slot: with a 6x6 grid the "far" band still spans
+        many tiles. Budget is a hard per-player cap (2 uses); every use is
+        recorded in the fairness ledger.
+        """
+        if self.hints_left.get(who, 0) <= 0:
+            return ActionResult(False, "HINT_BUDGET_EXHAUSTED")
+        tile = action.get("tile")
+        if not isinstance(tile, int) or not (0 <= tile < self.rules.tiles):
+            return ActionResult(False, "BAD_TILE")
+        side = max(1, int(round(self.rules.tiles ** 0.5)))
+        r1, c1 = divmod(tile, side)
+        distances = []
+        for rt in self.reward_tiles:
+            r2, c2 = divmod(rt, side)
+            distances.append(abs(r1 - r2) + abs(c1 - c2))
+        if not distances:
+            return ActionResult(False, "NO_HINTS_LEFT")
+        d = min(distances)
+        band = "near" if d <= 1 else ("mid" if d <= 3 else "far")
+        self.hints_left[who] -= 1
+        self.hint_log.append({"who": who, "tile": tile, "band": band})
+        return ActionResult(
+            True,
+            patch={"hintUsed": {"who": who}},
+            private={"proximity": band, "hintsLeft": self.hints_left[who]},
+            scores=self.scores(),
+        )
 
     def act(self, who: str, action: dict, now: float) -> ActionResult:
         self._require_participant(who)
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
+        if action.get("kind") == "hint":
+            return self._hint(who, action)
         if action.get("kind") != "reveal":
             return ActionResult(False, "BAD_ACTION")
         tile = action.get("tile")
@@ -78,6 +119,7 @@ class RewardGridEngine(Engine):
             "rewardSlots": self.rules.reward_slots,
             "slotsLeft": self.slots_left,
             "revealCap": self.rules.reveal_cap_per_wallet,
+            "hintsEnabled": any(v > 0 for v in self.hints_left.values()),
             "revealed": {p: sorted(v) for p, v in self.revealed.items()},
             "finished": self.finished,
         }
@@ -89,6 +131,8 @@ class RewardGridEngine(Engine):
             "revealed": {k: sorted(v) for k, v in self.revealed.items()},
             "won": self.won,
             "slotsLeft": self.slots_left,
+            "hintsLeft": self.hints_left,
+            "hintLog": self.hint_log,
             "finished": self.finished,
         }
 
@@ -97,6 +141,10 @@ class RewardGridEngine(Engine):
         self.revealed = {k: set(v) for k, v in snapshot.get("revealed", {}).items()}
         self.won = dict(snapshot.get("won", {}))
         self.slots_left = int(snapshot.get("slotsLeft", self.rules.reward_slots))
+        self.hints_left = dict(snapshot.get("hintsLeft", {}))
+        for p in self.participants:
+            self.hints_left.setdefault(p, 0)
+        self.hint_log = list(snapshot.get("hintLog", []))
         self.finished = bool(snapshot.get("finished", False))
 
 
