@@ -174,6 +174,14 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - [ ] H11 Record deployment IDs, explorer links, contract addresses, commits and rollback path.
 - [ ] H12 Clearly label remaining gated work; never claim planned features are live.
 
+### 2026-10-02 addendum — D5 Live Quiz hints
+
+- QuizRules gains `hints: off|on` and `hint_eliminations: 1..3` (per-question budget).
+- QuizEngine gains a server-side `hint` action: privately eliminates ONE wrong choice per use; every eliminated index is verified against the answer key before release, so the cue can never point at the answer. Budget enforced per player per question; patch is a public counter only, the elimination itself rides `private`. Snapshot round-trips `hintsUsed`.
+- Wizard: Live Quiz hint panel (off/on + eliminations-per-question) and defaults; buildConfig coerces `hints`/`hint_eliminations` per schema.
+- Registry: `live-quiz` HintPolicy marked implemented (kind `elimination`, private audience).
+- Evidence: `PYTHONPATH=~/vibeswap center/.venv/bin/pytest tests` 133/133 green (8 new in test_quiz_hints.py incl. non-leak invariant, budget, privacy, snapshot, after-window, scores-unchanged). `tsc -b --noEmit` exit 0; `npm run build` exit 0 (1.11s). Commit 90bc00aa.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
