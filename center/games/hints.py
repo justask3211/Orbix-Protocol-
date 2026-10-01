@@ -227,6 +227,25 @@ LATER_POLICIES: dict[str, HintPolicy] = {
                     kinds=(HintKind(id="planned", audience="private", description=desc),))
     for tid, desc in _LATER
 }
+LATER_POLICIES.pop("live-quiz", None)
+LIVE_QUIZ = HintPolicy(
+    template_id="live-quiz",
+    version=1,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="elimination",
+            audience="private",
+            budget=None,  # per-question budget comes from hintEliminations in rules
+            description=(
+                "Strikes out one wrong answer choice for the current question, kept "
+                "private to the asking player. The server verifies every eliminated "
+                "choice is wrong, so the cue narrows the set without ever pointing at "
+                "the answer. Budget per question is the creator's hint_eliminations cap."
+            ),
+        ),
+    ),
+)
 LATER_POLICIES["logo-bingo"] = HintPolicy(
     template_id="logo-bingo", version=1, implemented=False,
     kinds=(HintKind(id="planned", audience="public",
@@ -240,7 +259,7 @@ HINT_POLICIES: dict[str, HintPolicy] = {
     p.template_id: p
     for p in (
         NUMBER_HUNT, HASH_HUNT, BOSS_RAID, BINGO, LOGO_BINGO_LIVE, RPS_DUEL,
-        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, *LATER_POLICIES.values(),
+        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, LIVE_QUIZ, *LATER_POLICIES.values(),
     )
 }
 

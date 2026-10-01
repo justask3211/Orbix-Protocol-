@@ -74,6 +74,10 @@ class QuizRules(Strict):
     pass_percentage: int = Field(default=60, ge=0, le=100)
     top_n: int = Field(default=3, ge=1, le=50)
     questions: list[QuizQuestion] = Field(default_factory=list, max_length=30)
+    # D5 hint policy: elimination cues narrow the choice set without revealing the
+    # answer. `hint_eliminations` caps how many choices a player may see struck out.
+    hints: Literal["off", "on"] = "off"
+    hint_eliminations: int = Field(default=1, ge=1, le=3)
 
     @model_validator(mode="after")
     def _rules(self) -> "QuizRules":
