@@ -5,7 +5,26 @@
   "vaultTx": "0xc5b6eec7b7e3d74b97555d213867a54770d621f651036bb663150e13aeecbeeb",
   "rewardToken": "0x9d6EA9FbEF2b244FB30f6E775f2DA3CC431b733e",
   "rewardTokenName": "Free Test Token (FREE)",
-  "note": "ORBIX 0x16C5...6db1 curve-locked pre-graduation; vault funded with 500k FREE pending ORBIX graduation. DepositVault credited via balanceOf; real ORBIX custody activates when curve lock lifts (swap vaultToken).",
+  "rewardAmount": "500000 FREE",
   "fundedAt": "2026-10-01",
-  "rewardAmount": "500000 FREE"
+  "gamePot": {
+    "address": "0x2acb02dcf0012d2ca98c8526dba78dad647b32f6",
+    "tx": "0xaa2508e6ae66f04170378bdaba7e12d654ac3d7d580506f332fb6f2368e3417d",
+    "authority": "0x253db2d543b10c94918de97eb8499ee59ab9087e",
+    "treasury": "0x253db2d543b10c94918de97eb8499ee59ab9087e",
+    "feeBps": 0,
+    "maxFeeBps": 1000,
+    "rewardInventorySeed": "50000 FREE",
+    "features": [
+      "entry fee pot per room (any ERC20 or free entry)",
+      "creator payoutWallet + creatorShareBps — pot share routes to the creator's chosen wallet",
+      "creator locks a reward (ERC20 tokens or an ERC721 NFT); the contract holds it until settlement",
+      "settlement signed by authority; Mode.Auto pushes pot shares + rewards to winners instantly, Mode.Manual = pull-based claim with an authority signature",
+      "cancel room + per-player entry refund",
+      "creator reclaims unclaimed rewards after the claim deadline",
+      "treasury sweepDust — only uncommitted surplus; pots and locked rewards are tracked via tokenCommitted and can never be swept"
+    ],
+    "note": "CenterGamePot v1 — per-room entry fees and locked rewards. The DepositVault (0x33e0...0aa3) stays the creator deposit path; the pot handles room entry fees and rewards. Treasury = admin 9087e wallet: receives sweepable dust and protocol rake (feeBps, currently 0), never player entries.",
+    "deployedAt": "2026-10-01"
+  }
 }
