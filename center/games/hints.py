@@ -159,8 +159,9 @@ REACTION_DUEL = HintPolicy(
             id="round-progress",
             audience="public",
             description=(
-                "Round counter, window timers and commit status only. No move data "
-                "before the engine's reveal."
+                "Shared round counter, phase (commit/reveal), and per-player commit/reveal "
+                "status. An opponent's choice stays committed (hashed) until the engine "
+                "opens the reveal phase, so progress is all the feed ever shows."
             ),
         ),
     ),
