@@ -63,7 +63,10 @@ class JsonRpc:
     def call(self, method: str, params: list) -> object:
         self._id += 1
         body = json.dumps({"jsonrpc": "2.0", "id": self._id, "method": method, "params": params}).encode()
-        req = urllib.request.Request(self.url, data=body, headers={"Content-Type": "application/json"})
+        req = urllib.request.Request(self.url, data=body, headers={
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+        })
         with urllib.request.urlopen(req, timeout=20) as resp:
             payload = json.loads(resp.read())
         if "error" in payload:
