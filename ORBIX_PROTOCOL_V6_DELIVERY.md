@@ -211,6 +211,13 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Wizard: Puzzle Sprint hint panel (off/on + hints-per-player + move penalty) + defaults; registry policy v2.
 - Evidence: pytest 167/167 green (8 new in test_puzzle_hints.py incl. legality-on-current-board, played suggestion succeeds, path-non-leak shape, budget, penalty, privacy, snapshot). tsc exit 0; vite build exit 0. Commit 55a579a6.
 
+### 2026-10-02 addendum 7 — D7 Token Catch, release-one hint ladder COMPLETE
+
+- **Real leak fixed**: CatchEngine's `recent` public window previously published spawns up to +500ms in the FUTURE with lane and point values — a bot could pre-position before spawns fell. The window now contains only ALREADY-FALLEN spawns (last 300ms); the existing 250ms server-side catch tolerance covers latency, and future lanes/timings/hazards stay secret. Pinned by test.
+- Registry: token-catch policy v2 implemented (kind `lane-tempo`). Wizard copy already described the intended style truthfully.
+- Evidence: pytest 174/174 green (6 new in test_catch_hints.py + registry updates). tsc exit 0; vite build exit 0. Commit 5a5c87db.
+- Release-one hint ladder (D4-D11) is now complete: number-hunt, live-quiz, memory-match, token-catch, reaction-duel, rps-duel, puzzle-sprint, hash-hunt, boss-raid all server-safe and test-pinned. Later-catalog feeds (D12-D22) remain honestly marked unimplemented.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
