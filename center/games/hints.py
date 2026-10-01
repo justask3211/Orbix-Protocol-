@@ -167,6 +167,23 @@ REACTION_DUEL = HintPolicy(
     ),
 )
 
+TOKEN_CATCH = HintPolicy(
+    template_id="token-catch",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="lane-tempo",
+            audience="public",
+            description=(
+                "Live window of ALREADY-FALLEN spawns only (last 300ms), so players "
+                "can verify what they just saw. Future spawn lanes, timings and "
+                "hazards are never exposed — a bot cannot pre-position."
+            ),
+        ),
+    ),
+)
+
 MEMORY_MATCH = HintPolicy(
     template_id="memory-match",
     version=2,
@@ -212,8 +229,6 @@ PUZZLE_SPRINT = HintPolicy(
 _LATER = (
     ("live-quiz", "Category and elimination cues only; answers stay server-side."),
     ("quiz", "Category and elimination cues only; answers stay server-side."),
-    ("catch", "Tempo and lane-pressure cue; never future spawn positions."),
-    ("token-catch", "Tempo and lane-pressure cue; never future spawn positions."),
     ("reward-grid", "Capped proximity clue, budget-limited per player."),
     ("pattern-recall", "Bounded replay of an already-shown segment only."),
     ("typing-sprint", "Personal pace/accuracy cue; never other players' text."),
@@ -231,6 +246,7 @@ LATER_POLICIES: dict[str, HintPolicy] = {
     for tid, desc in _LATER
 }
 LATER_POLICIES.pop("live-quiz", None)
+LATER_POLICIES.pop("token-catch", None)
 LIVE_QUIZ = HintPolicy(
     template_id="live-quiz",
     version=1,
@@ -262,7 +278,7 @@ HINT_POLICIES: dict[str, HintPolicy] = {
     p.template_id: p
     for p in (
         NUMBER_HUNT, HASH_HUNT, BOSS_RAID, BINGO, LOGO_BINGO_LIVE, RPS_DUEL,
-        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, LIVE_QUIZ, *LATER_POLICIES.values(),
+        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, LIVE_QUIZ, TOKEN_CATCH, *LATER_POLICIES.values(),
     )
 }
 

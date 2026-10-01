@@ -140,14 +140,14 @@ class CatchEngine(Engine):
             "winThreshold": self.rules.win_threshold,
             "scores": dict(self.score),
             "lanesNow": dict(self.lane),
-            # A short live window only. The full timeline stays secret so a bot cannot
-            # pre-solve the round; the server still enforces lane, time window and rate.
+            # A short live window of ALREADY-FALLEN spawns only. Future spawns (lane,
+            # timing, points) stay secret so a bot cannot pre-solve the round; the
+            # 250ms server-side catch tolerance covers network latency instead.
             "nowMs": self.elapsed_ms(getattr(self, "now", self.started_at)),
             "recent": [
                 {"index": s.index, "lane": s.lane, "atMs": s.at_ms, "points": s.points}
                 for s in self.spawns
-                if self.elapsed_ms(getattr(self, "now", self.started_at)) - 300 <= s.at_ms
-                <= self.elapsed_ms(getattr(self, "now", self.started_at)) + 500
+                if 0 <= self.elapsed_ms(getattr(self, "now", self.started_at)) - s.at_ms <= 300
             ],
             "finished": self.finished,
         }
