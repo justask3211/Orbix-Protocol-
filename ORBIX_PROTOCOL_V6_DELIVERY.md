@@ -182,6 +182,13 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Registry: `live-quiz` HintPolicy marked implemented (kind `elimination`, private audience).
 - Evidence: `PYTHONPATH=~/vibeswap center/.venv/bin/pytest tests` 133/133 green (8 new in test_quiz_hints.py incl. non-leak invariant, budget, privacy, snapshot, after-window, scores-unchanged). `tsc -b --noEmit` exit 0; `npm run build` exit 0 (1.11s). Commit 90bc00aa.
 
+### 2026-10-02 addendum 2 — D6 Memory Match hints
+
+- MemoryRules gains `hints: off|on` and `hint_budget: 1..5` (per-player, per-round).
+- MemoryEngine gains a server-side `hint` action: privately reveals ONE hidden matching pair (two verified indices from the secret layout) to the asking player; never touches matched cards, never exposes the board. Hard per-player budget; hints cost no moves and cannot change scores. `hintsLeft` snapshot round-trips.
+- Wizard: Memory Match hint panel (off/on + reveals-per-player) + defaults. Registry policy v2 marked implemented.
+- Evidence: pytest 141/141 green (8 new in test_memory_hints.py incl. pair-actually-matches, exposure cap, budget, privacy, no-score-impact, snapshot). tsc exit 0; vite build exit 0. Commit 4c7b532b.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
