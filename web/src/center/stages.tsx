@@ -65,6 +65,10 @@ export function NumberHuntStage({ state, act, me, finished }: StageProps) {
     return () => window.clearTimeout(t)
   }, [flash])
 
+  const hiddenRef = useRef<HTMLInputElement>(null)
+  const activeSlot = Math.min(value.length, digits - 1)
+  const focusPad = () => hiddenRef.current?.focus()
+
   return (
     <div className="st">
       <div className="st-row">
@@ -74,20 +78,28 @@ export function NumberHuntStage({ state, act, me, finished }: StageProps) {
         {hud('Hints', state.hints === 'on' ? 'on' : 'off')}
       </div>
 
-      <div className="digits">
+      {/* The slots themselves are the input: tap/click then type or paste. A hidden
+          field keeps mobile numeric keyboards and caret handling; slots are pure view. */}
+      <div
+        className={`digits pad${finished ? ' done' : ''}`}
+        onClick={focusPad}
+        role="button"
+        tabIndex={-1}
+        aria-label={`Enter ${digits} digit guess`}
+      >
         {slots.map((d, i) => (
-          <span key={i} className={`digit${d ? ' filled' : ''}`}>
-            {d || '·'}
+          <span
+            key={i}
+            className={`digit${d ? ' filled' : ''}${!finished && i === activeSlot ? ' caret' : ''}`}
+          >
+            {d || ''}
           </span>
         ))}
-      </div>
-
-      <div className="st-row">
         <input
-          className="pad-input"
+          ref={hiddenRef}
+          className="pad-hidden"
           inputMode="numeric"
           autoComplete="off"
-          placeholder={`${digits} digits`}
           value={value}
           disabled={finished}
           onChange={(e) => setValue(sanitise(e.target.value))}
@@ -95,8 +107,14 @@ export function NumberHuntStage({ state, act, me, finished }: StageProps) {
             e.preventDefault()
             setValue(sanitise(e.clipboardData.getData('text')))
           }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submit()
+          }}
           aria-label="Your guess"
         />
+      </div>
+
+      <div className="st-row">
         <button className="btn-primary" onClick={submit} disabled={finished || value.length !== digits}>
           {finished ? 'Round over' : 'Submit guess'}
         </button>
