@@ -243,6 +243,13 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Registry: reward-grid + logo-bingo policies v2 implemented; later-catalog list shrinks accordingly.
 - Evidence: pytest 190/190 green (9 new in test_grid_bingo_hints.py). Commit d00e0b7d.
 
+### 2026-10-02 addendum 12 — D14/D15 recall + typing feeds
+
+- D14 Pattern Recall: private bounded-replay hint re-sends EXACTLY the already-visible prefix (`sequence[:step]`) and nothing beyond it — proven equal to `public_state()["visibleSequence"]` and strictly shorter than the full sequence. Budget 2/round, snapshot-safe.
+- D15 Typing Sprint: private pace cue derived ONLY from the asker's own server-verified keystroke log (median inter-key ms of the last 5 keys + pace flag: warming-up/sprinting/steady/slowing/stalled). A player who never typed gets "warming-up" with keys=0 — the cue mathematically cannot describe another player. Budget 5, snapshot-safe.
+- Registry: pattern-recall + typing-sprint v2 implemented.
+- Evidence: pytest 198/198 green (8 new in test_recall_type_hints.py). Commit 8c20482b.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
