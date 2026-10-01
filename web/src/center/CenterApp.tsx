@@ -65,9 +65,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 function Banner() {
   return (
-    <div className="ct-banner">
-      <strong>Preview build.</strong> Rooms run on our server, vault balances are simulated, and no real funds move.
-      Rewards appear as points with a claim code until the token and funded-escrow flags are switched on.
+    <div className="ct-banner" role="status">
+      <strong>Reward status.</strong> Preview rooms award points only. Where available, on-chain wallet and vault balances are shown separately; every room must state its actual funded reward before entry.
     </div>
   )
 }
@@ -176,10 +175,10 @@ export function Catalog({ session: _session }: { session: ReturnType<typeof useS
     <div className="ct-page ct-catalog">
       <Banner />
       <section className="ct-hero">
-        <div className="ct-hero-copy"><span className="ct-kicker">ORBITAL PLAYGROUND · CENTER</span><h1>Make a room<br/><i>worth joining.</i></h1><p className="sub">Create a game, share one link, and watch the room come alive. Center is in preview: play is real-time, balances and rewards are simulated.</p><div className="ct-hero-actions"><button className="btn-primary" onClick={() => go('/center/create')}>Create a room <span aria-hidden>↗</span></button><button className="btn-ghost" onClick={() => document.querySelector('.ct-sub')?.scrollIntoView({ behavior: 'smooth' })}>Browse formats <span aria-hidden>↓</span></button></div><div className="ct-hero-meta"><span><i className="live-dot"/> Rooms update live</span><span>19 formats ready</span></div></div>
+        <div className="ct-hero-copy"><span className="ct-kicker">ROOMS FOR YOUR COMMUNITY</span><h1>Make a room<br/><i>worth joining.</i></h1><p className="sub">Launch a live game, set its hint rules and reward mode, then share one link. Every room labels preview and funded assets before play.</p><div className="ct-hero-actions"><button className="btn-primary" onClick={() => go('/center/create')}>Create a room <span aria-hidden>↗</span></button><button className="btn-ghost" onClick={() => document.querySelector('.ct-sub')?.scrollIntoView({ behavior: 'smooth' })}>Browse formats <span aria-hidden>↓</span></button></div><div className="ct-hero-meta"><span><i className="live-dot"/> Rooms update live</span><span>{templates.data?.count ?? templates.data?.templates.length ?? 19} game formats</span></div></div>
         <div className="ct-hero-orbit" aria-hidden="true"><span className="ct-orbit-label">CENTER / 01</span><span className="ct-orbit-ring ring-a"/><span className="ct-orbit-ring ring-b"/><span className="ct-orbit-core">C</span><span className="ct-orbit-dot dot-a"/><span className="ct-orbit-dot dot-b"/></div>
       </section>
-      <div className="ct-signal-row"><span><b>19</b> game formats</span><span><b>LIVE</b> room play</span><span><b>0</b> funded rewards today</span></div>
+      <div className="ct-signal-row"><span><b>{templates.data?.count ?? templates.data?.templates.length ?? 19}</b> game formats</span><span><b>LIVE</b> room play</span><span><b>Testnet</b> funded rewards</span></div>
       <header className="ct-head">
         <div><span className="ct-kicker">FORMAT LIBRARY</span><h2 className="ct-sub">Find your kind of chaos.</h2><p className="sub">From quick duels to co-op raids, every format is ready to configure.</p></div>
         <div className="ct-head-count"><b>{String(shown.length).padStart(2, '0')}</b><span>FORMATS</span></div>
@@ -274,6 +273,27 @@ type DraftState = {
   playerCap: number
   minReady: number
   rewardPoints: number
+}
+
+const HINT_POLICIES: Record<string, string> = {
+  'live-quiz': 'Questions reveal progressively. Future mode: category clue or one wrong-choice elimination, never answer keys.',
+  'memory-match': 'No live hint. Future mode: one bounded pair reveal that cannot expose the remaining board.',
+  'token-catch': 'No hint feed. Future mode: lane and tempo cue without revealing future spawns.',
+  'reaction-duel': 'Only shared round and commit/reveal progress. Opponent choice stays hidden until reveal.',
+  'puzzle-sprint': 'No live hint. Future mode: one legal-move suggestion with a creator-set use limit.',
+  'hash-hunt': 'Difficulty and mining progress only. Never expose a solution nonce.',
+  'boss-raid': 'Shared phase and weakness cue; no hidden participant actions.',
+  'rps-duel': 'Commit/reveal status only. Opponent choice remains private until both reveals.',
+  'reward-grid': 'No hint feed yet. Proximity hints remain disabled until bounded hint budgets are implemented.',
+  'logo-bingo': 'Shared call history is visible to all players.',
+  'pattern-recall': 'No hint feed yet. Bounded sequence replay is planned, not active.',
+  'typing-sprint': 'Show personal accuracy and pace only; never reveal another player’s input.',
+  'maze-race': 'No hint feed yet. Budgeted directional clues are planned, not active.',
+  'level-runner': 'Checkpoint state only. Future mode may show one checkpoint cue.',
+  'contract-detective': 'No hint feed until creator-curated evidence clues are configured.',
+  'mev-rush': 'Simulation queue status only; no real transaction or private target disclosure.',
+  'idle-rig': 'Show verified efficiency stats only; no hidden payout or offline earnings hint.',
+  'airdrop-quest': 'Show remaining verified quest conditions for the current player only.',
 }
 
 const DEFAULT_RULES: Record<string, Record<string, unknown>> = {
@@ -653,14 +673,26 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
             <input type="checkbox" checked={draft.absorbsJoinerFee} onChange={(e) => set('absorbsJoinerFee', e.target.checked)} />
             <span>I absorb the joiner fee (players join free; it comes from my balance)</span>
           </label>
-          <label>
-            <span>Hint feed</span>
-            <select value={draft.hintVisibility} onChange={(e) => set('hintVisibility', e.target.value as DraftState['hintVisibility'])}>
-              <option value="private">Private — only the guessing player</option>
-              <option value="public">Public — room feed shows higher/lower</option>
-            </select>
-            <small>Number Hunt only for now; other formats get their own safe hint method in the upgrade pass.</small>
-          </label>
+          <div className="ct-hint-policy">
+            <div className="ct-hint-icon" aria-hidden="true">{draft.templateId === 'number-hunt' ? '↕' : draft.templateId === 'live-quiz' ? '?' : '◇'}</div>
+            <div>
+              <strong>{draft.templateId.replaceAll('-', ' ')} hint policy</strong>
+              {draft.templateId === 'number-hunt' ? (
+                <>
+                  <p>Higher or lower after a miss. Choose whether the room feed attributes each hint publicly or keeps it private to the guesser.</p>
+                  <label className="ct-hint-select">
+                    <span>Who sees hint results</span>
+                    <select value={draft.hintVisibility} onChange={(e) => set('hintVisibility', e.target.value as DraftState['hintVisibility'])}>
+                      <option value="private">Private to the guessing player</option>
+                      <option value="public">Public room feed with guesser and direction</option>
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <p>{HINT_POLICIES[draft.templateId] ?? 'A safe, game-specific clue policy is planned but not yet configured. This game currently gives no hint feed.'}</p>
+              )}
+            </div>
+          </div>
           <label>
             <span>Creator entry token</span>
             <input value={draft.entryToken} disabled placeholder="Available after funded testnet gate" onChange={(e) => set('entryToken', e.target.value)} />
@@ -1098,6 +1130,7 @@ export function CenterApp() {
 
   return (
     <div className="ct-app">
+      <a className="ct-skip-link" href="#center-main">Skip to content</a>
       <header className="ct-topbar">
         <a className="ct-brand" href="/center" onClick={(e) => { e.preventDefault(); go('/center') }}>
           <span className="orb" />
@@ -1120,7 +1153,7 @@ export function CenterApp() {
         </a>
         <WalletChip session={session} />
       </header>
-      <main className="ct-main">{body}</main>
+      <main className="ct-main" id="center-main" tabIndex={-1}>{body}</main>
     </div>
   )
 }
