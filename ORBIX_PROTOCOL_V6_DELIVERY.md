@@ -218,6 +218,11 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Evidence: pytest 174/174 green (6 new in test_catch_hints.py + registry updates). tsc exit 0; vite build exit 0. Commit 5a5c87db.
 - Release-one hint ladder (D4-D11) is now complete: number-hunt, live-quiz, memory-match, token-catch, reaction-duel, rps-duel, puzzle-sprint, hash-hunt, boss-raid all server-safe and test-pinned. Later-catalog feeds (D12-D22) remain honestly marked unimplemented.
 
+### 2026-10-02 addendum 8 — E3 conservation invariants (E-section, 2x priority)
+
+- New `test/center/CenterGamePotInvariants.t.sol` pins the formal accounting properties: I1 custody >= liabilities (tokenCommitted never exceeds contract balance, checked across every lifecycle step); I2 sweepDust can never move committed value (max-amount sweep attempt leaves treasury untouched); I3 no double payout (one-time claim nonces + settle digest replay rejected with exact revert); I4 exact conservation (rake + creator cut + winner payout + retained liability = total entry fees, verified to the wei in AUTO and MANUAL flows, and refund path returns custody to zero).
+- Evidence: forge 79/79 tests green (4 new invariants). Commit 09bae0f9.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
