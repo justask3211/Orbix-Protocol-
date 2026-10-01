@@ -82,3 +82,7 @@ Local Foundry coverage reported by the audit: **27 Center contract tests passing
 4. Roll per-game hint menus and premium UI through all 19 formats, then comprehensive verification and deploy.
 
 No value-bearing feature is “done” just because a form exists. A fee, burn, conversion, or claim is complete only when wallet signatures, on-chain receipt, server readback, refunds, and adverse-path tests agree.
+
+## Update 2026-10-01
+
+See ORBIX_PROTOCOL_V6_DELIVERY.md "Delivery log — 2026-10-01": admin pricing backend shipped and tested (117 green), top bar + wizard + digit-pad UX shipped and browser-verified live on Railway (deploys 28962928, 704af5c8). Funded paths remain gated: candidate ORBIX is curve-locked pre-graduation.
