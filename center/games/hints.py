@@ -188,7 +188,7 @@ MEMORY_MATCH = HintPolicy(
 
 PUZZLE_SPRINT = HintPolicy(
     template_id="puzzle-sprint",
-    version=1,
+    version=2,
     implemented=True,
     kinds=(
         HintKind(
@@ -196,8 +196,9 @@ PUZZLE_SPRINT = HintPolicy(
             audience="private",
             budget=3,
             description=(
-                "Suggests one legal next move (not the full solution path), three "
-                "times per round max. Each use adds a small time penalty to the score."
+                "Suggests ONE legal next move (the tile adjacent to the blank right "
+                "now), never the full solution path. Each use costs a small move "
+                "penalty toward the score, and the creator caps uses per player."
             ),
         ),
     ),

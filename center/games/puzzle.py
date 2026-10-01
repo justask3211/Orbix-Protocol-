@@ -24,6 +24,9 @@ class PuzzleEngine(Engine):
         self.started_at: float = 0.0
         self.finished: bool = False
         self.completed_by: str | None = None
+        # D9: per-player hint budget remaining + penalty moves accrued
+        self.hints_left: dict[str, int] = {}
+        self.penalty: dict[str, int] = {}
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -59,6 +62,8 @@ class PuzzleEngine(Engine):
         self.board = board
         for p in self.participants:
             self.moves[p] = 0
+            self.hints_left[p] = self.rules.hint_budget if self.rules.hints == "on" else 0
+            self.penalty[p] = 0
         self.started_at = now
 
     def tick(self, now: float) -> ActionResult | None:
@@ -75,7 +80,10 @@ class PuzzleEngine(Engine):
         self._require_participant(who)
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
-        if action.get("kind") != "move":
+        kind = action.get("kind")
+        if kind == "hint":
+            return self._hint(who)
+        if kind != "move":
             return ActionResult(False, "BAD_ACTION")
         tile = action.get("tile")
         if not isinstance(tile, int) or isinstance(tile, bool) or tile == 0:
@@ -104,6 +112,36 @@ class PuzzleEngine(Engine):
             scores=self.scores(),
         )
 
+    def _hint(self, who: str) -> ActionResult:
+        """D9: suggest ONE legal move, privately, never the full solution path.
+
+        Non-leak invariant: the suggestion is a single (tile) that is adjacent to
+        the blank right now — verifiably legal, but one step only. It cannot
+        reconstruct the solution sequence. Each use costs `hint_move_penalty`
+        score-moves and consumes one unit of the hard per-player budget.
+        """
+        if self.rules.hints != "on":
+            return ActionResult(False, "HINTS_OFF")
+        if self.hints_left.get(who, 0) <= 0:
+            return ActionResult(False, "HINT_BUDGET_EXHAUSTED")
+        if self.moves.get(who, 0) >= self.rules.move_cap:
+            return ActionResult(False, "BUDGET_EXHAUSTED")
+        blank = self.board.index(0)
+        options = [t for t in self._neighbors(blank) if self.board[t] != 0]
+        if not options:
+            return ActionResult(False, "NO_HINTS_LEFT")
+        # deterministic: suggest the smallest-valued legal tile
+        tile = min(self.board[t] for t in options)
+        self.hints_left[who] -= 1
+        self.penalty[who] = self.penalty.get(who, 0) + self.rules.hint_move_penalty
+        return ActionResult(
+            True,
+            patch={"hintUsed": {"who": who}},
+            private={"suggestedTile": tile, "hintsLeft": self.hints_left[who],
+                     "penaltyMoves": self.penalty[who]},
+            scores=self.scores(),
+        )
+
     def eligible(self) -> set[str]:
         """Solved it or nothing: an unfinished puzzle is not a rewardable round."""
         return {self.completed_by} if self.completed_by else set()
@@ -111,9 +149,7 @@ class PuzzleEngine(Engine):
     # ------------------------------------------------------------------ results
 
     def score_of(self, who: str) -> float:
-        if self.rules.score_mode == "moves":
-            return float(self.moves.get(who, 0))
-        return float(self.moves.get(who, 0))
+        return float(self.moves.get(who, 0) + self.penalty.get(who, 0))
 
     def scores(self) -> dict[str, float]:
         return {p: self.score_of(p) for p in self.participants}
@@ -132,6 +168,9 @@ class PuzzleEngine(Engine):
             "board": list(self.board),
             "moves": dict(self.moves),
             "scoreMode": self.rules.score_mode,
+            "hints": self.rules.hints,
+            "hintBudget": self.rules.hint_budget,
+            "hintMovePenalty": self.rules.hint_move_penalty,
             "durationSeconds": self.rules.duration_seconds,
             "finished": self.finished,
             "completedBy": self.completed_by,
@@ -143,6 +182,8 @@ class PuzzleEngine(Engine):
             "size": self.size,
             "board": self.board,
             "moves": self.moves,
+            "hintsLeft": self.hints_left,
+            "penalty": self.penalty,
             "startedAt": self.started_at,
             "finished": self.finished,
             "completedBy": self.completed_by,
@@ -152,6 +193,11 @@ class PuzzleEngine(Engine):
         self.size = int(snapshot.get("size", 3))
         self.board = list(snapshot.get("board", []))
         self.moves = dict(snapshot.get("moves", {}))
+        self.hints_left = dict(snapshot.get("hintsLeft", {}))
+        self.penalty = dict(snapshot.get("penalty", {}))
+        for p in self.participants:
+            self.hints_left.setdefault(p, 0)
+            self.penalty.setdefault(p, 0)
         self.started_at = float(snapshot.get("startedAt", 0.0))
         self.finished = bool(snapshot.get("finished", False))
         self.completed_by = snapshot.get("completedBy")

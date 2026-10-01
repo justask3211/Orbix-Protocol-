@@ -131,6 +131,11 @@ class PuzzleRules(Strict):
     move_cap: int = Field(default=300, ge=10, le=1000)
     score_mode: Literal["time", "moves"] = "time"
     top_n: int = Field(default=3, ge=1, le=50)
+    # D9 hint policy: one legal-move suggestion per use, capped per player; each
+    # use adds a small move-count penalty so hints cannot beat pure play.
+    hints: Literal["off", "on"] = "off"
+    hint_budget: int = Field(default=3, ge=1, le=10)
+    hint_move_penalty: int = Field(default=2, ge=0, le=10)
 
 
 class HashHuntRules(Strict):
