@@ -2,7 +2,11 @@
    charcoal #0b0c0e, panel #121416, line #272a2d, muted #85888d,
    solar orange #ff6b22, green #a4d46d, live teal #69d9c8, Manrope + DM Mono. */
 
-.ct-app{display:flex;min-height:100vh;background:radial-gradient(circle at 84% 0%,#1d1611 0,transparent 30rem),var(--bg)}
+.ct-app{display:flex;flex-direction:column;min-height:100vh;background:radial-gradient(circle at 84% 0%,#1d1611 0,transparent 30rem),var(--bg)}
+.ct-topbar{display:flex;align-items:center;gap:6px;padding:0 18px;height:58px;position:sticky;top:0;z-index:40;background:#0c0c0dF2;backdrop-filter:blur(8px);border-bottom:1px solid var(--line);overflow-x:auto;flex:0 0 auto}
+.ct-topbar .brand-text{display:flex;flex-direction:column;line-height:1.05}
+.ct-topbar .brand-text b{font-size:15px;letter-spacing:.16em}
+.ct-topbar .brand-text small{color:#6c7075;font:9px 'DM Mono';letter-spacing:.24em}
 .ct-nav{width:214px;flex:0 0 214px;border-right:1px solid var(--line);padding:22px 12px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
 .ct-brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:inherit;padding:0 10px 18px}
 .ct-brand b{font-size:15px;letter-spacing:.16em}
@@ -13,7 +17,14 @@
 .ct-nav-item:hover{background:#16181a;color:#e9e7e2}
 .ct-nav-item.on{background:#1b1b19;color:#fff;box-shadow:inset 2px 0 0 var(--orange)}
 .ct-nav-item.back{margin-top:auto;color:#6c7075;font-size:12px}
-.ct-wallet{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:6px;display:flex;align-items:center;gap:7px;font-size:11px}
+.ct-wallet{margin-left:auto;display:flex;align-items:center;gap:9px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:#121416;font-size:12px;flex:none}
+.ct-wallet .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+.ct-wallet .dot.off{background:#4a4d50;box-shadow:none}
+.ct-wallet-addr{background:none;border:0;color:#e9e7e2;font:inherit;cursor:pointer;padding:0}
+.ct-wallet-bal{color:var(--orange);font-family:'DM Mono',monospace;font-size:12px;white-space:nowrap}
+.ct-wallet-connect{background:var(--orange);color:#141414;border:0;border-radius:6px;padding:6px 14px;font-weight:700;font-size:12px;cursor:pointer}
+.ct-wallet-connect:disabled{opacity:.6}
+.ct-wallet-connect:hover{filter:brightness(1.1)}
 .ct-wallet .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
 .ct-wallet .mono{flex:1}
 .link{background:none;border:0;color:var(--orange);cursor:pointer;font-size:11px;padding:0}
@@ -144,11 +155,11 @@
 .slider{display:flex;align-items:center;gap:10px;font-size:12px;color:#c3c0ba}
 @media (max-width:820px){
   .ct-app{flex-direction:column}
-  .ct-nav{width:100%;flex:none;height:auto;position:static;flex-direction:row;align-items:center;gap:6px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}
-  .ct-brand{padding:0 10px 0 4px}
+  .ct-topbar{height:auto;padding:8px 12px;flex-wrap:wrap;gap:6px;overflow-x:visible}
+  .ct-topbar .ct-brand{padding:0 8px 0 0}
   .ct-nav-item{padding:8px 10px;white-space:nowrap}
-  .ct-nav-item.back{margin-top:0;margin-left:auto}
-  .ct-wallet{margin-top:0}
+  .ct-nav-item.back{margin-left:0}
+  .ct-wallet{margin-left:auto}
   .ct-main{padding:18px 14px 48px}
   .ct-hero{grid-template-columns:1fr;min-height:0;padding:28px 20px}.ct-hero-orbit{position:absolute;right:-80px;bottom:-75px;opacity:.42;transform:scale(.75)}.ct-signal-row{gap:12px;overflow:auto}.ct-signal-row span{min-width:140px}
   .digits{gap:6px}

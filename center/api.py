@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from center import lifecycle as lc
 from center import settlement as st
+from center.pricing import ADMIN_ADDRESS, FeeSchedule, SETTING_KEY, caps as pricing_caps
 from center.room import PROTOCOL_VERSION, Hub, RoomRuntime, Scheduler
 from center.schema import TEMPLATE_META, RoomConfig, normalise_keys, parse_rules
 from center.store import Store
@@ -93,6 +94,15 @@ class Auth:
         self._nonces[f"{address.lower()}:{n}"] = time.time() + 300
         return n
 
+    def consume_nonce(self, address: str, nonce: str) -> bool:
+        """Pop a pending nonce if it is live; single-use either way."""
+        key = f"{address.lower()}:{nonce}"
+        exp = self._nonces.get(key)
+        if not exp or exp < time.time():
+            return False
+        self._nonces.pop(key, None)
+        return True
+
     def verify(self, address: str, nonce: str, signature: str) -> str | None:
         key = f"{address.lower()}:{nonce}"
         exp = self._nonces.get(key)
@@ -154,7 +164,7 @@ class StartBody(BaseModel):
 # --------------------------------------------------------------------- app factory
 
 
-def create_app(*, db_path: str | None = None, authenticator: Auth | None = None, onchain: OnchainVault | None = None) -> FastAPI:
+def create_app(*, db_path: str | None = None, authenticator: Auth | None = None, onchain: OnchainVault | None = None, admin_address: str | None = None) -> FastAPI:
     flags = Flags.from_env()
     problems = flags.validate_startup()
     if problems:
@@ -164,6 +174,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     vault = VaultService(store, onchain=onchain)
     hub = Hub()
     auth = authenticator or Auth()
+    admin = (admin_address or ADMIN_ADDRESS).lower()
+    used_admin_nonces: set[str] = set()
     runtimes: dict[str, RoomRuntime] = {}
     drafts: dict[str, dict] = {}
     scheduler = Scheduler(runtimes)
@@ -280,7 +292,13 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         if not address.startswith("0x") or len(address) != 42:
             raise HTTPException(422, detail={"code": "BAD_ADDRESS", "message": "expected a 0x address"})
         nonce = auth.nonce(address)
-        return {"nonce": nonce, "message": f"Orbix Center sign-in\nnonce: {nonce}"}
+        if str(body.get("purpose", "")) == "admin":
+            # Distinct admin domain: an admin proof can never be replayed as a sign-in
+            # (or vice versa) because the signed text differs.
+            message = f"Orbix Center admin action\nnonce: {nonce}"
+        else:
+            message = f"Orbix Center sign-in\nnonce: {nonce}"
+        return {"nonce": nonce, "message": message}
 
     @app.post(f"{API_PREFIX}/auth/verify")
     def auth_verify(body: dict) -> dict:
@@ -288,6 +306,53 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         if not token:
             raise HTTPException(401, detail={"code": "BAD_SIGNATURE", "message": "signature did not verify"})
         return {"token": token}
+
+    # ------------------------------------------------------------------ admin pricing
+
+    def require_admin(authorization: str | None = Header(default=None), x_admin_proof: str | None = Header(default=None, alias="X-Admin-Proof"), *, need_proof: bool) -> str:
+        token = None
+        if authorization and authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+        who = auth.check(token)
+        if not who:
+            raise HTTPException(401, detail={"code": "UNAUTHORIZED", "message": "sign in first"})
+        if who != admin:
+            raise HTTPException(403, detail={"code": "NOT_ADMIN", "message": "this wallet is not the pricing authority"})
+        if need_proof:
+            if not x_admin_proof or ":" not in x_admin_proof:
+                raise HTTPException(403, detail={"code": "PROOF_REQUIRED", "message": "a fresh signed admin proof is required"})
+            nonce, signature = x_admin_proof.split(":", 1)
+            if nonce in used_admin_nonces:
+                raise HTTPException(403, detail={"code": "PROOF_REPLAYED", "message": "this admin proof was already consumed"})
+            if not auth.consume_nonce(who, nonce):
+                raise HTTPException(403, detail={"code": "BAD_PROOF", "message": "admin proof nonce expired"})
+            try:
+                recovered = Account.recover_message(encode_defunct(text=f"Orbix Center admin action\nnonce: {nonce}"), signature=signature)
+            except Exception:
+                raise HTTPException(403, detail={"code": "BAD_PROOF", "message": "admin proof did not verify"})
+            if recovered.lower() != who:
+                raise HTTPException(403, detail={"code": "BAD_PROOF", "message": "admin proof did not verify"})
+            used_admin_nonces.add(nonce)
+        return who
+
+    @app.get(f"{API_PREFIX}/admin/pricing")
+    def get_pricing(authorization: str | None = Header(default=None)) -> dict:
+        who = require_admin(authorization, need_proof=False)
+        current = FeeSchedule.from_dict(store.get_setting(SETTING_KEY))
+        return {"pricing": current.as_dict(), "caps": pricing_caps(), "admin": admin, "chainId": 46630}
+
+    @app.patch(f"{API_PREFIX}/admin/pricing")
+    def patch_pricing(body: FeeSchedule, authorization: str | None = Header(default=None), x_admin_proof: str | None = Header(default=None, alias="X-Admin-Proof")) -> dict:
+        require_admin(authorization, x_admin_proof, need_proof=True)
+        old = FeeSchedule.from_dict(store.get_setting(SETTING_KEY))
+        store.set_setting(SETTING_KEY, body.as_dict())
+        store.append_audit(admin, "pricing.update", old.as_dict(), body.as_dict(), 46630)
+        return {"pricing": body.as_dict(), "caps": pricing_caps(), "chainId": 46630}
+
+    @app.get(f"{API_PREFIX}/admin/audit")
+    def get_audit(authorization: str | None = Header(default=None)) -> dict:
+        require_admin(authorization, need_proof=False)
+        return {"entries": store.list_audit()}
 
     # ------------------------------------------------------------------ drafts
 
@@ -351,6 +416,9 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(400, detail={"code": "VAULT_ERROR", "message": str(exc)})
 
         rt = RoomRuntime.create(store, vault, hub, owner=who, config=config)
+        # Snapshot the schedule the moment the room is published; a later admin
+        # change can never reprice an existing room.
+        store.set_setting(f"pricing:{rt.room_id}", FeeSchedule.from_dict(store.get_setting(SETTING_KEY)).as_dict())
         store.set_intent_room(intent, rt.room_id)
         store.set_intent_state(intent, "consumed")
         runtimes[rt.room_id] = rt
@@ -391,6 +459,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         return {
             "roomId": row["id"], "status": row["status"], "visibility": row["visibility"],
             "mode": row["mode"], "owner": row["owner"], "config": config,
+            "pricingSnapshot": FeeSchedule.from_dict(store.get_setting(f"pricing:{room_id}")).as_dict(),
             "participants": [
                 {"who": p["who"], "role": p["role"], "ready": bool(p["ready"])}
                 for p in store.participants(room_id)

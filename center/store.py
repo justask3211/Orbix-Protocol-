@@ -106,6 +106,20 @@ CREATE TABLE IF NOT EXISTS intents (
     state      TEXT NOT NULL,          -- reserved | consumed | refunded
     created_at REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS admin_settings (
+    key        TEXT PRIMARY KEY,
+    value_json TEXT NOT NULL,
+    updated_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS admin_audit (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor      TEXT NOT NULL,
+    action     TEXT NOT NULL,
+    old_json   TEXT NOT NULL,
+    new_json   TEXT NOT NULL,
+    chain_id   INTEGER NOT NULL,
+    created_at REAL NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_ledger_creator ON ledger(creator, id DESC);
 CREATE INDEX IF NOT EXISTS idx_actions_room ON actions(room_id, seq);
 CREATE INDEX IF NOT EXISTS idx_entitlements_winner ON entitlements(winner);
@@ -128,6 +142,43 @@ class Store:
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(SCHEMA)
         self._conn.commit()
+
+    # -- admin settings / audit (pricing authority) --------------------------
+
+    def get_setting(self, key: str) -> dict | None:
+        with self.tx() as cx:
+            row = cx.execute("SELECT value_json FROM admin_settings WHERE key = ?", (key,)).fetchone()
+            return json.loads(row[0]) if row else None
+
+    def set_setting(self, key: str, value: dict) -> None:
+        with self.tx() as cx:
+            cx.execute(
+                "INSERT INTO admin_settings (key, value_json, updated_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+                (key, json.dumps(value), time.time()),
+            )
+
+    def append_audit(self, actor: str, action: str, old: dict, new: dict, chain_id: int) -> None:
+        with self.tx() as cx:
+            cx.execute(
+                "INSERT INTO admin_audit (actor, action, old_json, new_json, chain_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (actor.lower(), action, json.dumps(old), json.dumps(new), chain_id, time.time()),
+            )
+
+    def list_audit(self, limit: int = 100) -> list[dict]:
+        with self.tx() as cx:
+            rows = cx.execute(
+                "SELECT actor, action, old_json, new_json, chain_id, created_at FROM admin_audit ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [
+            {
+                "actor": r[0], "action": r[1],
+                "oldValue": json.loads(r[2]), "newValue": json.loads(r[3]),
+                "chainId": r[4], "createdAt": r[5],
+            }
+            for r in rows
+        ]
 
     # ------------------------------------------------------------------ plumbing
 

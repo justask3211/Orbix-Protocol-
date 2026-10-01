@@ -73,17 +73,32 @@ function Banner() {
 }
 
 function WalletChip({ session }: { session: ReturnType<typeof useSession> }) {
+  const vault = useAsync(
+    () => (session.token ? center.vault(session.token) : Promise.resolve(null)),
+    [session.token],
+  )
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    navigator.clipboard?.writeText(session.address).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1200)
+    }).catch(() => undefined)
+  }
   return (
-    <div className="ct-wallet">
-      <span className="dot" />
-      <span className="mono">{shortAddress(session.address)}</span>
+    <div className="ct-wallet" title={session.address}>
+      <span className={`dot${session.token ? '' : ' off'}`} />
+      <button className="ct-wallet-addr mono" onClick={copy} title="copy address">
+        {shortAddress(session.address)}
+        {copied ? ' ✓' : ''}
+      </button>
+      <span className="ct-wallet-bal">
+        {vault.data ? `${vault.data.balance} ${vault.data.label}` : session.token ? '…' : '—'}
+      </span>
       {session.token ? (
-        <button className="link" onClick={session.signOut}>
-          sign out
-        </button>
+        <button className="link" onClick={session.signOut}>sign out</button>
       ) : (
-        <button className="link" onClick={session.signIn} disabled={session.signingIn}>
-          {session.signingIn ? 'signing in…' : 'sign in'}
+        <button className="ct-wallet-connect" onClick={session.signIn} disabled={session.signingIn}>
+          {session.signingIn ? 'signing in…' : 'Connect'}
         </button>
       )}
     </div>
@@ -1010,11 +1025,13 @@ export function CenterApp() {
 
   return (
     <div className="ct-app">
-      <nav className="ct-nav">
+      <header className="ct-topbar">
         <a className="ct-brand" href="/center" onClick={(e) => { e.preventDefault(); go('/center') }}>
           <span className="orb" />
-          <b>ORBIX</b>
-          <small>CENTER</small>
+          <span className="brand-text">
+            <b>ORBIX</b>
+            <small>CENTER</small>
+          </span>
         </a>
         {NAV.map((item) => (
           <button
@@ -1029,7 +1046,7 @@ export function CenterApp() {
           ← Cockpit
         </a>
         <WalletChip session={session} />
-      </nav>
+      </header>
       <main className="ct-main">{body}</main>
     </div>
   )
