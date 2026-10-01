@@ -295,6 +295,11 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Typed reads from the server config (room.config.access/rewards); no client-side invention of terms.
 - Evidence: tsc exit 0; vite build exit 0. Commit e7225110.
 
+### 2026-10-02 addendum 19 — deploy path + F5 live check
+
+- Deployment: this checkout has no git remote and no railway CLI; Railway builds from its own integration checkout, so today's commits (F5 disclosure, F4 suite, F2 state machine, E5 chain, E13 suite, token identity, hint ladder) reach production on the next Railway sync. Live site re-verified healthy (HTTP 200 on /center).
+- F5 panel ships behind the frontend build; verification of the live panel requires the next Railway deploy of web/. Marked as shipped-in-code, pending-live until then — per the "deployment success is not feature success" rule.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
