@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import time
 from typing import Any
@@ -249,6 +250,27 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.get(f"{API_PREFIX}/health/live")
     def health_live() -> dict:
         return {"ok": True, "service": "orbix-center", "preview": flags.preview}
+
+    @app.get(f"{API_PREFIX}/token/" + "{address}")
+    def token_identity(address: str) -> dict:
+        """Read-only on-chain token identity + conservative acceptance verdict.
+
+        Trust rule: identity comes from the chain, never from a client claim or a
+        deployment note. Burn support is reported as bytecode-detected possibility
+        only and still requires an explicit owner opt-in before any burn flow.
+        """
+        from center.token_identity import TokenInspector
+        if not re.fullmatch(r"0x[0-9a-fA-F]{40}", address):
+            raise HTTPException(status_code=422, detail="invalid token address")
+        rpc = JsonRpc(
+            os.environ.get("CENTER_RPC_URL", "https://rpc.testnet.chain.robinhood.com"),
+            flags.chain_id,
+        )
+        try:
+            return TokenInspector(rpc).inspect(address).verdict()
+        except Exception:
+            raise HTTPException(status_code=503, detail="rpc unreachable; token identity unavailable")
+
 
     @app.get(f"{API_PREFIX}/health/ready")
     def health_ready() -> dict:
