@@ -250,6 +250,17 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Registry: pattern-recall + typing-sprint v2 implemented.
 - Evidence: pytest 198/198 green (8 new in test_recall_type_hints.py). Commit 8c20482b.
 
+### 2026-10-02 addendum 13 — D16-D21: FULL 19-format hint catalog complete
+
+- D16 maze-race: private directional clue (coarse compass direction from the asker's own cell that reduces exit distance, or "no-improving-move"); layout already public, hint only saves pathfinding effort; budget 3, snapshot-safe.
+- D17 level-runner: private checkpoint telemetry from the asker's own server-authoritative run (distance, lane, crash state); obstacle stream stays secret until each reveal; budget 3.
+- D18 contract-detective: ONE static evidence cue per round (which line to focus on) — cannot encode the correct choice; explicitly not an audit verdict; 1 use.
+- D19 mev-rush: simulated queue position + own captures, explicitly labeled simulated; no live mempool claim; budget 3.
+- D20 idle-rig: server-clock-verified own efficiency readout (rate, next-upgrade cost, earned); no off-chain earning implication.
+- D21 airdrop-quest: wallet-bound remaining/completed quest lists; provably cannot issue an entitlement (test asserts achieved stays empty after a hint).
+- Registry: ALL 19 formats now implemented; the old "honestly unimplemented" test is replaced by a regression guard asserting every format stays implemented.
+- Evidence: pytest 208/208 green (12 new in test_late_hints.py). tsc exit 0; vite build exit 0. Commit 7b3304c1.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
