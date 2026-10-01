@@ -168,7 +168,7 @@ REACTION_DUEL = HintPolicy(
 
 MEMORY_MATCH = HintPolicy(
     template_id="memory-match",
-    version=1,
+    version=2,
     implemented=True,
     kinds=(
         HintKind(
@@ -176,8 +176,9 @@ MEMORY_MATCH = HintPolicy(
             audience="private",
             budget=2,
             description=(
-                "Reveals ONE extra pair briefly, twice per round max. Never maps the "
-                "whole board, so the hint cannot replace play."
+                "Reveals ONE hidden matching pair face-up, to the asking player only. "
+                "Never maps the whole board, so the hint cannot replace play. Creator "
+                "sets the per-player budget (1-5 uses)."
             ),
             cost=0,
         ),

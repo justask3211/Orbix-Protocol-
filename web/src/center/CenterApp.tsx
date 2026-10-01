@@ -308,7 +308,7 @@ const DEFAULT_RULES: Record<string, Record<string, unknown>> = {
     hint_eliminations: 1,
     questions: Array.from({ length: 5 }, (_, i) => ({ prompt: `Question ${i + 1}?`, choices: ['Choice A', 'Choice B', 'Choice C'], correct_index: 0 })),
   },
-  'memory-match': { pairs: 6, move_cap: 100, score_mode: 'moves', top_n: 3 },
+  'memory-match': { pairs: 6, move_cap: 100, score_mode: 'moves', top_n: 3, hints: 'off', hint_budget: 2 },
   'token-catch': { spawn_per_second: 2, lanes: 3, fall_speed: 'normal', hazard_chance_pct: 0, combo_cap: 3, win_threshold: 20, top_n: 3 },
   'reaction-duel': { rounds: 3, choice_window_seconds: 10, reveal_window_seconds: 5, choice_set: 'classic' },
   'puzzle-sprint': { board: 3, move_cap: 300, score_mode: 'time', top_n: 3 },
@@ -691,6 +691,30 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
                       <option value="public">Public room feed with guesser and direction</option>
                     </select>
                   </label>
+                </>
+              ) : draft.templateId === 'memory-match' ? (
+                <>
+                  <p>Bounded pair reveal: asking shows ONE hidden matching pair face-up, to that player only. It never maps the remaining board. Set how many reveals each player gets.</p>
+                  <label className="ct-hint-select">
+                    <span>Memory hints</span>
+                    <select value={draft.rules.hints === 'on' ? 'on' : 'off'} onChange={(e) => setRule('hints', e.target.value)}>
+                      <option value="off">Off</option>
+                      <option value="on">On (private pair reveal)</option>
+                    </select>
+                  </label>
+                  {draft.rules.hints === 'on' && (
+                    <label className="ct-hint-select">
+                      <span>Reveals per player</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={5}
+                        value={ruleNumber(draft.rules.hint_budget)}
+                        onChange={(e) => setRule('hint_budget', Number(e.target.value))}
+                      />
+                      <small>1 to 5 pair reveals per player per round.</small>
+                    </label>
+                  )}
                 </>
               ) : draft.templateId === 'live-quiz' ? (
                 <>

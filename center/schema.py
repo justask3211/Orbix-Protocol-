@@ -95,6 +95,10 @@ class MemoryRules(Strict):
     move_cap: int = Field(default=100, ge=10, le=200)
     score_mode: Literal["moves", "time"] = "moves"
     top_n: int = Field(default=3, ge=1, le=50)
+    # D6 hint policy: a bounded pair reveal shows ONE hidden pair face-up briefly,
+    # to the asking player only. It can never map the remaining board.
+    hints: Literal["off", "on"] = "off"
+    hint_budget: int = Field(default=2, ge=1, le=5)
 
 
 class CatchRules(Strict):
