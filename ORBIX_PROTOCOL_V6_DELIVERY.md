@@ -173,3 +173,27 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - [ ] H10 Verify exact API state and transaction receipts after changes.
 - [ ] H11 Record deployment IDs, explorer links, contract addresses, commits and rollback path.
 - [ ] H12 Clearly label remaining gated work; never claim planned features are live.
+
+## Delivery log — 2026-10-01 (session 20260929_022348)
+
+Shipped, tested (117 Python tests green) and verified live at orbixcore.fun/center:
+
+- **B02/B04/B09/B10/B11 (admin pricing backend)** — DONE: exact-wallet pricing authority
+  (0x253d…9087e, full-address match), capped creator/joiner fees, fresh single-use signed
+  admin proofs over a distinct signing domain, immutable per-room fee snapshots,
+  append-only audit log. Endpoints: GET/PATCH /api/center/v1/admin/pricing, GET /admin/audit.
+- **G09 (admin console)** — backend DONE (signed wallet gate + readback). Frontend admin
+  page still pending (owner-gated).
+- **G16 partial (real browser verification)** — top bar (single 50px sleek horizontal tab,
+  seamless wallet + balance + pill Connect), wizard no-jump format picker (picked format
+  collapses to a chip; change/continue buttons; compact 110px numeric fields), smooth
+  digit-pad input (slots are the input, glow caret, pop-fill), card/button polish — all
+  browser-verified on the deployed build.
+- **H01 partial** — Python: 117 passed. Vite: build green. Foundry run not re-executed this session.
+- **H08/H09 partial** — Railway deployments 28962928 & 704af5c8 SUCCESS (orbixcore svc);
+  live SPA bundle hash-checked; header + wizard flows clicked through in a real browser.
+
+Known blockers (unchanged, honestly gated):
+- Candidate ORBIX 0x16C5…6db1 is bonding-curve locked pre-graduation (revert 0xdb89e3f4):
+  transfers and burns revert, so funded custody/join-fee/conversion paths stay disabled.
+- Remaining owner-gated: F04, E06, G01–G08, G10–G15, H02–H07 per original ledger.
