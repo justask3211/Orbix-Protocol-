@@ -88,3 +88,7 @@ No value-bearing feature is “done” just because a form exists. A fee, burn, 
 See ORBIX_PROTOCOL_V6_DELIVERY.md "Delivery log — 2026-10-01": admin pricing backend shipped and tested (117 green), top bar + wizard + digit-pad UX shipped and browser-verified live on Railway (deploys 28962928, 704af5c8). Funded paths remain gated: candidate ORBIX is curve-locked pre-graduation.
 
 See ORBIX_PROTOCOL_V6_DELIVERY.md (2026-10-01): funded rewards live — DepositVault deployed + 500k FREE, live balance monitor, verified in browser.
+
+## 2026-10-01 Design system and audit pass
+
+See `docs/center/DESIGN_AUDIT_2026-10-01.md` for installed references, live browser evidence, design findings, implemented UX fixes, and verification results.
