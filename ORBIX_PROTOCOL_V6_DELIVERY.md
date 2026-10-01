@@ -189,6 +189,12 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Wizard: Memory Match hint panel (off/on + reveals-per-player) + defaults. Registry policy v2 marked implemented.
 - Evidence: pytest 141/141 green (8 new in test_memory_hints.py incl. pair-actually-matches, exposure cap, budget, privacy, no-score-impact, snapshot). tsc exit 0; vite build exit 0. Commit 4c7b532b.
 
+### 2026-10-02 addendum 3 — D8 duel commit/reveal invariants
+
+- Reaction Duel engine already shares only phase/commit-reveal status; new tests pin the non-leak contract: commit patches carry zero cleartext choices, public state stays choice-free until BOTH players reveal and the engine resolves, a partial reveal exposes only the revealer's own move (in the patch, never the other's), history appears only post-resolution, and salts/preimages are never published.
+- Registry: reaction-duel round-progress policy description tightened, v2.
+- Evidence: pytest 147/147 green (6 new in test_duel_hints.py). Commit f44ac28f.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
