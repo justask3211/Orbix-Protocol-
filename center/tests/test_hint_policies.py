@@ -68,9 +68,15 @@ def test_off_policy_produces_no_hint():
 
 
 def test_later_templates_are_honestly_unimplemented():
-    for tid in ("token-catch", "mev-rush", "airdrop-quest"):
+    for tid in ("mev-rush", "airdrop-quest"):
         pol = policy_for(tid)
         assert pol.implemented is False, tid
+
+
+def test_token_catch_is_now_implemented():
+    pol = policy_for("token-catch")
+    assert pol.implemented is True
+    assert "lane-tempo" in {k.id for k in pol.kinds}
 
 
 def test_live_quiz_has_implemented_elimination_policy():
