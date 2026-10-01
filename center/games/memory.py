@@ -30,6 +30,8 @@ class MemoryEngine(Engine):
         self.mismatches: dict[str, int] = {}
         self.started_at: float = 0.0
         self.finished: bool = False
+        # D6: per-player remaining pair-reveal hints
+        self.hints_left: dict[str, int] = {}
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -40,6 +42,7 @@ class MemoryEngine(Engine):
         for p in self.participants:
             self.moves[p] = 0
             self.mismatches[p] = 0
+            self.hints_left[p] = self.rules.hint_budget if self.rules.hints == "on" else 0
         self.started_at = now
 
     # ------------------------------------------------------------------ actions
@@ -48,7 +51,10 @@ class MemoryEngine(Engine):
         self._require_participant(who)
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
-        if action.get("kind") != "flip":
+        kind = action.get("kind")
+        if kind == "hint":
+            return self._hint(who)
+        if kind != "flip":
             return ActionResult(False, "BAD_ACTION")
         if self.moves.get(who, 0) >= self.rules.move_cap:
             return ActionResult(False, "BUDGET_EXHAUSTED")
@@ -87,6 +93,38 @@ class MemoryEngine(Engine):
             scores=self.scores(),
         )
 
+    def _hint(self, who: str) -> ActionResult:
+        """D6: reveal ONE hidden pair to the asking player, privately.
+
+        Non-leak invariant: the hint exposes exactly two card indices (a matching
+        pair still hidden on the board) and nothing else. It cannot map the
+        remaining board, and it never touches cards already matched. Budget is a
+        hard per-player cap set by the creator; exhausted hints are rejected.
+        """
+        if self.rules.hints != "on":
+            return ActionResult(False, "HINTS_OFF")
+        if self.hints_left.get(who, 0) <= 0:
+            return ActionResult(False, "HINT_BUDGET_EXHAUSTED")
+        # group unmatched card indices by icon id
+        groups: dict[int, list[int]] = {}
+        for idx, icon in enumerate(self.layout):
+            if idx not in self.matched:
+                groups.setdefault(icon, []).append(idx)
+        if not groups:
+            return ActionResult(False, "NO_HINTS_LEFT")
+        # deterministic pick: the lowest icon id that still has an untouched pair
+        full_pairs = [g for g in groups.values() if len(g) >= 2]
+        if not full_pairs:
+            return ActionResult(False, "NO_HINTS_LEFT")
+        pair = sorted(min(full_pairs)[:2])
+        self.hints_left[who] -= 1
+        return ActionResult(
+            True,
+            patch={"hintUsed": {"who": who}},
+            private={"revealedPair": pair, "hintsLeft": self.hints_left[who]},
+            scores=self.scores(),
+        )
+
     # ------------------------------------------------------------------ scoring
 
     def score_of(self, who: str) -> float:
@@ -117,6 +155,8 @@ class MemoryEngine(Engine):
             "pairs": self.rules.pairs,
             "moveCap": self.rules.move_cap,
             "scoreMode": self.rules.score_mode,
+            "hints": self.rules.hints,
+            "hintBudget": self.rules.hint_budget,
             "matched": sorted(self.matched),
             "moves": dict(self.moves),
             "mismatches": dict(self.mismatches),
@@ -133,6 +173,7 @@ class MemoryEngine(Engine):
             "mismatches": self.mismatches,
             "startedAt": self.started_at,
             "finished": self.finished,
+            "hintsLeft": self.hints_left,
         }
 
     def _load(self, snapshot: dict) -> None:
@@ -143,3 +184,6 @@ class MemoryEngine(Engine):
         self.mismatches = dict(snapshot.get("mismatches", {}))
         self.started_at = float(snapshot.get("startedAt", 0.0))
         self.finished = bool(snapshot.get("finished", False))
+        self.hints_left = dict(snapshot.get("hintsLeft", {}))
+        for p in self.participants:
+            self.hints_left.setdefault(p, 0)
