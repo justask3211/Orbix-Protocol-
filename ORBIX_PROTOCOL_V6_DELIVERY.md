@@ -205,6 +205,12 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Boss Raid's co-op hint surface (shared health/phase/weakness window + aggregate contribution + hit counts) is now pinned by tests: the feed shows only shared raid state, a player's private payload carries exclusively their own hit data, no pre-outcome damage/slain leak, oversized client power rejected, contribution cap and rate cap hold server-side.
 - Evidence: pytest 159/159 green (6 new in test_boss_hints.py). Commit 6813b577.
 
+### 2026-10-02 addendum 6 — D9 Puzzle Sprint hints
+
+- PuzzleRules gains `hints off|on`, `hint_budget 1..10`, `hint_move_penalty 0..10`. PuzzleEngine gains a private `hint` action suggesting ONE legal tile (adjacent to the blank on the current board, deterministically the smallest) — never a solution path. Each use consumes budget and adds the penalty to the score (score = moves + penalty), so hint-assisted play cannot beat pure play. Snapshot round-trips budget + penalty.
+- Wizard: Puzzle Sprint hint panel (off/on + hints-per-player + move penalty) + defaults; registry policy v2.
+- Evidence: pytest 167/167 green (8 new in test_puzzle_hints.py incl. legality-on-current-board, played suggestion succeeds, path-non-leak shape, budget, penalty, privacy, snapshot). tsc exit 0; vite build exit 0. Commit 55a579a6.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
