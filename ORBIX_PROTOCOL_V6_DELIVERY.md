@@ -268,6 +268,14 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Tests prove a silent UPDATE of history and a row DELETE both break verification at the exact entry.
 - Evidence: pytest 215/215 green (5 new in test_audit_chain.py). Commit 911339d8.
 
+### 2026-10-02 addendum 15 — E13 adversarial suite
+
+- New `test/center/CenterGamePotAdversarial.t.sol`:
+  - ReentrantNFT adversary fires onERC721Received DURING the auto reward payout and attempts (1) a re-settle of a room and (2) a double-claim of the same locked NFT. Both fail; the NFT reaches the winner exactly once; the room stays settled and a second settle is refused.
+  - SkimmingToken (keeps 50% of every transfer) as reward asset: lockRewardERC20 reverts ZeroAmount on partial delivery and books nothing — the pot can never owe more than it holds.
+  - SkimmingToken as ENTRY asset: enter() books exactly what arrived (20e18 of a 40e18 sticker) in pot and tokenCommitted — fee-on-transfer truth, not sticker price.
+- Evidence: forge 82/82 green (3 new). Commit cc633b10.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
