@@ -261,6 +261,13 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Registry: ALL 19 formats now implemented; the old "honestly unimplemented" test is replaced by a regression guard asserting every format stays implemented.
 - Evidence: pytest 208/208 green (12 new in test_late_hints.py). tsc exit 0; vite build exit 0. Commit 7b3304c1.
 
+### 2026-10-02 addendum 14 — E5 audit chain hardening
+
+- E5 audit confirmed solid (nonce+wallet-signature sessions, single-use signed admin proofs with replay refusal, exact-wallet check, audit log on every accepted mutation). Hardened the remaining gap: the admin audit log now has a tamper-evident SHA-256 hash chain — every entry commits to its predecessor's hash (prev_hash + entry_hash columns); `Store.verify_audit_chain()` recomputes oldest-first and pinpoints the broken entry.
+- API: GET /admin/audit/verify (admin-gated) returns {ok, entries, head} or {ok:false, brokenAt, reason}.
+- Tests prove a silent UPDATE of history and a row DELETE both break verification at the exact entry.
+- Evidence: pytest 215/215 green (5 new in test_audit_chain.py). Commit 911339d8.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
