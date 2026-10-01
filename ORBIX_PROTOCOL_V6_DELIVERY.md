@@ -281,6 +281,14 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - New `center/tx_state.py`: full lifecycle unsigned -> signed -> submitted -> confirmed -> finalized (terminal) with failed/reorged branches. Rules enforced and test-pinned: room entry is admitted ONLY on a FINALIZED receipt (3 confirmations); receipts are evidence-verified (status, contract address, sender) with wrong-contract/wrong-sender -> FAILED; repeated receipts are idempotent (confirmation count updates in place, promoting CONFIRMED -> FINALIZED); a vanished receipt flips CONFIRMED/FINALIZED -> REORGED which blocks entry until the tx re-finalizes deeper; one intent = one row, one tx hash = one intent (case-insensitive duplicate rejection); every transition is timestamped with evidence in the row history.
 - Evidence: pytest 225/225 green (10 new in test_tx_state.py). Commit 90d6743a.
 
+### 2026-10-02 addendum 17 — F4 attacker-model suite
+
+- Identity: WS `who` is bound server-side from a short-lived ticket (asserted against the handler source; no code path lets a payload set the acting identity). A forged action claiming another player's identity attributes to the SENDER in the server log and engine state.
+- Injection inertness: client-supplied score/winner/targets/correct fields inside action payloads are inert; Number Hunt guesses attribute to the sender regardless of claimed "who"; Quiz answer correctness is decided only server-side (fabricated correct:true + score:5000 changes nothing).
+- Entitlements: produced solely by engine.entitlements(); with no reward slots configured, even a verified winner yields zero payable slots; a hit closes the round engine-side, never client-side.
+- Post-round forgery refused (ROUND_FINISHED).
+- Evidence: pytest 231/231 green (6 new in test_attacker_model.py). Commit ac9728bb.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
