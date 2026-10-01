@@ -195,6 +195,11 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Registry: reaction-duel round-progress policy description tightened, v2.
 - Evidence: pytest 147/147 green (6 new in test_duel_hints.py). Commit f44ac28f.
 
+### 2026-10-02 addendum 4 — D10 Hash Hunt throughput feed
+
+- HashHuntEngine tracks per-player server-verified attempt volume (`attempts`, counted only on real hash evaluations, incl. rejected proofs) and publishes `attemptRates {attempts, valid}` plus truthful `difficultyBits`/`target` in public state. No solution nonce, partial preimage, or hash leaks through the feed; attempts survive snapshot round-trip.
+- Evidence: pytest 153/153 green (6 new in test_hash_hunt_hints.py). Commit 0cc1b181.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
