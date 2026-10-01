@@ -248,6 +248,8 @@ LATER_POLICIES: dict[str, HintPolicy] = {
 LATER_POLICIES.pop("live-quiz", None)
 LATER_POLICIES.pop("token-catch", None)
 LATER_POLICIES.pop("reward-grid", None)
+LATER_POLICIES.pop("pattern-recall", None)
+LATER_POLICIES.pop("typing-sprint", None)
 LATER_POLICIES.pop("logo-bingo", None)
 LATER_POLICIES.pop("grid-bingo", None)
 LIVE_QUIZ = HintPolicy(
@@ -273,6 +275,42 @@ LIVE_QUIZ = HintPolicy(
 #: All policies, by template id. Room publish hashes MUST include the policy
 #: object for the chosen template (config-hash domain covers it via rules + this
 #: registry lookup at publish time).
+PATTERN_RECALL = HintPolicy(
+    template_id="pattern-recall",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="bounded-replay",
+            audience="private",
+            budget=2,
+            description=(
+                "Replays the sequence segment ALREADY shown this step, to the asking "
+                "player only. Never touches the future part of the sequence; two "
+                "replays per round so the hint cannot replace memory."
+            ),
+        ),
+    ),
+)
+
+TYPING_SPRINT = HintPolicy(
+    template_id="typing-sprint",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="pace-cue",
+            audience="private",
+            budget=5,
+            description=(
+                "Reports the asker's own recent typing rhythm (median inter-key time "
+                "and a pace flag) from server-verified keystrokes. Never another "
+                "player's text, timing, or progress."
+            ),
+        ),
+    ),
+)
+
 REWARD_GRID = HintPolicy(
     template_id="reward-grid",
     version=2,
@@ -313,7 +351,7 @@ HINT_POLICIES: dict[str, HintPolicy] = {
     p.template_id: p
     for p in (
         NUMBER_HUNT, HASH_HUNT, BOSS_RAID, BINGO, LOGO_BINGO_LIVE, RPS_DUEL,
-        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, LIVE_QUIZ, TOKEN_CATCH, REWARD_GRID, LOGO_BINGO, *LATER_POLICIES.values(),
+        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, LIVE_QUIZ, TOKEN_CATCH, REWARD_GRID, LOGO_BINGO, PATTERN_RECALL, TYPING_SPRINT, *LATER_POLICIES.values(),
     )
 }
 

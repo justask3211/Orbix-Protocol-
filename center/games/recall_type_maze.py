@@ -49,7 +49,11 @@ def _carve(size: int, rng) -> tuple[set[frozenset[int]], int, int]:
 
 class PatternRecallEngine(Engine):
     template_id = "pattern-recall"
-    version = 1
+    version = 2
+
+    #: D14: a replay hint re-shows an ALREADY-SHOWN segment; the budget is fixed
+    #: per round so the hint cannot substitute for memory.
+    HINT_BUDGET = 2
 
     def __init__(self, config: RoomConfig, round_id: str, seed: str, participants: list[str]) -> None:
         super().__init__(config, round_id, seed, participants)
@@ -59,6 +63,8 @@ class PatternRecallEngine(Engine):
         self.entered: dict[str, list[int]] = {}
         self.failed: set[str] = set()
         self.finished: bool = False
+        # D14 state: per-player remaining replays
+        self.hints_left: dict[str, int] = {}
 
     def start(self, now: float = 0.0) -> None:
         length = self.rules.start_length
@@ -68,11 +74,33 @@ class PatternRecallEngine(Engine):
         self.entered = {}
         self.failed = set()
         self.finished = False
+        self.hints_left = {p: self.HINT_BUDGET for p in self.participants}
+
+    def _hint(self, who: str) -> ActionResult:
+        """D14: bounded replay of an ALREADY-SHOWN segment, privately.
+
+        Non-leak invariant: the hint re-sends only `self.sequence[:self.step]` —
+        symbols every player already saw on screen. It never touches the future
+        part of the sequence, and the budget is 2 per round so it cannot replace
+        remembering the earlier steps.
+        """
+        if self.hints_left.get(who, 0) <= 0:
+            return ActionResult(False, "HINT_BUDGET_EXHAUSTED")
+        self.hints_left[who] -= 1
+        return ActionResult(
+            True,
+            patch={"hintUsed": {"who": who}},
+            private={"replayedSegment": list(self.sequence[: self.step]),
+                     "hintsLeft": self.hints_left[who]},
+            scores=self.scores(),
+        )
 
     def act(self, who: str, action: dict, now: float) -> ActionResult:
         self._require_participant(who)
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
+        if action.get("kind") == "hint":
+            return self._hint(who)
         if action.get("kind") != "input":
             return ActionResult(False, "BAD_ACTION")
         seq = action.get("sequence")
@@ -108,6 +136,7 @@ class PatternRecallEngine(Engine):
             "step": self.step,
             "inputWindow": self.rules.input_window_seconds,
             "failed": sorted(self.failed),
+            "hintsEnabled": any(v > 0 for v in self.hints_left.values()),
             "finished": self.finished,
         }
 
@@ -118,6 +147,7 @@ class PatternRecallEngine(Engine):
             "step": self.step,
             "entered": self.entered,
             "failed": sorted(self.failed),
+            "hintsLeft": self.hints_left,
             "finished": self.finished,
         }
 
@@ -126,6 +156,9 @@ class PatternRecallEngine(Engine):
         self.step = int(snapshot.get("step", 0))
         self.entered = {k: list(v) for k, v in snapshot.get("entered", {}).items()}
         self.failed = set(snapshot.get("failed", []))
+        self.hints_left = dict(snapshot.get("hintsLeft", {}))
+        for p in self.participants:
+            self.hints_left.setdefault(p, 0)
         self.finished = bool(snapshot.get("finished", False))
 
 
@@ -143,17 +176,52 @@ class TypingSprintEngine(Engine):
         self.events: dict[str, list[int]] = {}
         self.typed: dict[str, str] = {}
         self.finished: bool = False
+        # D15: per-player private pace snapshot served on request
+        self.hints_left: dict[str, int] = {p: 5 for p in self.participants}
 
     def start(self, now: float = 0.0) -> None:
         self.events = {p: [] for p in self.participants}
         self.typed = {}
         self.finished = False
+        self.hints_left = {p: 5 for p in self.participants}
+
+    def _pace_hint(self, who: str) -> ActionResult:
+        """D15: a PRIVATE pace/accuracy-rhythm cue from the player's own keystrokes.
+
+        Non-leak invariant: the cue is derived only from the asker's own event log.
+        It reports the asker's recent inter-key median and a pace flag — never
+        another player's text, timing, or progress.
+        """
+        if self.hints_left.get(who, 0) <= 0:
+            return ActionResult(False, "HINT_BUDGET_EXHAUSTED")
+        times = self.events.get(who, [])
+        self.hints_left[who] -= 1
+        if len(times) < 4:
+            return ActionResult(True,
+                                patch={"hintUsed": {"who": who}},
+                                private={"pace": "warming-up", "keys": len(times),
+                                         "hintsLeft": self.hints_left[who]})
+        recent = [round((b - a) * 1000) for a, b in zip(times[-6:], times[-5:])]
+        recent.sort()
+        median_ms = recent[len(recent) // 2]
+        pace = ("sprinting" if median_ms < 120
+                else "steady" if median_ms < 300
+                else "slowing" if median_ms < 900
+                else "stalled")
+        return ActionResult(
+            True,
+            patch={"hintUsed": {"who": who}},
+            private={"pace": pace, "medianInterKeyMs": median_ms,
+                     "keys": len(times), "hintsLeft": self.hints_left[who]},
+        )
 
     def act(self, who: str, action: dict, now: float) -> ActionResult:
         self._require_participant(who)
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
         kind = action.get("kind")
+        if kind == "hint":
+            return self._pace_hint(who)
         if kind == "key":
             if len(self.events[who]) >= self.MAX_KEYS:
                 return ActionResult(False, "RATE_LIMIT")
@@ -195,15 +263,20 @@ class TypingSprintEngine(Engine):
             "duration": self.rules.duration_seconds,
             "accuracyFloor": self.rules.accuracy_floor,
             "submitted": sorted(self.typed),
+            "hintsEnabled": any(v > 0 for v in self.hints_left.values()),
             "finished": self.finished,
         }
 
     def snapshot(self) -> dict:
-        return {"participants": self.participants, "events": self.events, "typed": self.typed, "finished": self.finished}
+        return {"participants": self.participants, "events": self.events, "typed": self.typed,
+                "hintsLeft": self.hints_left, "finished": self.finished}
 
     def _load(self, snapshot: dict) -> None:
         self.events = {k: list(v) for k, v in snapshot.get("events", {}).items()}
         self.typed = dict(snapshot.get("typed", {}))
+        self.hints_left = dict(snapshot.get("hintsLeft", {}))
+        for p in self.participants:
+            self.hints_left.setdefault(p, 0)
         self.finished = bool(snapshot.get("finished", False))
 
 
