@@ -220,3 +220,27 @@ Known blockers (unchanged, honestly gated):
 - Verified in browser: sign-in, top bar live balance, Vault panel "0 FREE credited / 1,250 FREE in
   wallet · vault 0x33e0…0aa3 · chain 46630" after sending 1,250 FREE to the demo wallet on-chain.
 - Tests: 117/117 green.
+
+
+## 2026-10-01 — CenterGamePot v1 deployed (entry pots + locked rewards + treasury)
+
+User's custody model, implemented on-chain:
+- **Treasury custody**: user deposits / reward inventory sit in contracts WE hold. The admin
+  treasury wallet (0x253d...9087e) decides to hold or manually burn later — players used the
+  token, we received it. The old Center suite's broadcast was a fork simulation (owner() reverts
+  on live testnet), so a fresh contract was shipped.
+- **CenterGamePot** `0x2acb02dcf0012d2ca98c8526dba78dad647b32f6` (tx 0xaa2508e6...e3417d):
+  - `openRoom(roomId, payoutWallet, creatorShareBps, entryToken, entryAmount, mode, claimDeadline)`
+    — creator picks the wallet the pot share goes to and its share (bps).
+  - `enter(roomId)` — players pay the entry fee into the room pot.
+  - `lockRewardERC20` / `lockRewardNFT` — creator locks a token or NFT reward; the contract
+    holds it until settlement.
+  - `settle(...)` — authority-signed. **AUTO mode**: pot shares AND locked rewards are pushed to
+    winners at settlement. **MANUAL mode**: winners pull with an authority signature
+    (`claimWinnings` / `claimReward`). Creator chooses per room.
+  - `cancelRoom` + `refundEntry` (players made whole), `reclaimReward` after claim deadline.
+  - `sweepDust` — treasury sweeps ONLY uncommitted surplus; pots and locked rewards are tracked
+    in `tokenCommitted` and can never be swept. Protocol rake `feeBps` capped at 10%, currently 0.
+  - Seeded with 50,000 FREE as reward inventory.
+- DepositVault (0x33e0...0aa3) remains the creator-deposit path; GamePot handles per-room entry
+  fees + rewards. 117/117 backend tests still green.
