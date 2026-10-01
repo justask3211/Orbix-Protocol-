@@ -42,15 +42,22 @@ app.use(centerProxy);
 const centerDist = process.env.CENTER_DIST_DIR || path.join(__dirname, 'center-dist');
 
 // Serve /center directly (no redirect hop), then its assets, then SPA deep links.
+// index.html: no-cache. Hashed assets: immutable 1y — a fresh deploy ships new hashes,
+// so old cached bundles can never mask an update (fixes "stale site after deploy").
 app.get('/center', (_req, res) => res.sendFile(path.join(centerDist, 'index.html')));
-app.use('/center', express.static(centerDist, { maxAge: '1h' }));
+app.use('/center', express.static(centerDist, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+    else if (/-[A-Za-z0-9_-]{8}\.(js|css|woff2?|png|svg)$/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  },
+}));
 app.get('/center/*', (_req, res) => res.sendFile(path.join(centerDist, 'index.html')));
 
 // --- cockpit (unchanged) ---------------------------------------------------
-// Hashed assets may cache; index.html must revalidate or every deploy needs a hard refresh.
 app.use(express.static(__dirname, {
   setHeaders(res, filePath) {
     if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+    else if (/-[A-Za-z0-9_-]{8}\.(js|css|woff2?|png|svg)$/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   },
 }));
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'orbixcore-site' }));
