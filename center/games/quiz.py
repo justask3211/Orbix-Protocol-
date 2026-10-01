@@ -24,6 +24,8 @@ class QuizEngine(Engine):
         self.q_started_at: float = 0.0
         self.q_index: int = 0
         self.finished: bool = False
+        # D5: who used elimination hints on which question (server-side ledger)
+        self.hints_used: dict[str, dict[int, list[int]]] = {}
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -38,6 +40,7 @@ class QuizEngine(Engine):
         for p in self.participants:
             self.answers[p] = {}
             self.arrival[p] = {}
+            self.hints_used[p] = {}
         self.q_started_at = now
         self.q_index = 0
 
@@ -63,7 +66,10 @@ class QuizEngine(Engine):
         self._require_participant(who)
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
-        if action.get("kind") != "answer":
+        kind = action.get("kind")
+        if kind == "hint":
+            return self._hint(who, now)
+        if kind != "answer":
             return ActionResult(False, "BAD_ACTION")
         q_index = action.get("questionIndex")
         choice = action.get("choice")
@@ -88,6 +94,39 @@ class QuizEngine(Engine):
             True,
             patch={"answered": len(self.answers[who])},
             private={"accepted": True, "correct": correct},
+            scores=self.scores(),
+        )
+
+    def _hint(self, who: str, now: float) -> ActionResult:
+        """D5: eliminate wrong choices for the current question, privately.
+
+        Non-leak invariant: every eliminated index is verified server-side to be a
+        WRONG choice before it is returned. The correct choice is never eliminable,
+        so the cue narrows the set without ever pointing at the answer. Budget is
+        capped by `hint_eliminations` per player per question; reuse is rejected.
+        """
+        if self.rules.hints != "on":
+            return ActionResult(False, "HINTS_OFF")
+        if now - self.q_started_at > self.rules.question_seconds:
+            return ActionResult(False, "ROUND_NOT_OPEN")
+        qi = self.q_index
+        used = self.hints_used[who].setdefault(qi, [])
+        if len(used) >= self.rules.hint_eliminations:
+            return ActionResult(False, "HINT_BUDGET_EXHAUSTED")
+        q = self._question()
+        # candidate wrong choices in the DISPLAY order the player sees, excluding
+        # already-eliminated ones; pick the next one deterministically.
+        display = self.choice_order[self.order[qi]]
+        remaining = [c for c in display if c != q.correct_index and c not in used]
+        if not remaining:
+            return ActionResult(False, "NO_HINTS_LEFT")
+        eliminated = remaining[0]
+        used.append(eliminated)
+        display_position = display.index(eliminated)
+        return ActionResult(
+            True,
+            patch={"hintUsed": {"who": who, "questionIndex": qi}},
+            private={"eliminatedChoice": display_position},  # position in displayed list
             scores=self.scores(),
         )
 
@@ -139,6 +178,8 @@ class QuizEngine(Engine):
             "questionIndex": self.q_index,
             "questionSeconds": self.rules.question_seconds,
             "scoring": self.rules.scoring,
+            "hints": self.rules.hints,
+            "hintEliminations": self.rules.hint_eliminations,
             "leaderboard": [{"who": p, "score": self.score_of(p)} for p in self.ranking()],
             "finished": self.finished,
         }
@@ -168,6 +209,7 @@ class QuizEngine(Engine):
             "qStartedAt": self.q_started_at,
             "qIndex": self.q_index,
             "finished": self.finished,
+            "hintsUsed": {k: {str(a): list(b) for a, b in v.items()} for k, v in self.hints_used.items()},
         }
 
     def _load(self, snapshot: dict) -> None:
@@ -178,3 +220,9 @@ class QuizEngine(Engine):
         self.q_started_at = float(snapshot.get("qStartedAt", 0.0))
         self.q_index = int(snapshot.get("qIndex", 0))
         self.finished = bool(snapshot.get("finished", False))
+        self.hints_used = {
+            k: {int(a): list(b) for a, b in v.items()}
+            for k, v in snapshot.get("hintsUsed", {}).items()
+        }
+        for p in self.participants:
+            self.hints_used.setdefault(p, {})

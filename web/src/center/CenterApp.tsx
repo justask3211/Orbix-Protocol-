@@ -304,6 +304,8 @@ const DEFAULT_RULES: Record<string, Record<string, unknown>> = {
     speed_bonus_max: 0,
     pass_percentage: 60,
     top_n: 3,
+    hints: 'off',
+    hint_eliminations: 1,
     questions: Array.from({ length: 5 }, (_, i) => ({ prompt: `Question ${i + 1}?`, choices: ['Choice A', 'Choice B', 'Choice C'], correct_index: 0 })),
   },
   'memory-match': { pairs: 6, move_cap: 100, score_mode: 'moves', top_n: 3 },
@@ -445,6 +447,8 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
     if (draft.templateId === 'live-quiz') {
       const questions = (rules.questions as QuizQuestion[]) ?? []
       rules.questions = questions.filter((q) => q.prompt.trim() && q.choices.every((c) => c.trim()))
+      rules.hints = rules.hints === 'on' ? 'on' : 'off'
+      rules.hint_eliminations = Number(rules.hint_eliminations) || 1
     }
     if (hasDuration(draft.templateId)) rules[DURATION_KEY] = draft.durationSeconds
     else delete rules[DURATION_KEY]
@@ -687,6 +691,30 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
                       <option value="public">Public room feed with guesser and direction</option>
                     </select>
                   </label>
+                </>
+              ) : draft.templateId === 'live-quiz' ? (
+                <>
+                  <p>Elimination cue: after asking, one wrong choice is struck out for that player only. The server never eliminates the correct answer. Choose how many wrong choices a player may strike out per question.</p>
+                  <label className="ct-hint-select">
+                    <span>Quiz hints</span>
+                    <select value={draft.rules.hints === 'on' ? 'on' : 'off'} onChange={(e) => setRule('hints', e.target.value)}>
+                      <option value="off">Off</option>
+                      <option value="on">On (private elimination)</option>
+                    </select>
+                  </label>
+                  {draft.rules.hints === 'on' && (
+                    <label className="ct-hint-select">
+                      <span>Eliminations per question</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={3}
+                        value={ruleNumber(draft.rules.hint_eliminations)}
+                        onChange={(e) => setRule('hint_eliminations', Number(e.target.value))}
+                      />
+                      <small>1 to 3 wrong choices may be struck out per question.</small>
+                    </label>
+                  )}
                 </>
               ) : (
                 <p>{HINT_POLICIES[draft.templateId] ?? 'A safe, game-specific clue policy is planned but not yet configured. This game currently gives no hint feed.'}</p>
