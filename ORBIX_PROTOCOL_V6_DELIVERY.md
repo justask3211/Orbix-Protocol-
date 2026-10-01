@@ -236,6 +236,13 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Screenshots: audit-cockpit-1440.png, audit-cockpit-390.png (full page). Center routes were verified earlier (center-1440-desktop.png, center-390-mobile.png, center-create-wizard-1440.png): 0 overflow, 0 console errors.
 - Still open under C4: per-route state coverage (empty/loading/error), room stage-by-stage sweep, keyboard/focus pass per route, tablet 768 sweep.
 
+### 2026-10-02 addendum 11 — D12/D13 grid + bingo feeds
+
+- D12 Reward Grid: private proximity hint answering only coarse Manhattan-distance bands (near/mid/far) to the nearest hidden reward tile — never a tile, direction, or row/column, so a hint cannot identify a slot (3 bands << 36 tiles). Hard 2-use per-player budget, fairness-transcript log, snapshot-safe. Truthfulness test verifies the band matches the real geometry.
+- D13 Bingo: call-history feed invariants pinned — public calls array grows as a prefix, future pool order never in public state, forged board claims refused server-side.
+- Registry: reward-grid + logo-bingo policies v2 implemented; later-catalog list shrinks accordingly.
+- Evidence: pytest 190/190 green (9 new in test_grid_bingo_hints.py). Commit d00e0b7d.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
