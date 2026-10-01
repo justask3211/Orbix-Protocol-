@@ -91,4 +91,16 @@ See ORBIX_PROTOCOL_V6_DELIVERY.md (2026-10-01): funded rewards live — DepositV
 
 ## 2026-10-01 Design system and audit pass
 
-See `docs/center/DESIGN_AUDIT_2026-10-01.md` for installed references, live browser evidence, design findings, implemented UX fixes, and verification results.
+See `docs/center/DESIGN_AUDIT_2026-10-01.md`. First UI/design iteration installed Vercel Web Interface Guidelines, Vercel and Awesome Design MD references, created Orbix-specific `DESIGN.md`, fixed reward-mode copy, mobile wallet header overflow, focus/skip-link support, and exposed honest per-game hint policy descriptions. Build and 117 Python tests passed; deploy ff26c75f SUCCESS and mobile/wizard verified in Playwright.
+
+## Remaining product-wide intention map
+
+The V4 manual's source of truth remains authoritative. Current production shows 19 catalog formats; V4 lists 24, with 8 specified as release-one and later games gated. Do not call every catalog game fully released merely because it can be selected.
+
+- **P0 experience audit remaining:** inspect each room's lobby, gameplay HUD, outcomes, claim/rewards, admin/treasury, cockpit, wallet/deposit and transaction error states at 390/768/1280+ widths. Preserve screenshots and console/network results.
+- **Per-game hint engine work:** versioned typed policies, server-only truth, public/private audiences and budget limits. The UI now shows per-template policy copy but most formats explicitly remain “no hint feed yet”; this is not implementation. Build/test policies for all release-one games, then ordered catalog releases.
+- **Economics and transaction flows:** creator payout wallet/share, separate platform fee vs creator entry asset, sponsored join fees, token/NFT reward locking, auto/manual payout, refund/reclaim, transaction pending/finalized/rejected states. Map CenterGamePot contract and UI integration, verify settlement authority/pot split/reward inventory and handle unfunded/gated modes truthfully. No implied custody or automated swap without signed, verified flows.
+- **Rewards:** distinguish preview points from actual funded ERC-20/NFT/1155; show asset contract, chain, inventory lock, allocation, claim mode/deadline and refund/reclaim conditions before join. The currently deployed contract/UI are not yet proven integrated end-to-end with published game rooms.
+- **Wizard & room flows:** progressive disclosure, state persistence, game-specific creator controls and live Room Capsule summary; public/unlisted/private; wallet-free preview; explicit transaction review before funded join; server-authoritative hint/result timeline.
+- **UI quality:** audit all marketed Orbix modules (cockpit, swap, pools, bridge, launch, staking, NFT, marketplace and Center) with Vercel checklist and Orbix DESIGN.md. Improve asset system/artwork, typography, motion rationale, empty/loading/error/confirmation states and responsive/touch behavior.
+- **Quality gates:** unit + adversarial tests for each engine/hint and contract branch, Vite typecheck/build, Playwright desktop/mobile and keyboard tests, RPC/readback checks, then deploy status + live browser verification. Mainnet stays out of scope.
