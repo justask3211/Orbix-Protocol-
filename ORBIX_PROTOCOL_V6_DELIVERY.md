@@ -197,3 +197,26 @@ Known blockers (unchanged, honestly gated):
 - Candidate ORBIX 0x16C5…6db1 is bonding-curve locked pre-graduation (revert 0xdb89e3f4):
   transfers and burns revert, so funded custody/join-fee/conversion paths stay disabled.
 - Remaining owner-gated: F04, E06, G01–G08, G10–G15, H02–H07 per original ledger.
+
+
+## 2026-10-01 — FUNDED REWARDS LIVE (H07 closed)
+
+- DepositVault (CenterVault) deployed on Robinhood testnet 46630: **0x33e0d64d1e894cd2bce673baeb0ff68153bd0aa3**
+  (tx 0xc5b6eec7b7e3d74b97555d213867a54770d621f651036bb663150e13aeecbeeb, block 127003737)
+- Reward token: FREE (0x9d6EA9FbEF2b244FB30f6E775f2DA3CC431b733e). Vault **FUNDED with 500,000 FREE**
+  (tx 0xf3284c4a1babac21a7c2f511a908a9d56aff32417dbc491d17666d638750d0fd).
+- Why FREE and not ORBIX: ORBIX 0x16C5...6db1 is a vibevibe.fun launchpad token still on its bonding
+  curve (pre-graduation); every transfer/burn reverts until it graduates. Users who buy ORBIX on
+  vibevibe can swap to FREE and deposit; when ORBIX graduates, CENTER_VAULT_TOKEN can be repointed
+  with no contract change (the vault is single-token but the backend flag is a swap).
+- Backend: env-driven OnchainVault in create_app (CENTER_REAL_BURN + CENTER_VAULT_TOKEN + CENTER_VAULT
+  + CENTER_SIGNER_KEY + CENTER_RPC_URL), new GET /wallet/onchain-balance (live wallet + vault-credit
+  balances read from chain, 15s TTL cache). JsonRpc sends a browser UA (RPC 403s plain clients).
+- Frontend: top-bar pill shows live "X FREE" (polled 20s); Vault page shows credited + wallet
+  balances with vault address + chain id.
+- Railway env set on orbix-center (production): CENTER_REAL_BURN=true, CENTER_TESTNET_REWARDS=true,
+  CENTER_VAULT_TOKEN, CENTER_VAULT, CENTER_ESCROW, CENTER_RPC_URL, CENTER_CHAIN_ID=46630,
+  CENTER_VAULT_SYMBOL=FREE, CENTER_SIGNER_KEY=[set, redacted].
+- Verified in browser: sign-in, top bar live balance, Vault panel "0 FREE credited / 1,250 FREE in
+  wallet · vault 0x33e0…0aa3 · chain 46630" after sending 1,250 FREE to the demo wallet on-chain.
+- Tests: 117/117 green.
