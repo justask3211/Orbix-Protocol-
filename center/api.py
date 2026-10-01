@@ -390,6 +390,12 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         require_admin(authorization, need_proof=False)
         return {"entries": store.list_audit()}
 
+    @app.get(f"{API_PREFIX}/admin/audit/verify")
+    def verify_audit(authorization: str | None = Header(default=None)) -> dict:
+        """Recompute the audit hash chain so tampering with history is detectable."""
+        require_admin(authorization, need_proof=False)
+        return store.verify_audit_chain()
+
     # ------------------------------------------------------------------ drafts
 
     @app.post(f"{API_PREFIX}/drafts")
