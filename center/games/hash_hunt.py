@@ -58,6 +58,7 @@ class HashHuntEngine(Engine):
         self.escrow: str = ZERO_ADDR
         self.accepted: dict[str, list[dict]] = {}
         self.best: dict[str, int] = {}
+        self.attempts: dict[str, int] = {}   # D10: verified server-side submit volume
         self.started_at: float = 0.0
         self.finished: bool = False
         self.first_winner: str | None = None
@@ -69,6 +70,7 @@ class HashHuntEngine(Engine):
         for p in self.participants:
             self.accepted[p] = []
             self.best[p] = 1 << 256
+            self.attempts[p] = 0
         self.started_at = now
 
     @property
@@ -99,6 +101,7 @@ class HashHuntEngine(Engine):
             return ActionResult(False, "ACTION_DUPLICATE")
 
         value = proof_hash(self.chain_id, self.escrow, self.round_id, self.public_seed, who, nonce)
+        self.attempts[who] += 1  # counted only on server-verified hash evaluations
         if value >= self.target:
             # Not a valid proof: rejected, and it does not consume a slot.
             return ActionResult(False, "BAD_PROOF")
@@ -142,6 +145,15 @@ class HashHuntEngine(Engine):
             "publicSeed": self.public_seed,
             "target": f"0x{self.target:064x}",
             "difficultyBits": self.rules.difficulty_bits,
+            # D10 feed: public difficulty + each miner's own VERIFIED attempt rate.
+            # Never a solution nonce, partial preimage, or another player's secrets.
+            "attemptRates": {
+                p: {
+                    "attempts": self.attempts.get(p, 0),
+                    "valid": len(self.accepted.get(p, [])),
+                }
+                for p in self.participants
+            },
             "winMode": self.rules.win_mode,
             # valid proofs are public: agents are meant to see the competition
             "leaderboard": [
@@ -161,6 +173,7 @@ class HashHuntEngine(Engine):
             "escrow": self.escrow,
             "accepted": self.accepted,
             "best": self.best,
+            "attempts": self.attempts,
             "startedAt": self.started_at,
             "finished": self.finished,
             "firstWinner": self.first_winner,
@@ -172,6 +185,9 @@ class HashHuntEngine(Engine):
         self.escrow = str(snapshot.get("escrow", ZERO_ADDR))
         self.accepted = {k: list(v) for k, v in snapshot.get("accepted", {}).items()}
         self.best = {k: int(v) for k, v in snapshot.get("best", {}).items()}
+        self.attempts = {k: int(v) for k, v in snapshot.get("attempts", {}).items()}
+        for p in self.participants:
+            self.attempts.setdefault(p, 0)
         self.started_at = float(snapshot.get("startedAt", 0.0))
         self.finished = bool(snapshot.get("finished", False))
         self.first_winner = snapshot.get("firstWinner")
