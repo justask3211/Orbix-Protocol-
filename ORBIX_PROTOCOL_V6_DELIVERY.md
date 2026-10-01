@@ -276,6 +276,11 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
   - SkimmingToken as ENTRY asset: enter() books exactly what arrived (20e18 of a 40e18 sticker) in pot and tokenCommitted — fee-on-transfer truth, not sticker price.
 - Evidence: forge 82/82 green (3 new). Commit cc633b10.
 
+### 2026-10-02 addendum 16 — F2 transaction state machine
+
+- New `center/tx_state.py`: full lifecycle unsigned -> signed -> submitted -> confirmed -> finalized (terminal) with failed/reorged branches. Rules enforced and test-pinned: room entry is admitted ONLY on a FINALIZED receipt (3 confirmations); receipts are evidence-verified (status, contract address, sender) with wrong-contract/wrong-sender -> FAILED; repeated receipts are idempotent (confirmation count updates in place, promoting CONFIRMED -> FINALIZED); a vanished receipt flips CONFIRMED/FINALIZED -> REORGED which blocks entry until the tx re-finalizes deeper; one intent = one row, one tx hash = one intent (case-insensitive duplicate rejection); every transition is timestamped with evidence in the row history.
+- Evidence: pytest 225/225 green (10 new in test_tx_state.py). Commit 90d6743a.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
