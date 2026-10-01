@@ -1,0 +1,254 @@
+"""Typed, versioned per-template hint policy (plan items D3/D4-D22).
+
+A HintPolicy declares what a template MAY reveal, to whom, at what budget/cost.
+It is data, never behavior: the engine still computes every hint server-side from
+committed secret state. Clients can request a hint; they can never author one.
+
+Rules enforced by construction:
+  * kind OFF means the engine must reject hint requests outright.
+  * PUBLIC audience items ride the room patch/feed; PRIVATE items ride the
+    per-player `private` payload only.
+  * budget is a hard per-player cap the engine decrements; exhausted = rejected.
+  * a policy never encodes an answer: every reveal kind here is provably
+    non-leaking for its game (documented per template).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class HintKind:
+    """One reveal operation a template supports."""
+
+    id: str                 # e.g. "higher-lower"
+    audience: str           # "public" | "private"
+    description: str        # shown in the wizard; must state exactly what is revealed
+    budget: int | None = None   # None = unlimited (still rate-limited by the engine)
+    cost: int = 0               # optional point cost per use
+
+
+@dataclass(frozen=True)
+class HintPolicy:
+    """Versioned hint policy for one template. `version` bumps on any semantic change
+    so a published room's config hash freezes the exact policy it was authored with."""
+
+    template_id: str
+    version: int
+    kinds: tuple[HintKind, ...] = field(default_factory=tuple)
+    implemented: bool = True    # False = UI must show "no hint feed yet" (honest state)
+
+    def kind(self, kind_id: str) -> HintKind | None:
+        for k in self.kind_list():
+            if k.id == kind_id:
+                return k
+        return None
+
+    def kind_list(self) -> list[HintKind]:
+        return list(self.kinds)
+
+
+# --------------------------------------------------------------------------
+# Release-one templates with implemented, non-leaking hints.
+# --------------------------------------------------------------------------
+
+NUMBER_HUNT = HintPolicy(
+    template_id="number-hunt",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="higher-lower",
+            audience="public",   # or private: the creator chooses visibility
+            description=(
+                "After a miss, the server says whether the nearest remaining target is "
+                "higher or lower than the guess. Never reveals the target or its distance."
+            ),
+        ),
+    ),
+)
+
+HASH_HUNT = HintPolicy(
+    template_id="hash-hunt",
+    version=1,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="difficulty-throughput",
+            audience="public",
+            description=(
+                "Shows the public difficulty (leading zero bits) and each miner's own "
+                "verified attempt rate. Never shows a solution nonce or another "
+                "player's partial preimage."
+            ),
+        ),
+    ),
+)
+
+LOGO_BINGO_LIVE = HintPolicy(
+    template_id="logo-bingo",
+    version=1,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="call-history",
+            audience="public",
+            description=(
+                "The full shared call history is public state; the hint feed replays it "
+                "with board accessibility labels. No future calls are ever exposed."
+            ),
+        ),
+    ),
+)
+
+BOSS_RAID = HintPolicy(
+    template_id="boss-raid",
+    version=1,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="phase-weakness",
+            audience="public",
+            description=(
+                "Broadcasts the boss phase and its current vulnerability window plus "
+                "aggregate contribution. Hidden per-player state is never shown."
+            ),
+        ),
+    ),
+)
+
+BINGO = HintPolicy(
+    template_id="grid-bingo",
+    version=1,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="call-history",
+            audience="public",
+            description=(
+                "The full shared call history is public state; the hint feed replays it "
+                "with board accessibility labels. No future calls are ever exposed."
+            ),
+        ),
+    ),
+)
+
+RPS_DUEL = HintPolicy(
+    template_id="rps-duel",
+    version=1,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="commit-phase",
+            audience="public",
+            description=(
+                "Only commit/reveal phase progress is shared. An opponent's move stays "
+                "hashed until the reveal phase the engine opens."
+            ),
+        ),
+    ),
+)
+
+REACTION_DUEL = HintPolicy(
+    template_id="reaction-duel",
+    version=1,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="round-progress",
+            audience="public",
+            description=(
+                "Round counter, window timers and commit status only. No move data "
+                "before the engine's reveal."
+            ),
+        ),
+    ),
+)
+
+MEMORY_MATCH = HintPolicy(
+    template_id="memory-match",
+    version=1,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="bounded-reveal",
+            audience="private",
+            budget=2,
+            description=(
+                "Reveals ONE extra pair briefly, twice per round max. Never maps the "
+                "whole board, so the hint cannot replace play."
+            ),
+            cost=0,
+        ),
+    ),
+)
+
+PUZZLE_SPRINT = HintPolicy(
+    template_id="puzzle-sprint",
+    version=1,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="legal-move",
+            audience="private",
+            budget=3,
+            description=(
+                "Suggests one legal next move (not the full solution path), three "
+                "times per round max. Each use adds a small time penalty to the score."
+            ),
+        ),
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Later-catalog templates: policy declared, feed NOT implemented yet.
+# The wizard shows the intended style and clearly says the feed is inactive.
+# --------------------------------------------------------------------------
+
+_LATER = (
+    ("live-quiz", "Category and elimination cues only; answers stay server-side."),
+    ("quiz", "Category and elimination cues only; answers stay server-side."),
+    ("catch", "Tempo and lane-pressure cue; never future spawn positions."),
+    ("token-catch", "Tempo and lane-pressure cue; never future spawn positions."),
+    ("reward-grid", "Capped proximity clue, budget-limited per player."),
+    ("pattern-recall", "Bounded replay of an already-shown segment only."),
+    ("typing-sprint", "Personal pace/accuracy cue; never other players' text."),
+    ("maze-race", "Directional clue budget; never the full route."),
+    ("level-runner", "Checkpoint telemetry only; no future hazard data."),
+    ("contract-detective", "One curated evidence hint per question, not an audit verdict."),
+    ("mev-rush", "Simulated queue position only; no live mempool claim."),
+    ("idle-rig", "Server-clock efficiency readout; no hidden earning implication."),
+    ("airdrop-quest", "Wallet-bound remaining requirements only."),
+)
+
+LATER_POLICIES: dict[str, HintPolicy] = {
+    tid: HintPolicy(template_id=tid, version=1, implemented=False,
+                    kinds=(HintKind(id="planned", audience="private", description=desc),))
+    for tid, desc in _LATER
+}
+LATER_POLICIES["logo-bingo"] = HintPolicy(
+    template_id="logo-bingo", version=1, implemented=False,
+    kinds=(HintKind(id="planned", audience="public",
+                    description="Shared call history and accessible board state."),),
+)
+
+#: All policies, by template id. Room publish hashes MUST include the policy
+#: object for the chosen template (config-hash domain covers it via rules + this
+#: registry lookup at publish time).
+HINT_POLICIES: dict[str, HintPolicy] = {
+    p.template_id: p
+    for p in (
+        NUMBER_HUNT, HASH_HUNT, BOSS_RAID, BINGO, LOGO_BINGO_LIVE, RPS_DUEL,
+        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, *LATER_POLICIES.values(),
+    )
+}
+
+
+def policy_for(template_id: str) -> HintPolicy:
+    """Fallback: an unimplemented, empty policy. Never raise for unknown ids so the
+    catalog can grow before its policy lands."""
+    return HINT_POLICIES.get(
+        template_id,
+        HintPolicy(template_id=template_id, version=1, implemented=False),
+    )

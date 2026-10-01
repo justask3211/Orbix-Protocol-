@@ -174,6 +174,21 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - [ ] H11 Record deployment IDs, explorer links, contract addresses, commits and rollback path.
 - [ ] H12 Clearly label remaining gated work; never claim planned features are live.
 
+## Delivery log — 2026-10-02
+
+Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
+
+- **CenterGamePot v2 (E8/E9)** — `src/center/CenterGamePot.sol` rewritten and test-proven:
+  - settle() now verifies an authority signature over the full payout payload (winners, amounts, reward winners, reward indices) bound to contract address + chainId + roomId; digest replay-guarded. Empty sig = NotAuthority, malformed/mismatched = BadSignature.
+  - claimWinnings()/claimReward() bound to (roomId, winner/amount/index, one-time nonce) + claim deadline; NonceReused on replay.
+  - refundEntry() returns exactly what the entrant paid (per-entrant paidIn, fee-on-transfer truth), once, only on cancelled rooms.
+  - AUTO mode pushes pot shares and locked ERC20/NFT rewards atomically at settlement; MANUAL mode records liabilities for signed pull claims.
+  - Tests: `forge test` 75/75 green (7 CenterGamePot tests incl. unsigned-settlement rejection, over-pot rejection, nonce replay, conservation with creator share, refund-once, NFT auto-pay).
+- **Typed hint policies (D3)** — new `center/games/hints.py`: versioned per-template HintPolicy (kind, audience public/private, budget, cost, honest `implemented` flag). Implemented for number-hunt (higher/lower), hash-hunt (difficulty/throughput), boss-raid (phase/weakness), bingo (call history), rps/reaction duel (commit/reveal progress), memory-match (bounded reveal, budget 2), puzzle-sprint (legal-move, budget 3). All later-catalog formats declare intended style with implemented=false so the UI stays truthful.
+- **New tests** — `center/tests/test_hint_policies.py` (7): full catalog coverage, number-hunt public hint never leaks the target, private vs off behavior, honest unimplemented flags. Python suite: 124/124 green (`PYTHONPATH=~/vibeswap center/.venv/bin/pytest tests`).
+- **Live browser audit (Playwright)** — orbixcore.fun/center verified at 1440 and 390px: skip link present, truthful reward-status banner, dynamic "19 game formats", no horizontal overflow at 390px (bodyScrollWidth 390), wallet controls inside header, wizard shows "number hunt hint policy" with higher/lower public/private control, 0 console errors. Screenshots: center-1440-desktop.png, center-390-mobile.png, center-create-wizard-1440.png.
+- Honest status: CenterGamePot v2 is local/test-proven, NOT yet deployed to chain 46630 (funded paths stay gated pre-graduation, per V5 P4). Hint policies are server-side registry data; wiring per-later-game feeds into engines remains D5-D22 work.
+
 ## Delivery log — 2026-10-01 (session 20260929_022348)
 
 Shipped, tested (117 Python tests green) and verified live at orbixcore.fun/center:

@@ -8,23 +8,31 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title CenterGamePot
-/// @notice Room entry-pot + creator-locked reward escrow for Orbix Center.
+/// @notice Room entry-pot + creator-locked reward escrow for Orbix Center. v2.
+///
+///      v2 changes (E8/E9 hardening):
+///        - settle() now verifies an authority signature over the full payout payload
+///          (winners, amounts, reward winners, reward indices). The signature IS the
+///          settlement authorization; any caller may relay a valid one.
+///        - claimWinnings() is bound to (roomId, winner, amount, nonce) with
+///          one-time nonce replay protection, plus the claim deadline.
+///        - claimReward() is bound to (roomId, rewardIndex, winner, nonce) too.
+///        - Refund returns exactly what the entrant paid, tracked per entrant.
 ///
 ///      Flow the owner asked for:
 ///        1. Creator opens a room with an entry fee (token + amount) and an optional
 ///           PAYOUT_WALLET — every entrant's fee lands in the pot.
 ///        2. Creator MAY lock a reward: ERC20 tokens or an ERC721 NFT, sent into this
 ///           contract and reserved for the room. The contract holds it until settlement.
-///        3. Settlement is signed by the trusted settlement authority (same model as
-///           CenterEscrow). Two payout modes:
+///        3. Settlement is signed by the trusted settlement authority. Two payout modes:
 ///             AUTO  — winner + reward are paid the moment settlement is published.
 ///             MANUAL — winners claim pull-based with a signed entitlement.
-///        4. Pot split at settlement: creator payout wallet gets the pot share it
-///           configured, the rest (default 100%) is divided among winning allocations.
+///        4. Pot split at settlement: creator payout wallet gets its configured share,
+///           the rest is divided among winning allocations.
 ///        5. Unclaimed rewards after the claim window: creator reclaims (manual mode)
 ///           or they were already paid (auto mode).
-///        6. Treasury: the treasury (owner) can sweep unreserved token dust only —
-///           never player entries, never reserved rewards.
+///        6. Treasury can sweep unreserved token dust only — never player entries,
+///           never reserved rewards.
 contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
     using SafeERC20 for IERC20;
 
@@ -43,6 +51,7 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
         uint256 pot;              // total entry fees held
         uint256 entrants;
         mapping(address => bool) entered;
+        mapping(address => uint256) paidIn;    // actual amount each entrant paid in
         mapping(address => uint256) winAmount; // manual-mode ERC20 winnings per winner
     }
 
@@ -62,6 +71,12 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
     mapping(bytes32 => Room) private _rooms;
     mapping(bytes32 => LockedReward[]) private _rewards;
     mapping(bytes32 => mapping(address => bool)) public rewarded; // manual claim done
+    mapping(bytes32 => mapping(uint256 => bool)) public claimNonceUsed; // roomId => nonce
+    mapping(bytes32 => mapping(bytes32 => bool)) public settleDigestUsed; // replay guard
+
+    /// @dev token => total value committed to pots and locked ERC20 rewards.
+    ///      Pots subtract on refund/settle, rewards on pay/reclaim.
+    mapping(address => uint256) public tokenCommitted;
 
     event RoomOpened(bytes32 indexed roomId, address indexed creator, address payoutWallet, uint256 creatorShareBps, address entryToken, uint256 entryAmount, uint8 mode);
     event Entered(bytes32 indexed roomId, address indexed player, uint256 amount);
@@ -81,12 +96,13 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
     error NotOpen();
     error ZeroAmount();
     error BadShare();
+    error BadSignature();
     error NotEntered();
     error NothingToClaim();
     error RefundNotAvailable();
     error AlreadyClaimedReward();
     error ClaimWindowClosed();
-    error RewardsStillLocked();
+    error NonceReused();
     error FeeTooHigh();
 
     constructor(address _authority, address _treasury, uint16 _feeBps) {
@@ -126,15 +142,17 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
         if (r.entered[msg.sender]) revert NotEntered();
         r.entered[msg.sender] = true;
         r.entrants += 1;
-        uint256 paid = 0;
         if (r.entryToken != address(0) && r.entryAmount != 0) {
             uint256 before = IERC20(r.entryToken).balanceOf(address(this));
             IERC20(r.entryToken).safeTransferFrom(msg.sender, address(this), r.entryAmount);
-            paid = IERC20(r.entryToken).balanceOf(address(this)) - before;
+            uint256 paid = IERC20(r.entryToken).balanceOf(address(this)) - before;
+            r.paidIn[msg.sender] = paid; // fee-on-transfer truth, not the sticker price
             r.pot += paid;
             tokenCommitted[r.entryToken] += paid;
+            emit Entered(roomId, msg.sender, paid);
+        } else {
+            emit Entered(roomId, msg.sender, 0);
         }
-        emit Entered(roomId, msg.sender, paid);
     }
 
     // ------------------------------------------------------------- locked rewards
@@ -159,11 +177,52 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
         emit RewardLocked(roomId, token, tokenId, 1, true);
     }
 
+    // ------------------------------------------------------------- digests
+
+    function settlementDigest(
+        bytes32 roomId,
+        address[] calldata winners,
+        uint256[] calldata amounts,
+        address[] calldata rewardWinners,
+        uint256[] calldata rewardIndices
+    ) public view returns (bytes32) {
+        return keccak256(abi.encodePacked(
+            "CENTER_POT_SETTLE_V1",
+            address(this),
+            block.chainid,
+            roomId,
+            keccak256(abi.encode(winners, amounts, rewardWinners, rewardIndices))
+        ));
+    }
+
+    function claimWinningsDigest(bytes32 roomId, address winner, uint256 amount, uint256 nonce) public view returns (bytes32) {
+        return keccak256(abi.encodePacked("CENTER_POT_CLAIM_V1", address(this), block.chainid, roomId, winner, amount, nonce));
+    }
+
+    function claimRewardDigest(bytes32 roomId, uint256 rewardIndex, address winner, uint256 nonce) public view returns (bytes32) {
+        return keccak256(abi.encodePacked("CENTER_POT_REWARD_V1", address(this), block.chainid, roomId, rewardIndex, winner, nonce));
+    }
+
+    function _recover(bytes32 digest, bytes calldata signature) internal view returns (address) {
+        if (signature.length == 0) revert NotAuthority(); // legacy: no relay sig supplied
+        if (signature.length != 65) revert BadSignature();
+        bytes32 r; bytes32 s; uint8 v;
+        assembly {
+            r := calldataload(signature.offset)
+            s := calldataload(add(signature.offset, 32))
+            v := byte(0, calldataload(add(signature.offset, 64)))
+        }
+        address signer = ecrecover(digest, v, r, s);
+        if (signer == address(0)) revert BadSignature();
+        return signer;
+    }
+
     // ------------------------------------------------------------- settlement
 
-    /// @notice Authority settles: pot split to winners (+ creator payout wallet share),
-    ///         and in Auto mode rewards are pushed to winners immediately.
+    /// @notice Authority-signed settlement: pot split to winners (+ creator payout
+    ///         wallet share), and in Auto mode rewards are pushed to rewardWinners.
     ///         winners/amounts must have equal length; amounts are ERC20 pot shares.
+    ///         Anyone may relay a valid signature; the signature is the authorization.
     function settle(
         bytes32 roomId,
         address[] calldata winners,
@@ -174,8 +233,12 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
     ) external nonReentrant {
         Room storage r = _rooms[roomId];
         if (r.settled || r.cancelled) revert AlreadySettled();
-        if (msg.sender != authority) revert NotAuthority();
         if (winners.length != amounts.length) revert BadShare();
+        bytes32 digest = settlementDigest(roomId, winners, amounts, rewardWinners, rewardIndices);
+        if (settleDigestUsed[roomId][digest]) revert AlreadySettled();
+        if (_recover(digest, signature) != authority) revert BadSignature();
+        settleDigestUsed[roomId][digest] = true;
+        if (rewardWinners.length != rewardIndices.length) revert BadShare();
 
         r.settled = true;
 
@@ -194,14 +257,19 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
             IERC20(entryToken).safeTransfer(r.payoutWallet, creatorCut);
             pot -= creatorCut;
         }
-        // remainder to winners
+        // remainder to winners; signed totals may never exceed the net pot
         uint256 total = 0;
         for (uint256 i; i < amounts.length; ++i) total += amounts[i];
         if (total > pot) revert BadShare();
         if (entryToken != address(0)) {
-            for (uint256 i; i < winners.length; ++i) {
-                if (amounts[i] > 0) IERC20(entryToken).safeTransfer(winners[i], amounts[i]);
+            if (r.mode == Mode.Auto) {
+                // AUTO: push pot shares atomically at settlement.
+                for (uint256 i; i < winners.length; ++i) {
+                    if (amounts[i] > 0) IERC20(entryToken).safeTransfer(winners[i], amounts[i]);
+                }
             }
+            // MANUAL: winnings stay recorded as liabilities; winners pull via
+            // signed claimWinnings before the claim deadline.
         }
         for (uint256 i; i < winners.length; ++i) r.winAmount[winners[i]] += amounts[i];
 
@@ -215,30 +283,34 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
         emit Settled(roomId, winners, amounts, uint8(r.mode));
     }
 
-    /// @notice Manual mode: a winner pulls their pot share with the authority's signature.
-    function claimWinnings(bytes32 roomId, address winner, uint256 amount, bytes calldata signature) external nonReentrant {
+    /// @notice Manual mode: a winner pulls their pot share with the authority's
+    ///         signature over (roomId, winner, amount, nonce). One-time nonce.
+    function claimWinnings(bytes32 roomId, address winner, uint256 amount, uint256 nonce, bytes calldata signature) external nonReentrant {
         Room storage r = _rooms[roomId];
         if (!r.settled) revert AlreadySettled();
         if (block.timestamp > r.claimDeadline) revert ClaimWindowClosed();
-        bytes32 digest = keccak256(abi.encodePacked("CENTER_POT_CLAIM_V1", roomId, winner, amount));
-        address signer = ecrecover(digest, _v(signature), _r(signature), _s(signature));
-        if (signer != authority) revert NotAuthority();
+        if (claimNonceUsed[roomId][nonce]) revert NonceReused();
+        bytes32 digest = claimWinningsDigest(roomId, winner, amount, nonce);
+        if (_recover(digest, signature) != authority) revert NotAuthority();
+        claimNonceUsed[roomId][nonce] = true;
         if (r.winAmount[winner] < amount) revert NothingToClaim();
         r.winAmount[winner] -= amount;
         if (r.entryToken != address(0)) IERC20(r.entryToken).safeTransfer(winner, amount);
         emit ManualClaim(roomId, winner, amount);
     }
 
-    /// @notice Manual mode: pull a locked reward with the authority's signature.
-    function claimReward(bytes32 roomId, uint256 rewardIndex, address winner, bytes calldata signature) external nonReentrant {
+    /// @notice Manual mode: pull a locked reward with the authority's signature
+    ///         over (roomId, rewardIndex, winner, nonce). One-time nonce.
+    function claimReward(bytes32 roomId, uint256 rewardIndex, address winner, uint256 nonce, bytes calldata signature) external nonReentrant {
         Room storage r = _rooms[roomId];
         if (!r.settled) revert AlreadySettled();
         if (block.timestamp > r.claimDeadline) revert ClaimWindowClosed();
+        if (claimNonceUsed[roomId][nonce]) revert NonceReused();
         LockedReward storage lr = _rewards[roomId][rewardIndex];
         if (lr.paid) revert AlreadyClaimedReward();
-        bytes32 digest = keccak256(abi.encodePacked("CENTER_POT_REWARD_V1", roomId, rewardIndex, winner));
-        address signer = ecrecover(digest, _v(signature), _r(signature), _s(signature));
-        if (signer != authority) revert NotAuthority();
+        bytes32 digest = claimRewardDigest(roomId, rewardIndex, winner, nonce);
+        if (_recover(digest, signature) != authority) revert NotAuthority();
+        claimNonceUsed[roomId][nonce] = true;
         _payReward(roomId, winner, rewardIndex);
     }
 
@@ -252,16 +324,19 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
         emit RoomCancelled(roomId);
     }
 
+    /// @notice Refund returns exactly what the entrant paid (fee-on-transfer truth),
+    ///         only on a cancelled room, exactly once.
     function refundEntry(bytes32 roomId) external nonReentrant {
         Room storage r = _rooms[roomId];
         if (!r.cancelled) revert RefundNotAvailable();
         if (!r.entered[msg.sender]) revert NotEntered();
-        if (r.entryAmount == 0 || r.entryToken == address(0)) revert NothingToClaim();
+        uint256 paid = r.paidIn[msg.sender];
+        if (paid == 0) revert NothingToClaim();
         r.entered[msg.sender] = false;
-        r.pot -= r.entryAmount;
-        tokenCommitted[r.entryToken] -= r.entryAmount;
-        IERC20(r.entryToken).safeTransfer(msg.sender, r.entryAmount);
-        emit EntryRefunded(roomId, msg.sender, r.entryAmount);
+        r.pot -= paid;
+        tokenCommitted[r.entryToken] -= paid;
+        IERC20(r.entryToken).safeTransfer(msg.sender, paid);
+        emit EntryRefunded(roomId, msg.sender, paid);
     }
 
     function reclaimReward(bytes32 roomId, uint256 rewardIndex) external {
@@ -294,10 +369,6 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
 
     // ------------------------------------------------------------------ internals
 
-    /// @dev token => total value committed to pots and locked ERC20 rewards.
-    ///      Pots subtract on refund/settle, rewards on pay/reclaim.
-    mapping(address => uint256) public tokenCommitted;
-
     function _payReward(bytes32 roomId, address winner, uint256 rewardIndex) internal {
         LockedReward storage lr = _rewards[roomId][rewardIndex];
         if (lr.paid) revert AlreadyClaimedReward();
@@ -310,10 +381,6 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
         }
         emit RewardPaid(roomId, winner, lr.token, lr.tokenId, lr.amount, lr.isNft);
     }
-
-    function _v(bytes calldata sig) internal pure returns (uint8) { return uint8(sig[64]); }
-    function _r(bytes calldata sig) internal pure returns (bytes32 r_) { assembly { r_ := calldataload(sig.offset) } }
-    function _s(bytes calldata sig) internal pure returns (bytes32 s_) { assembly { s_ := calldataload(add(sig.offset, 32)) } }
 
     function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
         return this.onERC721Received.selector;
