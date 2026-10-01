@@ -67,10 +67,11 @@ def test_off_policy_produces_no_hint():
     assert "hint" not in res.patch.get("lastGuess", {})
 
 
-def test_later_templates_are_honestly_unimplemented():
-    for tid in ("mev-rush", "airdrop-quest"):
-        pol = policy_for(tid)
-        assert pol.implemented is False, tid
+def test_every_catalog_format_is_now_implemented():
+    """D4-D22 complete: all 19 templates have implemented, non-leaking policies."""
+    from center.games.hints import HINT_POLICIES
+    for tid, pol in HINT_POLICIES.items():
+        assert pol.implemented, f"{tid} regressed to unimplemented"
 
 
 def test_token_catch_is_now_implemented():

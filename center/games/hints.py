@@ -249,6 +249,14 @@ LATER_POLICIES.pop("live-quiz", None)
 LATER_POLICIES.pop("token-catch", None)
 LATER_POLICIES.pop("reward-grid", None)
 LATER_POLICIES.pop("pattern-recall", None)
+LATER_POLICIES.pop("maze-race", None)
+LATER_POLICIES.pop("quiz", None)
+LATER_POLICIES.pop("catch", None)
+LATER_POLICIES.pop("airdrop-quest", None)
+LATER_POLICIES.pop("idle-rig", None)
+LATER_POLICIES.pop("mev-rush", None)
+LATER_POLICIES.pop("contract-detective", None)
+LATER_POLICIES.pop("level-runner", None)
 LATER_POLICIES.pop("typing-sprint", None)
 LATER_POLICIES.pop("logo-bingo", None)
 LATER_POLICIES.pop("grid-bingo", None)
@@ -311,6 +319,115 @@ TYPING_SPRINT = HintPolicy(
     ),
 )
 
+LEVEL_RUNNER = HintPolicy(
+    template_id="level-runner",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="checkpoint-telemetry",
+            audience="private",
+            budget=3,
+            description=(
+                "Reports the asker's own distance, lane, and crash state from the "
+                "server-authoritative run. The upcoming obstacle stream stays "
+                "secret until each reveal; never another player's run."
+            ),
+        ),
+    ),
+)
+
+CONTRACT_DETECTIVE = HintPolicy(
+    template_id="contract-detective",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="evidence-clue",
+            audience="private",
+            budget=1,
+            description=(
+                "One curated evidence cue per round (which line of the snippet to "
+                "focus on) taken from static per-question metadata. It cannot "
+                "encode which choice is correct and is not a security-audit verdict."
+            ),
+        ),
+    ),
+)
+
+MEV_RUSH = HintPolicy(
+    template_id="mev-rush",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="queue-position",
+            audience="private",
+            budget=3,
+            description=(
+                "Simulated queue position and the asker's own capture count only, "
+                "explicitly labeled simulated. No live mempool claim, no future "
+                "opportunity kinds, no other players' captures."
+            ),
+        ),
+    ),
+)
+
+IDLE_RIG = HintPolicy(
+    template_id="idle-rig",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="efficiency-readout",
+            audience="private",
+            budget=None,
+            description=(
+                "Server-clock-verified accrual rate, next-upgrade cost, and the "
+                "asker's own earned total. Never implies off-chain earning; never "
+                "another player's rig."
+            ),
+        ),
+    ),
+)
+
+AIRDROP_QUEST = HintPolicy(
+    template_id="airdrop-quest",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="remaining-requirements",
+            audience="private",
+            budget=None,
+            description=(
+                "Lists which quests THIS wallet has not completed and the completed "
+                "set. Never issues an entitlement and never shows other players' "
+                "progress."
+            ),
+        ),
+    ),
+)
+
+MAZE_RACE = HintPolicy(
+    template_id="maze-race",
+    version=2,
+    implemented=True,
+    kinds=(
+        HintKind(
+            id="directional-clue",
+            audience="private",
+            budget=3,
+            description=(
+                "One coarse direction (from the asker's own cell) that reduces "
+                "distance to the exit, or 'no-improving-move'. The maze layout is "
+                "public; the hint only saves pathfinding effort, three uses max, "
+                "and never prints the full route."
+            ),
+        ),
+    ),
+)
+
 REWARD_GRID = HintPolicy(
     template_id="reward-grid",
     version=2,
@@ -351,7 +468,7 @@ HINT_POLICIES: dict[str, HintPolicy] = {
     p.template_id: p
     for p in (
         NUMBER_HUNT, HASH_HUNT, BOSS_RAID, BINGO, LOGO_BINGO_LIVE, RPS_DUEL,
-        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, LIVE_QUIZ, TOKEN_CATCH, REWARD_GRID, LOGO_BINGO, PATTERN_RECALL, TYPING_SPRINT, *LATER_POLICIES.values(),
+        REACTION_DUEL, MEMORY_MATCH, PUZZLE_SPRINT, LIVE_QUIZ, TOKEN_CATCH, REWARD_GRID, LOGO_BINGO, PATTERN_RECALL, TYPING_SPRINT, MAZE_RACE, LEVEL_RUNNER, CONTRACT_DETECTIVE, MEV_RUSH, IDLE_RIG, AIRDROP_QUEST, *LATER_POLICIES.values(),
     )
 }
 
