@@ -200,6 +200,11 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - HashHuntEngine tracks per-player server-verified attempt volume (`attempts`, counted only on real hash evaluations, incl. rejected proofs) and publishes `attemptRates {attempts, valid}` plus truthful `difficultyBits`/`target` in public state. No solution nonce, partial preimage, or hash leaks through the feed; attempts survive snapshot round-trip.
 - Evidence: pytest 153/153 green (6 new in test_hash_hunt_hints.py). Commit 0cc1b181.
 
+### 2026-10-02 addendum 5 — D11 Boss Raid feed invariants
+
+- Boss Raid's co-op hint surface (shared health/phase/weakness window + aggregate contribution + hit counts) is now pinned by tests: the feed shows only shared raid state, a player's private payload carries exclusively their own hit data, no pre-outcome damage/slain leak, oversized client power rejected, contribution cap and rate cap hold server-side.
+- Evidence: pytest 159/159 green (6 new in test_boss_hints.py). Commit 6813b577.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
