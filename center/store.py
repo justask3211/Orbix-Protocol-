@@ -8,6 +8,7 @@ silently clobber each other (manual section 8).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -118,7 +119,9 @@ CREATE TABLE IF NOT EXISTS admin_audit (
     old_json   TEXT NOT NULL,
     new_json   TEXT NOT NULL,
     chain_id   INTEGER NOT NULL,
-    created_at REAL NOT NULL
+    created_at REAL NOT NULL,
+    prev_hash  TEXT NOT NULL DEFAULT '',
+    entry_hash TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_ledger_creator ON ledger(creator, id DESC);
 CREATE INDEX IF NOT EXISTS idx_actions_room ON actions(room_id, seq);
@@ -158,17 +161,39 @@ class Store:
                 (key, json.dumps(value), time.time()),
             )
 
-    def append_audit(self, actor: str, action: str, old: dict, new: dict, chain_id: int) -> None:
+    def _audit_head_hash(self, cx) -> str:
+        row = cx.execute(
+            "SELECT entry_hash FROM admin_audit ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return row[0] if row else ""
+
+    @staticmethod
+    def _audit_entry_hash(prev: str, actor: str, action: str, old_json: str,
+                          new_json: str, chain_id: int, created_at: float) -> str:
+        """Tamper-evident chain: each entry commits to the previous entry's hash."""
+        payload = "|".join((prev, actor, action, old_json, new_json,
+                            str(chain_id), repr(created_at)))
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+    def append_audit(self, actor: str, action: str, old: dict, new: dict, chain_id: int) -> dict:
         with self.tx() as cx:
+            prev = self._audit_head_hash(cx)
+            created_at = time.time()
+            old_json, new_json = json.dumps(old), json.dumps(new)
+            entry_hash = self._audit_entry_hash(prev, actor.lower(), action,
+                                                old_json, new_json, chain_id, created_at)
             cx.execute(
-                "INSERT INTO admin_audit (actor, action, old_json, new_json, chain_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (actor.lower(), action, json.dumps(old), json.dumps(new), chain_id, time.time()),
+                "INSERT INTO admin_audit (actor, action, old_json, new_json, chain_id, created_at, prev_hash, entry_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (actor.lower(), action, old_json, new_json, chain_id, created_at, prev, entry_hash),
             )
+            return {"prev_hash": prev, "entry_hash": entry_hash}
 
     def list_audit(self, limit: int = 100) -> list[dict]:
         with self.tx() as cx:
             rows = cx.execute(
-                "SELECT actor, action, old_json, new_json, chain_id, created_at FROM admin_audit ORDER BY id DESC LIMIT ?",
+                "SELECT actor, action, old_json, new_json, chain_id, created_at, prev_hash, entry_hash "
+                "FROM admin_audit ORDER BY id DESC LIMIT ?",
                 (limit,),
             ).fetchall()
         return [
@@ -176,9 +201,29 @@ class Store:
                 "actor": r[0], "action": r[1],
                 "oldValue": json.loads(r[2]), "newValue": json.loads(r[3]),
                 "chainId": r[4], "createdAt": r[5],
+                "prevHash": r[6], "entryHash": r[7],
             }
             for r in rows
         ]
+
+    def verify_audit_chain(self) -> dict:
+        """Recompute the whole hash chain oldest-first; any edit breaks it."""
+        with self.tx() as cx:
+            rows = cx.execute(
+                "SELECT actor, action, old_json, new_json, chain_id, created_at, prev_hash, entry_hash "
+                "FROM admin_audit ORDER BY id ASC"
+            ).fetchall()
+        prev = ""
+        for idx, r in enumerate(rows, start=1):
+            actor, action, old_json, new_json, chain_id, created_at, prev_hash, entry_hash = r
+            if prev_hash != prev:
+                return {"ok": False, "brokenAt": idx, "reason": "prev_hash mismatch"}
+            expected = self._audit_entry_hash(prev, actor, action, old_json, new_json,
+                                              chain_id, created_at)
+            if entry_hash != expected:
+                return {"ok": False, "brokenAt": idx, "reason": "entry_hash mismatch"}
+            prev = entry_hash
+        return {"ok": True, "entries": len(rows), "head": prev}
 
     # ------------------------------------------------------------------ plumbing
 
