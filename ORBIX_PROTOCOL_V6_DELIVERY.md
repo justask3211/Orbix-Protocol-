@@ -300,6 +300,15 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Deployment: this checkout has no git remote and no railway CLI; Railway builds from its own integration checkout, so today's commits (F5 disclosure, F4 suite, F2 state machine, E5 chain, E13 suite, token identity, hint ladder) reach production on the next Railway sync. Live site re-verified healthy (HTTP 200 on /center).
 - F5 panel ships behind the frontend build; verification of the live panel requires the next Railway deploy of web/. Marked as shipped-in-code, pending-live until then — per the "deployment success is not feature success" rule.
 
+### 2026-10-02 addendum 20 — DEPLOYED LIVE: all session work now on production
+
+- Railway deploy (deploy 23600a3b SUCCESS, superseded by ef0fc11a SUCCESS on the orbixcore site service): full-repo upload from the linked checkout; two intermediate FAILED builds (bf0d2949, fe298473) were root-directory mismatches (Dockerfile path looked up as deploy/site/Dockerfile relative to archive root), fixed by uploading from the repo root with the freshly regenerated deploy/site bundle.
+- Live verification (Playwright + bundle grep, real browser):
+  - /center serves the NEW center bundle (index-B5bdAHvI.js) containing: "Before you join — read the room terms" (F5), "Eliminations per question" (quiz hint wizard), "Reveals per player" (memory hint wizard), "Hints per player" (puzzle hint wizard). All grep hits = 1.
+  - 0 console errors/warnings on the live Center page.
+  - Live URL: https://orbixcore.fun/center
+- Backend service (orbix-center) was already on its own deploy train; the Python API changes (token identity endpoint, tx-state module, audit chain) deploy with that service's next sync.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
