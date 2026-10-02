@@ -309,6 +309,15 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
   - Live URL: https://orbixcore.fun/center
 - Backend service (orbix-center) was already on its own deploy train; the Python API changes (token identity endpoint, tx-state module, audit chain) deploy with that service's next sync.
 
+### 2026-10-02 addendum 21 — GitHub + full stack live
+
+- GitHub: repo justask3211/Orbix-Protocol- (renamed by owner from Tech; fine-grained token scoped to it, stored at ~/.orbix_github_env). Full monorepo pushed (422 files; node_modules/venvs/gitignored). CI: Foundry workflow restored after workflow-scope grant; fixed two CI failures — (1) forge fmt gate (normalized 24 files, tests still 82/82), (2) LayerZero npm contracts missing in CI (added pinned npm install step). CI now GREEN on main (run c50b1366).
+- Backend deployed: orbix-center service (2edb9c98) deployment cda091da SUCCESS after gitignore had excluded web/dist (COPY target); verified LIVE:
+  - GET /token/0x16C5...6db1 -> entry_ok TRUE, ORBIX, 18 decimals, burn not-detected (real on-chain readback against Robinhood testnet 46630!)
+  - bad address -> 422; admin/audit/verify unauthenticated -> 401.
+- Frontend already live since ef0fc11a (F5 + hint wizards).
+- Full stack now live: cockpit + Center (orbixcore), Center API (orbix-center), source on GitHub with green CI.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
