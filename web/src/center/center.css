@@ -521,3 +521,25 @@ p.sub,p.muted{text-wrap:pretty}
 .tx-detail>div{display:flex;gap:10px;align-items:baseline;font-size:11px}
 .tx-k{color:#7c8085;min-width:88px;flex:none;text-transform:uppercase;letter-spacing:.06em;font-size:10px}
 .tx-detail code{font-family:'DM Mono',monospace;color:#a4d46d;word-break:break-all;font-size:10.5px}
+
+/* ---- share panel (room ID + link + invite, each with a copy icon) ---- */
+.share-panel{display:flex;flex-direction:column;gap:8px;margin:4px 0;background:#0e1012;border:1px solid #202326;border-radius:10px;padding:12px 14px}
+.share-row{display:flex;align-items:center;gap:10px;font-size:12px}
+.share-label{color:#7c8085;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;min-width:76px;flex:none}
+.share-value{flex:1;color:#c9e6a8;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.share-copy{flex:none;background:none;border:1px solid #26292c;color:#8d9095;font-size:15px;border-radius:6px;padding:4px 8px;cursor:pointer;transition:color .15s ease,border-color .15s ease;min-width:34px;min-height:34px}
+.share-copy:hover{color:var(--orange);border-color:var(--orange)}
+.share-copy:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.share-note{color:#5a5d61;font-size:10.5px;flex:none;min-width:56px;text-align:right}
+.share-note.on{color:#a4d46d;font-weight:600}
+.share-row.invite-row .share-value{color:#e8c87f}
+.share-row.invite-row{border-top:1px solid #2a2418;padding-top:8px}
+
+/* ---- join by ID / link ---- */
+.join-by-id{display:flex;gap:20px;align-items:center;justify-content:space-between;border:1px solid #202326;border-radius:14px;padding:20px 24px;background:linear-gradient(135deg,#111316,#0e1012);flex-wrap:wrap}
+.join-by-id-row{display:flex;gap:10px;align-items:center;flex:1;min-width:240px;max-width:480px}
+.join-by-id-row input{flex:1;background:#0a0c0d;border:1px solid #26292c;border-radius:8px;padding:10px 13px;color:#f2f0ec;font:12.5px 'DM Mono',monospace;min-width:0}
+.join-by-id-row input:focus-visible{outline:2px solid var(--orange);outline-offset:1px;border-color:var(--orange)}
+
+/* room ID in catalog rows */
+.ct-room-name .mono{font-size:10.5px;color:#6c7075}

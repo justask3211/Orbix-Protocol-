@@ -21,6 +21,8 @@ import { GameBanner } from './bannerArt'
 import { AdminPanel } from './AdminPanel'
 import { bindRoomOnChain, payJoinToken as payJoinTokenGated } from './gate'
 import { FundsPanel, TxPreview } from './funds'
+import { SharePanel } from './SharePanel'
+import { copyText, parseRoomInput } from './share'
 import { DepositPanel } from './DepositPanel'
 import { useRoomChannel } from './ws'
 import './center.css'
@@ -113,10 +115,9 @@ function WalletChip({ session, onOpenWallet }: { session: ReturnType<typeof useS
     : null
   const [copied, setCopied] = useState(false)
   const copy = () => {
-    navigator.clipboard?.writeText(session.address ?? '').then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1200)
-    }).catch(() => undefined)
+    void copyText(session.address ?? '').then((ok) => {
+      if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1200) }
+    })
   }
   return (
     <div className="ct-wallet" title={session.address ?? undefined}>
@@ -189,6 +190,49 @@ function FeaturedGame({ templates, onPlay }: { templates: TemplateList | null; o
   )
 }
 
+
+function JoinById() {
+  const [input, setInput] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const parsed = parseRoomInput(input)
+
+  const go2 = () => {
+    if (!parsed) { setErr('Paste a room ID or a share link.'); return }
+    setErr(null)
+    const q = parsed.invite ? `?invite=${parsed.invite}` : ''
+    window.location.href = `/center/rooms/${parsed.roomId}${q}`
+  }
+
+  return (
+    <div className="join-by-id">
+      <div>
+        <span className="ct-kicker">HAVE A ROOM ID?</span>
+        <h2 className="ct-sub" style={{ marginTop: 4 }}>Join with an ID or link.</h2>
+        <p className="sub" style={{ marginTop: 4 }}>
+          Public rooms appear in the catalog. Unlisted rooms need their link. Private rooms need the invite link.
+        </p>
+      </div>
+      <div className="join-by-id-row">
+        <input
+          type="text"
+          value={input}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="Room ID or full share link"
+          onChange={(e) => { setInput(e.target.value); setErr(null) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') go2() }}
+          aria-label="Room ID or share link"
+        />
+        <button className="btn-primary" onClick={go2} disabled={!parsed}>
+          Open room <span aria-hidden="true">↗</span>
+        </button>
+      </div>
+      {err && <p className="err" role="alert">{err}</p>}
+      {input && !parsed && <p className="muted">That doesn't look like a room ID or link yet.</p>}
+    </div>
+  )
+}
+
 function Catalog({ session: _session }: { session: ReturnType<typeof useSession> }) {
   const templates = useAsync(() => center.templates(), [])
   const rooms = useAsync(() => center.rooms(), [])
@@ -215,6 +259,7 @@ function Catalog({ session: _session }: { session: ReturnType<typeof useSession>
       </section>
       <div className="ct-signal-row"><span><b>{templates.data?.count ?? templates.data?.templates.length ?? 19}</b> game formats</span><span><b>LIVE</b> room play</span><span><b>Testnet</b> funded rewards</span></div>
       <FeaturedGame templates={templates.data ?? null} onPlay={(id) => go(`/center/create?template=${id}`)} />
+      <JoinById />
       <header className="ct-head">
         <div><span className="ct-kicker">FORMAT LIBRARY</span><h2 className="ct-sub">Find your kind of chaos.</h2><p className="sub">From quick duels to co-op raids, every format is ready to configure.</p></div>
         <div className="ct-head-count"><b>{String(shown.length).padStart(2, '0')}</b><span>FORMATS</span></div>
@@ -279,7 +324,10 @@ function Catalog({ session: _session }: { session: ReturnType<typeof useSession>
         {(rooms.data?.rooms ?? []).map((r: RoomSummary) => (
           <button key={r.roomId} className="ct-room" onClick={() => go(`/center/rooms/${r.roomId}`)}>
             <span className={`pill s-${r.status}`}>{STATUS_LABEL[r.status] ?? r.status}</span>
-            <span className="ct-room-name"><b>{r.name}</b><small>{r.templateId}</small></span>
+            <span className="ct-room-name">
+              <b>{r.name}</b>
+              <small>{r.templateId} · ID <span className="mono" translate="no">{r.roomId}</span></small>
+            </span>
             <span className="ct-room-meta">
               <span>{r.players} player{r.players === 1 ? '' : 's'}</span>
               <span>{r.rewards} pts</span>
@@ -1089,7 +1137,7 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
   const [error, setError] = useState<string | null>(null)
   const [ticket, setTicket] = useState<string | null>(null)
   const [settlement, setSettlement] = useState<Settlement | null>(null)
-  const [invite, setInvite] = useState<string | null>(null)
+  const [inviteGenerated, setInviteGenerated] = useState<string | null>(null)
   const [reject, setReject] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -1180,7 +1228,7 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
     if (!session.token) return
     try {
       const created = await center.invite(roomId, session.token)
-      setInvite(`${window.location.origin}/center/rooms/${roomId}?invite=${created.invite}`)
+      setInviteGenerated(created.invite)
     } catch (err) {
       setError(explainError(err))
     }
@@ -1334,12 +1382,11 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
             </button>
           )}
         </div>
-        {invite && (
-          <p className="st-note mono">
-            {invite}
-            <button className="link" onClick={() => navigator.clipboard.writeText(invite)}>
-              copy
-            </button>
+        <SharePanel roomId={roomId} visibility={room?.visibility ?? 'unlisted'} />
+        {inviteGenerated && (
+          <p className="st-note mono" translate="no">
+            Invite created: {inviteGenerated}
+            <button className="link" onClick={() => void copyText(inviteGenerated)}>copy code</button>
           </p>
         )}
         {!session.token && <p className="muted">Sign in with your wallet to join and play.</p>}
@@ -1492,7 +1539,7 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
           </p>
         </div>
         <div className="vt-actions">
-          <button className="btn-ghost" onClick={() => session.address && navigator.clipboard.writeText(session.address)}>
+          <button className="btn-ghost" onClick={() => session.address && void copyText(session.address)}>
             Copy wallet address
           </button>
         </div>
