@@ -19,6 +19,8 @@ import { playerHue, shortAddress, useSession } from './session'
 import { WalletModal } from './WalletModal'
 import { GameBanner } from './bannerArt'
 import { AdminPanel } from './AdminPanel'
+import { bindRoomOnChain, payJoinToken as payJoinTokenGated } from './gate'
+import { FundsPanel, TxPreview } from './funds'
 import { DepositPanel } from './DepositPanel'
 import { useRoomChannel } from './ws'
 import './center.css'
@@ -583,7 +585,21 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
     setBusy(true)
     setError(null)
     try {
+      // 1) publish the room first so we have its roomId
       const published = await center.publish(buildConfig(), intentNonce, session.token)
+      // 2) if a join token is configured, bind it on-chain from the creator's wallet
+      if (draft.entryToken && draft.entryAmount > 0 && session.address) {
+        setStatus('Publishing… now binding your join token on-chain (two wallet signatures).')
+        await bindRoomOnChain(
+          published.roomId,
+          draft.entryToken,
+          draft.entryAmount,
+          draft.payoutMode ?? 'creator',
+          draft.payoutAddress,
+          session.address,
+          (step, detail) => setStatus(detail ?? step),
+        )
+      }
       setStatus(
         published.replayed
           ? 'This publish was already processed — the original room was returned and nothing was charged twice.'
@@ -591,7 +607,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
       )
       go(`/center/rooms/${published.roomId}`)
     } catch (err) {
-      setError(explainError(err))
+      setError(explainError(err) || (err instanceof Error ? err.message : String(err)))
     } finally {
       setBusy(false)
     }
@@ -1066,6 +1082,9 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
 // ------------------------------------------------------------------ room
 
 export function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof useSession> }) {
+  const [joinStep, setJoinStepRaw] = useState<string | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const setJoinStep = (st: string, detail?: string) => setJoinStepRaw(detail ? `${st}: ${detail}` : st)
   const [room, setRoom] = useState<RoomDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ticket, setTicket] = useState<string | null>(null)
@@ -1096,12 +1115,22 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
 
   const join = async () => {
     if (!session.token) return setError('Sign in first.')
+    // A room with a join token shows a signing preview before anything is sent.
+    if (entryToken && entryAmount > 0 && session.address) {
+      setPreviewOpen(true)
+      return
+    }
+    await doJoin()
+  }
+
+  const doJoin = async () => {
+    if (!session.token) return
+    setPreviewOpen(false)
     setBusy(true)
     setError(null)
     try {
-      // If the room has a join token, the joiner pays via CreatorTokenGate first.
       if (entryToken && entryAmount > 0 && session.address) {
-        await payJoinToken(roomId, entryToken, entryAmount, session.address)
+        await payJoinTokenGated(roomId, entryToken, entryAmount, session.address, (step, detail) => setJoinStep(step, detail))
       }
       const params = new URLSearchParams(window.location.search)
       const joined = await center.join(roomId, session.token, params.get('invite') ?? undefined)
@@ -1109,9 +1138,10 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
       channel.connect(joined.ticket)
       await refresh()
     } catch (err) {
-      setError(explainError(err))
+      setError(err instanceof Error && err.message ? err.message : explainError(err))
     } finally {
       setBusy(false)
+      setJoinStep('')
     }
   }
 
@@ -1197,6 +1227,19 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
       </header>
 
       {error && <p className="err" role="alert">{error}</p>}
+{error && <p className="err" role="alert">{error}</p>}
+        {joinStep && <p className="muted" role="status" aria-live="polite">{joinStep}</p>}
+        <TxPreview
+          open={previewOpen}
+          title="Join this room — confirm the transaction"
+          busy={busy}
+          steps={[
+            { label: 'Approve', detail: `Step 1 — approve the gate to transfer ${entryAmount} of the room token from your wallet. Your wallet will ask you to sign. This only happens if your current allowance is lower than the join amount.`, contract: entryToken, fn: 'approve(spender, amount)', value: `${entryAmount} token units`, args: [['spender (gate)', '0xcfc161d02225eceb97aa9b8ff791a407a3bb3cff']] },
+            { label: 'Join', detail: 'Step 2 — the gate transfers the join amount from your wallet to the room payout and adds you to the room.', contract: '0xcfc161d02225eceb97aa9b8ff791a407a3bb3cff', fn: 'join(roomId)', args: [['roomId', roomId]] },
+          ]}
+          onConfirm={doJoin}
+          onCancel={() => setPreviewOpen(false)}
+        />
 
       <section className="ct-panel">
         <h2>Players</h2>
@@ -1267,7 +1310,7 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
           )}
           {!ticket && (
             <button className="btn-primary" onClick={join} disabled={busy || !session.token}>
-              {players.includes(me) ? 'Reconnect to room' : 'Join room'}
+              {busy && joinStep ? 'Working…' : players.includes(me) ? 'Reconnect to room' : 'Join room'}
             </button>
           )}
           {ticket && !finished && (
@@ -1434,6 +1477,8 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
         </button>
       </header>
 
+      <FundsPanel address={session.address} onConnect={() => setLocalModal(true)} />
+
       <section className="vt-hero">
         <div className="vt-orb" aria-hidden="true" />
         <div>
@@ -1589,89 +1634,4 @@ export function CenterApp() {
 
 // ------------------------------------------------------------------ join-token payment
 
-const ERC20_ABI_MIN = [
-  { name: 'approve', type: 'function', stateMutability: 'nonpayable',
-    inputs: [{name:'spender',type:'address'},{name:'amount',type:'uint256'}], outputs:[{type:'bool'}] },
-  { name: 'allowance', type: 'function', stateMutability: 'view',
-    inputs: [{name:'owner',type:'address'},{name:'spender',type:'address'}], outputs:[{type:'uint256'}] },
-] as const
 
-const GATE_ABI_MIN = [
-  { name: 'join', type: 'function', stateMutability: 'nonpayable',
-    inputs: [{name:'roomId',type:'bytes32'}], outputs: [] },
-] as const
-
-const GATE_ADDRESS = '0xcfc161d02225eceb97aa9b8ff791a407a3bb3cff'
-const CHAIN_46630 = '0xb626'
-
-/** Ensures the browser wallet is on chain 46630 before any contract call. */
-async function ensureChain46630(eth: any): Promise<void> {
-  const current: string = await eth.request({ method: 'eth_chainId' })
-  if (String(current).toLowerCase() === CHAIN_46630) return
-  try {
-    await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_46630 }] })
-  } catch (e: any) {
-    if (e?.code === 4902 || /Unrecognized chain/i.test(String(e?.message))) {
-      await eth.request({ method: 'wallet_addEthereumChain', params: [{
-        chainId: CHAIN_46630,
-        chainName: 'Robinhood Chain Testnet',
-        nativeCurrency: { name: 'Test ETH', symbol: 'ETH', decimals: 18 },
-        rpcUrls: ['https://rpc.testnet.chain.robinhood.com'],
-        blockExplorerUrls: ['https://explorer.testnet.chain.robinhood.com'],
-      }] })
-      return
-    }
-    throw new Error('Switch your wallet to the Robinhood testnet (chain 46630) to join.')
-  }
-}
-
-/** Pay the creator's join token via CreatorTokenGate: approve + join. */
-async function payJoinToken(roomId: string, token: string, amount: number, wallet: string): Promise<void> {
-  const eth = (window as any).ethereum
-  if (!eth) throw new Error('No browser wallet. Generate or connect one first.')
-  await ensureChain46630(eth)
-  const { encodeFunctionData, parseUnits } = await import('viem')
-  const wei = parseUnits(String(amount), 18)
-  if (wei <= 0n) throw new Error('Join amount must be positive.')
-
-  // 1) check allowance
-  const allowanceData = encodeFunctionData({ abi: ERC20_ABI_MIN, functionName: 'allowance',
-    args: [wallet as `0x${string}`, GATE_ADDRESS as `0x${string}`] })
-  const allowanceHex: string = await eth.request({
-    method: 'eth_call',
-    params: [{ from: wallet, to: token, data: allowanceData }, 'latest'],
-  })
-  const allowance = BigInt(allowanceHex)
-  if (allowance < wei) {
-    const approveData = encodeFunctionData({ abi: ERC20_ABI_MIN, functionName: 'approve',
-      args: [GATE_ADDRESS as `0x${string}`, wei] })
-    const approveTx: string = await eth.request({
-      method: 'eth_sendTransaction',
-      params: [{ from: wallet, to: token, data: approveData }],
-    })
-    await waitMined(eth, approveTx)
-  }
-
-  // 2) gate.join(roomId)
-  const roomIdBytes = ('0x' + roomId.replace(/[^0-9a-f]/gi, '').padEnd(64, '0').slice(0, 64)) as `0x${string}`
-  const joinData = encodeFunctionData({ abi: GATE_ABI_MIN, functionName: 'join',
-    args: [roomIdBytes] })
-  const joinTx: string = await eth.request({
-    method: 'eth_sendTransaction',
-    params: [{ from: wallet, to: GATE_ADDRESS, data: joinData }],
-  })
-  await waitMined(eth, joinTx)
-}
-
-async function waitMined(eth: any, txHash: string, timeoutMs = 180_000): Promise<void> {
-  const started = Date.now()
-  while (Date.now() - started < timeoutMs) {
-    const r = await eth.request({ method: 'eth_getTransactionReceipt', params: [txHash] })
-    if (r) {
-      if (String(r.status).toLowerCase() !== '0x1') throw new Error('Transaction reverted on-chain.')
-      return
-    }
-    await new Promise((res) => setTimeout(res, 3000))
-  }
-  throw new Error('Timed out waiting for the transaction to confirm.')
-}
