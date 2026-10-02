@@ -1,0 +1,14 @@
+{
+  "name": "Orbix Game Center",
+  "short_name": "Orbix",
+  "description": "19 live game formats with real hint mechanics, clear fees, and funded rewards.",
+  "start_url": "/center",
+  "display": "standalone",
+  "background_color": "#0b0c0e",
+  "theme_color": "#ff6b22",
+  "icons": [
+    { "src": "/orbix-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/orbix-icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/orbix-icon-1024.png", "sizes": "1024x1024", "type": "image/png" }
+  ]
+}

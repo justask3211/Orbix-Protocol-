@@ -1691,6 +1691,18 @@ export function CenterApp() {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
+  // Per-route document title (browser tab readability)
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      catalog: 'Orbix Game Center — Play. Explore. Compete.',
+      create: 'Create a room — Orbix Game Center',
+      room: 'Room — Orbix Game Center',
+      wallet: 'Vault — Orbix Game Center',
+      admin: 'Admin — Orbix Game Center',
+    }
+    document.title = titles[route.name] ?? 'Orbix Game Center'
+  }, [route])
+
   const body = useMemo(() => {
     switch (route.name) {
       case 'create':
