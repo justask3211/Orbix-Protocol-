@@ -1407,7 +1407,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
             </details>
           )}
           {!ticket && (
-            <button className="btn-primary" onClick={join} disabled={busy || !session.token}>
+            <button className="btn-primary" onClick={join} disabled={busy || !session.token} title={!session.token ? "Sign in with your wallet to join" : undefined}>
               {busy && joinStep ? 'Working…' : players.includes(me) ? 'Reconnect to room' : 'Join room'}
             </button>
           )}
