@@ -825,12 +825,12 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
         <div className="ct-form">
           <div className="wz-why">The play fee is charged to YOU once at publish — it is the cost of running the room, not something players pay.</div>
           <label>
-            <span>Play fee from your vault (ORBIX)</span>
+            <span>Play fee from your vault (<span translate="no">ORBIX</span>)</span>
             <input type="number" min={0} value={draft.requiredAmount} onChange={(e) => set('requiredAmount', Number(e.target.value))} />
             <small>Deducted from your vault when you publish.</small>
           </label>
           <label>
-            <span>Joiner fee per player (ORBIX){draft.entryToken ? ' — disabled while a join token is set' : ''}</span>
+            <span>Joiner fee per player (<span translate="no">ORBIX</span>){draft.entryToken ? ' — disabled while a join token is set' : ''}</span>
             <input
               type="number" min={0}
               value={draft.entryToken ? 0 : draft.joinerFee}
@@ -1563,7 +1563,7 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
         <div>
           <div className="vt-balance">
             {vault.loading ? '…' : v ? v.balance : '—'}
-            <small>{v?.label ?? 'ORBIX'}</small>
+            <small><span translate="no">{v?.label ?? "ORBIX"}</span></small>
           </div>
           <p className="sub">
             <span className="wl-addr-chip">{shortAddress(session.address, 6)}</span>
