@@ -38,13 +38,25 @@ contract CreatorTokenGate is ReentrancyGuard {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
-    address public admin; // platform admin (fee/treasury authority)
-    address public treasury; // where token fees accumulate
+    address public admin; // platform admin
+    address public treasury; // default destination when a room does not set one
+
+    /// Robinhood testnet burn address: tokens sent here are provably gone.
+    address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+
+    /// Where a room's join fees go.
+    enum Payee {
+        CreatorWallet,
+        CustomWallet,
+        Burn
+    }
 
     struct Binding {
-        address creator;
-        address token; // creator's ERC-20
-        uint256 joinFee; // in token base units
+        address creator; // who opened the room
+        address token; // any ERC-20 chosen by the creator
+        uint256 joinFee; // in the token's base units
+        address payout; // resolved destination for CustomWallet / CreatorWallet
+        Payee payee; // where the fee goes
         bool paused;
         bool exists;
     }
@@ -59,6 +71,8 @@ contract CreatorTokenGate is ReentrancyGuard {
     event RoomBound(bytes32 indexed roomId, address indexed creator, address indexed token, uint256 joinFee);
     event BindingUpdated(bytes32 indexed roomId, uint256 oldFee, uint256 newFee, address newToken);
     event JoinPaused(bytes32 indexed roomId, bool paused);
+    event PayoutChanged(bytes32 indexed roomId, address indexed oldPayout, address indexed newPayout, uint8 payee);
+    event FeeBurned(bytes32 indexed roomId, address indexed player, address indexed token, uint256 amount);
     event CreatorJoined(bytes32 indexed roomId, address indexed player, uint256 fee, address token);
     event TreasuryChanged(address indexed oldTreasury, address indexed newTreasury);
     event AdminChanged(address indexed oldAdmin, address indexed newAdmin);
@@ -73,6 +87,7 @@ contract CreatorTokenGate is ReentrancyGuard {
     error ZeroAddress();
     error BadToken();
     error NonceUsed();
+    error BadPayee();
 
     modifier onlyAdmin() {
         if (msg.sender != admin) revert NotAdmin();
@@ -90,7 +105,11 @@ contract CreatorTokenGate is ReentrancyGuard {
     /// @notice Creator binds their token to a room. Only valid when the room's
     ///         ORBIX joiner fees are creator-absorbed (enforced off-chain by the
     ///         server refusing to publish a bound room without that flag).
-    function bindRoom(bytes32 roomId, address token, uint256 joinFee) external {
+    /// @notice Creator binds ANY ERC-20 to a room and chooses where join fees go.
+    ///         No ownership or graduation requirement on the token: only that it
+    ///         answers decimals(). Payout is the creator's own wallet by default,
+    ///         a custom address, or the burn address.
+    function bindRoom(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout) external {
         Binding storage b = bindings[roomId];
         if (b.exists) revert AlreadyBound();
         if (token == address(0)) revert ZeroAddress();
@@ -109,11 +128,30 @@ contract CreatorTokenGate is ReentrancyGuard {
         b.joinFee = joinFee;
         b.exists = true;
         b.paused = false;
+        _setPayee(roomId, b, payee, payout);
         emit RoomBound(roomId, msg.sender, token, joinFee);
     }
 
-    /// @notice Creator updates the fee or swaps the token (mutable by design).
-    function updateBinding(bytes32 roomId, address token, uint256 joinFee) external {
+    /// @dev Resolve and store the payout destination. CreatorWallet always maps to
+    ///      the creator's own address; CustomWallet needs a non-zero address;
+    ///      Burn maps to the burn address.
+    function _setPayee(bytes32 roomId, Binding storage b, Payee payee, address payout) internal {
+        if (payee == Payee.CreatorWallet) {
+            b.payout = b.creator;
+        } else if (payee == Payee.CustomWallet) {
+            if (payout == address(0)) revert ZeroAddress();
+            b.payout = payout;
+        } else if (payee == Payee.Burn) {
+            b.payout = BURN_ADDRESS;
+        } else {
+            revert BadPayee();
+        }
+        b.payee = payee;
+        emit PayoutChanged(roomId, b.payout, b.payout, uint8(payee));
+    }
+
+    /// @notice Creator updates the fee, token, or payout (mutable by design).
+    function updateBinding(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout) external {
         Binding storage b = bindings[roomId];
         if (!b.exists) revert NotBound();
         if (b.creator != msg.sender) revert NotCreator();
@@ -122,6 +160,15 @@ contract CreatorTokenGate is ReentrancyGuard {
         emit BindingUpdated(roomId, b.joinFee, joinFee, token);
         b.token = token;
         b.joinFee = joinFee;
+        _setPayee(roomId, b, payee, payout);
+    }
+
+    /// @notice Creator changes where fees go without touching the token or fee.
+    function setPayout(bytes32 roomId, Payee payee, address payout) external {
+        Binding storage b = bindings[roomId];
+        if (!b.exists) revert NotBound();
+        if (b.creator != msg.sender) revert NotCreator();
+        _setPayee(roomId, b, payee, payout);
     }
 
     function setPaused(bytes32 roomId, bool paused) external {
@@ -135,15 +182,19 @@ contract CreatorTokenGate is ReentrancyGuard {
     // ------------------------------------------------------------- joining
 
     /// @notice Joiner joins with their own token. Requires prior approve() on
-    ///         the token for this gate. The fee goes to the treasury; the
-    ///         joiner's ORBIX balance is untouched.
+    ///         the token for this gate. The fee goes to the room's configured
+    ///         payout (creator wallet, custom address, or burn); the joiner's
+    ///         ORBIX balance is untouched.
     function join(bytes32 roomId) external nonReentrant {
         Binding storage b = bindings[roomId];
         if (!b.exists) revert NotBound();
         if (b.paused) revert Paused();
         if (joined[roomId][msg.sender]) revert AlreadyJoined();
         joined[roomId][msg.sender] = true;
-        IERC20(b.token).safeTransferFrom(msg.sender, treasury, b.joinFee);
+        IERC20(b.token).safeTransferFrom(msg.sender, b.payout, b.joinFee);
+        if (b.payee == Payee.Burn) {
+            emit FeeBurned(roomId, msg.sender, b.token, b.joinFee);
+        }
         emit CreatorJoined(roomId, msg.sender, b.joinFee, b.token);
     }
 
@@ -165,7 +216,10 @@ contract CreatorTokenGate is ReentrancyGuard {
         if (ECDSA.recover(msgDigest, signature) != player) revert BadToken(); // wrong signer
         relayNonceUsed[roomId][player][nonce] = true;
         joined[roomId][player] = true;
-        IERC20(b.token).safeTransferFrom(player, treasury, b.joinFee);
+        IERC20(b.token).safeTransferFrom(player, b.payout, b.joinFee);
+        if (b.payee == Payee.Burn) {
+            emit FeeBurned(roomId, player, b.token, b.joinFee);
+        }
         emit CreatorJoined(roomId, player, b.joinFee, b.token);
     }
 
@@ -193,10 +247,10 @@ contract CreatorTokenGate is ReentrancyGuard {
     function bindingOf(bytes32 roomId)
         external
         view
-        returns (address creator, address token, uint256 joinFee, bool paused)
+        returns (address creator, address token, uint256 joinFee, address payout, uint8 payee, bool paused)
     {
         Binding storage b = bindings[roomId];
-        return (b.creator, b.token, b.joinFee, b.paused);
+        return (b.creator, b.token, b.joinFee, b.payout, uint8(b.payee), b.paused);
     }
 
     function hasJoined(bytes32 roomId, address player) external view returns (bool) {

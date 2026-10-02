@@ -303,6 +303,8 @@ type DraftState = {
   absorbsJoinerFee: boolean
   entryToken: string
   entryAmount: number
+  payoutMode?: 'creator' | 'custom' | 'burn'
+  payoutAddress?: string
   hintVisibility: 'private' | 'public'
   durationSeconds: number
   playerCap: number
@@ -535,6 +537,8 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
         required_amount: draft.requiredAmount,
         joiner_fee: draft.joinerFee,
         creator_absorbs_joiner_fee: draft.absorbsJoinerFee || Boolean(draft.entryToken),
+      payout_mode: draft.entryToken ? (draft.payoutMode ?? 'creator') : undefined,
+      payout_address: draft.payoutMode === 'custom' ? draft.payoutAddress : undefined,
       },
       entry: draft.entryToken && draft.entryAmount > 0
         ? { kind: 'erc20' as const, token: draft.entryToken, amount: draft.entryAmount }
@@ -865,18 +869,48 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
             <small>Paste any token you want joiners to pay. Leave empty for a free room. You do NOT need to own or have created it.</small>
           </label>
           {draft.entryToken && (
-            <label>
-              <span>Join amount (in the chosen token)</span>
-              <input
-                type="number"
-                min={1}
-                step="any"
-                value={draft.entryAmount || ''}
-                placeholder="e.g. 25"
-                onChange={(e) => set('entryAmount', Number(e.target.value))}
-              />
-              <small>Each joiner pays this amount of the token above to enter.</small>
-            </label>
+            <>
+              <label>
+                <span>Join amount (in the chosen token)</span>
+                <input
+                  type="number"
+                  min={1}
+                  step="any"
+                  value={draft.entryAmount || ''}
+                  placeholder="e.g. 25"
+                  onChange={(e) => set('entryAmount', Number(e.target.value))}
+                />
+                <small>Each joiner pays this amount of the token above to enter.</small>
+              </label>
+              <label>
+                <span>Where join fees go</span>
+                <select
+                  value={draft.payoutMode ?? 'creator'}
+                  onChange={(e) => set('payoutMode', e.target.value as 'creator' | 'custom' | 'burn')}
+                >
+                  <option value="creator">My wallet (you receive the tokens)</option>
+                  <option value="custom">Custom address (route to any wallet)</option>
+                  <option value="burn">Burn (tokens are permanently destroyed)</option>
+                </select>
+                <small>Choose where the join fees accumulate.</small>
+              </label>
+              {draft.payoutMode === 'custom' && (
+                <label>
+                  <span>Custom payout address</span>
+                  <input
+                    value={draft.payoutAddress ?? ''}
+                    spellCheck={false}
+                    autoComplete="off"
+                    placeholder="0x… wallet to receive join fees"
+                    onChange={(e) => set('payoutAddress', e.target.value)}
+                  />
+                  <small>Tokens from every joiner will be sent here.</small>
+                </label>
+              )}
+              {draft.payoutMode === 'burn' && (
+                <div className="wz-why">Tokens will be sent to 0x…dEaD. This is irreversible — the supply shrinks with every join.</div>
+              )}
+            </>
           )}
           <label>
             <span>Winner points</span>
@@ -1443,7 +1477,7 @@ const GATE_ABI_MIN = [
     inputs: [{name:'roomId',type:'bytes32'}], outputs: [] },
 ] as const
 
-const GATE_ADDRESS = '0x19ecd51d78b3836863e8161503b1273e2241c08a'
+const GATE_ADDRESS = '0xcfc161d02225eceb97aa9b8ff791a407a3bb3cff'
 const CHAIN_46630 = '0xb626'
 
 /** Ensures the browser wallet is on chain 46630 before any contract call. */
