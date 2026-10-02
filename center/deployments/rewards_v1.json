@@ -6,7 +6,8 @@
   "orbix": "0x16C5451763eC2E0E7f041E2DB761A0491FdB6db1",
   "centerVault": "0x481529b7b3BdE423499B1E7f817aa7DFa689cbE4",
   "rewardEngine": "0x5b8d41421b9a6701cb7948e724234cb9b1eb8e1b",
-  "creatorTokenGate": "0x19ecd51d78b3836863e8161503b1273e2241c08a",
-  "note": "RewardEngine handles ERC20/721/1155/ETH rewards with Auto/Code/Merkle/Open claim modes. CreatorTokenGate lets graduated-token creators charge joiners in their own token.",
-  "deployedAt": "2026-10-02"
+  "creatorTokenGate": "0xcfc161d02225eceb97aa9b8ff791a407a3bb3cff",
+  "note": "RewardEngine: ERC20/721/1155/ETH rewards, Auto/Code/Merkle/Open. CreatorTokenGate v2: any ERC-20 join token + per-room payout (creator wallet / custom address / burn 0x...dEaD).",
+  "deployedAt": "2026-10-02",
+  "creatorTokenGateV1": "0x19ecd51d78b3836863e8161503b1273e2241c08a"
 }
