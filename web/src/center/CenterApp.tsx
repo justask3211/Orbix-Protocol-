@@ -838,7 +838,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
               onChange={(e) => set('joinerFee', Number(e.target.value))}
             />
             {draft.entryToken
-              ? <small>Joiners pay the token you chose above — ORBIX joiner fees are absorbed by you.</small>
+              ? <small>Joiners pay the token you chose above — <span translate="no">ORBIX</span> joiner fees are absorbed by you.</small>
               : <small>Each player pays this to join — unless you absorb it below.</small>}
           </label>
           <label className="inline">
@@ -1534,7 +1534,7 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
           <div className="vt-orb" style={{ margin: '0 auto 18px' }} />
           <h2 style={{ fontSize: 22, margin: '0 0 6px' }}>Your vault needs a wallet</h2>
           <p className="muted" style={{ maxWidth: '46ch', margin: '0 auto 18px', lineHeight: 1.6 }}>
-            The vault holds your ORBIX, pays room creation fees, and receives refunds. Connect a browser
+            The vault holds your <span translate="no">ORBIX</span>, pays room creation fees, and receives refunds. Connect a browser
             wallet or generate one — it restores automatically every visit.
           </p>
           <button className="btn-primary" onClick={() => setLocalModal(true)}>Connect or generate wallet</button>
@@ -1549,7 +1549,7 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
       <header className="ct-head">
         <div>
           <h1>Vault</h1>
-          <p className="sub">One ORBIX balance. Room creation fees, joiner fees you absorb, and refunds all run through here.</p>
+          <p className="sub">One <span translate="no">ORBIX</span> balance. Room creation fees, joiner fees you absorb, and refunds all run through here.</p>
         </div>
         <button className="btn-ghost" onClick={() => go('/center')}>
           Back to catalog
