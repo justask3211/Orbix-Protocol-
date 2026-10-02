@@ -22,6 +22,16 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
+      - name: Install LayerZero npm contracts (remappings resolve into node_modules)
+        run: |
+          npm init -y >/dev/null
+          npm install --no-save \
+            @layerzerolabs/oft-evm@4.0.1 \
+            @layerzerolabs/oapp-evm@0.4.1 \
+            @layerzerolabs/lz-evm-protocol-v2@3.0.168 \
+            @layerzerolabs/lz-evm-messagelib-v2@3.0.168 \
+            solidity-bytes-utils@0.8.4
+
       - name: Show Forge version
         run: forge --version
 
