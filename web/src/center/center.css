@@ -543,3 +543,81 @@ p.sub,p.muted{text-wrap:pretty}
 
 /* room ID in catalog rows */
 .ct-room-name .mono{font-size:10.5px;color:#6c7075}
+
+/* ================= mobile portrait + rotation responsiveness ================= */
+.ct-app{color-scheme:dark}
+/* Mobile: topbar goes vertical-ish, no long gap */
+@media (max-width:560px){
+  .ct-topbar{flex-wrap:wrap;height:auto;min-height:44px;padding:6px 14px;white-space:normal;gap:4px 0}
+  .ct-topbar .ct-brand{padding-right:10px}
+  .ct-topbar .ct-nav-item{padding:5px 8px;font-size:11.5px}
+  .ct-topbar .ct-wallet{margin-left:0;width:100%;justify-content:flex-end;padding:4px 0}
+  .ct-main{padding:16px 14px 48px}
+}
+/* Landscape phone: reduce vertical padding so nothing overflows on rotation */
+@media (orientation:landscape) and (max-height:480px){
+  .ct-main{padding:10px 24px 36px}
+  .ct-hero{min-height:220px;padding:20px 24px}
+  .ct-topbar{height:40px}
+}
+
+/* ================= two action cards (Create | Join) ================= */
+.action-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:700px){.action-cards{grid-template-columns:1fr}}
+.action-card{background:linear-gradient(180deg,#141618,#101214);border:1px solid #232629;border-radius:14px;overflow:hidden;transition:border-color .2s ease}
+.action-card.on{border-color:#33373b}
+.action-head{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;padding:16px 18px;cursor:pointer;text-align:left;color:inherit}
+.action-head:hover{background:#16181a}
+.action-head:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
+.action-icon{width:40px;height:40px;border-radius:10px;background:#0e1012;border:1px solid #26292c;display:grid;place-items:center;flex:none;color:var(--orange)}
+.action-card.on .action-icon{background:#1a1d14;border-color:#4a3524}
+.action-titles{flex:1;min-width:0}
+.action-titles b{display:block;font-size:14px;color:#f2f0ec}
+.action-titles small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.action-chev{color:#5a5d61;font-size:18px;font-family:'DM Mono',monospace;flex:none}
+.action-body{padding:0 16px 16px;display:flex;flex-direction:column;gap:10px;animation:action-slide .18s ease}
+@keyframes action-slide{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.action-body{animation:none}}
+
+/* my active rooms */
+.my-rooms{display:flex;flex-direction:column;gap:6px}
+.my-rooms-title{font:10.5px 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#7c8085;margin:4px 0}
+.my-room{display:flex;flex-direction:column;gap:2px;background:#0e1012;border:1px solid #202326;border-radius:10px;padding:11px 14px;cursor:pointer;text-align:left;transition:border-color .15s ease,transform .15s ease}
+.my-room:hover{border-color:var(--orange);transform:translateY(-1px)}
+.my-room:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.my-room-name{font-size:13px;color:#f2f0ec;font-weight:600}
+.my-room-meta{font-size:10.5px;color:#8d9095;font-family:'DM Mono',monospace}
+
+/* open rooms list */
+.pub-rooms{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.pub-rooms-title{font:10.5px 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#7c8085;margin:4px 0}
+.pub-count{color:var(--orange)}
+.pub-room{display:flex;flex-direction:column;gap:4px;background:#0e1012;border:1px solid #202326;border-radius:10px;padding:12px 14px;cursor:pointer;text-align:left;transition:border-color .15s ease,transform .15s ease;width:100%}
+.pub-room:hover{border-color:var(--orange);transform:translateY(-1px)}
+.pub-room:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.pub-room-name{display:flex;flex-direction:column;gap:2px}
+.pub-room-name b{font-size:13px;color:#f2f0ec}
+.pub-room-name small{font-size:10.5px;color:#8d9095}
+.pub-room .mono{font-size:10px}
+
+/* tags */
+.tag-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.tag{font:9.5px 'DM Mono',monospace;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:2.5px 8px;border:1px solid}
+.tag-free{color:#a4d46d;border-color:#3d4a2a;background:#101508}
+.tag-pay{color:#ffd166;border-color:#4a3d1e;background:#151005}
+.tag-reward{color:#69d9c8;border-color:#2a4a44;background:#0a1414}
+.tag-points{color:#8d9095;border-color:#3a3d41;background:#111316}
+.tag-live{color:#ff6b22;border-color:#4a3524;background:#1a130a;animation:tag-pulse 2s ease-in-out infinite}
+@keyframes tag-pulse{0%,100%{opacity:1}50%{opacity:.75}}
+@media (prefers-reduced-motion:reduce){.tag-live{animation:none}}
+
+/* join ID row */
+.join-id-row{display:flex;gap:8px;align-items:center}
+.join-id-row input{flex:1;min-width:0}
+
+/* ================= persistent back button ================= */
+.back-fab{position:fixed;left:10px;bottom:14px;z-index:50;width:40px;height:40px;border-radius:50%;background:#141618ee;border:1px solid #33373b;color:#c9c6c0;cursor:pointer;display:grid;place-items:center;backdrop-filter:blur(8px);transition:color .15s ease,border-color .15s ease,transform .15s ease}
+.back-fab:hover{color:#fff;border-color:var(--orange);transform:scale(1.05)}
+.back-fab:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.back-fab svg{pointer-events:none}
+@media (max-width:700px){.back-fab{bottom:10px;left:8px}}

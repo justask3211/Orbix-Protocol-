@@ -37,11 +37,17 @@ export function WalletModal({ session, onClose }: { session: SessionState; onClo
             <p className="wl-sub">Pick how you want to hold your ORBIX. Both are real EVM wallets — the vault deducts from whichever you use.</p>
 
             <button className="wl-option primary" onClick={() => { setBusy(true); void session.connectInjected().finally(() => setBusy(false)) }}>
-              <span className="wl-icon" aria-hidden="true">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <path d="M21 12a2 2 0 0 0-2-2H5a2 2 0 0 1 0-4h11a1 1 0 0 1 1 1v2" />
-                  <path d="M21 12v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5" />
-                  <circle cx="17.5" cy="14.5" r="1" fill="currentColor" stroke="none" />
+              <span className="wl-icon wl-icon-metamask" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+                  <path d="M23 3.5l-8.2 6.1 1.5-3.6L23 3.5z" fill="#E2761B"/>
+                  <path d="M3 3.5l8.1 6.2-1.4-3.7L3 3.5z" fill="#E4761B"/>
+                  <path d="M19.9 17.2l-2.2 3.4 4.7 1.3 1.4-4.6-3.9-.1zM2.2 17.3l1.4 4.6 4.7-1.3-2.2-3.4-3.9.1z" fill="#E4761B"/>
+                  <path d="M8 11.6l-1.3 2 4.6.2-.2-5L8 11.6zM18 11.6l-3.2-4.9-.1 5.1 4.6-.2-1.3-2z" fill="#E4761B"/>
+                  <path d="M8.3 20.6l2.8-1.4-2.4-1.9-.4 3.3zM14.9 19.2l2.8 1.4-.4-3.3-2.4 1.9z" fill="#D7C1B3"/>
+                  <path d="M17.7 20.6l-2.8-1.4.2 1.8v1.3l2.6-1.7zM8.3 20.6l2.6 1.7v-1.3l.2-1.8-2.8 1.4z" fill="#233447"/>
+                  <path d="M11 16.2l-2.3-.7 1.6-.8.7 1.5zM15 16.2l.7-1.5 1.6.8-2.3.7z" fill="#CD6116"/>
+                  <path d="M8.3 20.6l.5-3.4-2.6.1 2.1 3.3zM17.2 17.2l.5 3.4 2.1-3.3-2.6-.1zM19.3 13.6l-4.6.2.4 2.4.7-1.5 1.6.8-1.9-1.9zM8.7 15.5l1.6-.8.7 1.5.4-2.4-4.6-.2 1.9 1.9z" fill="#E4751F"/>
+                  <path d="M6.8 13.6l1.9 3.7-.1-1.8-1.8-1.9zM17.4 15.5l-.1 1.8 1.9-3.7-1.8 1.9zM11.4 13.8l-.4 2.4.5 2.6.1-3.4v-1.6zM14.7 13.8l-.2 1.6.1 3.4.5-2.6-.4-2.4z" fill="#233447"/>
                 </svg>
               </span>
               <span>
@@ -52,10 +58,12 @@ export function WalletModal({ session, onClose }: { session: SessionState; onClo
             </button>
 
             <button className="wl-option" onClick={doGenerate}>
-              <span className="wl-icon" aria-hidden="true">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v10M9.5 9.5c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.8-2.5.8-2.5 1.8 1 1.7 2.5 1.7 2.5-.7 2.5-1.7" />
+              <span className="wl-icon wl-icon-generate" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="#ff6b22" strokeWidth="1.5" strokeOpacity="0.55" />
+                  <path d="M12 6.5l1.6 3.4 3.4 1.6-3.4 1.6L12 16.5l-1.6-3.4L7 11.5l3.4-1.6L12 6.5z" fill="#ff6b22" />
+                  <circle cx="12" cy="12" r="2.1" fill="#0e1012" />
+                  <circle cx="12" cy="12" r="1.1" fill="#ffd166" />
                 </svg>
               </span>
               <span>

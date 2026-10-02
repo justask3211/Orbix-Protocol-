@@ -157,6 +157,43 @@ class RoomRuntime:
     def is_playable(self) -> bool:
         return lc.is_playable(self.status) and self.engine is not None
 
+    def close(self, reason: str = "") -> None:
+        """Move the room to CLOSED if the lifecycle allows it. Carries every
+        non-terminal state through CANCELLED/CLAIMABLE first, so no state is
+        skipped and the terminal state is never overwritten."""
+        if self.status == lc.CLOSED:
+            return
+        path = {
+            lc.DRAFT: [lc.CANCELLED, lc.REFUNDABLE, lc.CLOSED],
+            lc.PREVIEW_PUBLISHED: [lc.CANCELLED, lc.REFUNDABLE, lc.CLOSED],
+            lc.CONFIG_FROZEN: [lc.CANCELLED, lc.REFUNDABLE, lc.CLOSED],
+            lc.FUNDING: [lc.CANCELLED, lc.REFUNDABLE, lc.CLOSED],
+            lc.FUNDED: [lc.CANCELLED, lc.REFUNDABLE, lc.CLOSED],
+            lc.REGISTRATION: [lc.CANCELLED, lc.REFUNDABLE, lc.CLOSED],
+            lc.READY: [lc.CANCELLED, lc.REFUNDABLE, lc.CLOSED],
+            lc.RUNNING: [lc.RESULT_PENDING, lc.SETTLEMENT_PENDING, lc.CLAIMABLE, lc.CLOSED],
+            lc.RECOVERY_REQUIRED: [lc.REFUNDABLE, lc.CLOSED],
+            lc.RESULT_PENDING: [lc.SETTLEMENT_PENDING, lc.CLAIMABLE, lc.CLOSED],
+            lc.SETTLEMENT_PENDING: [lc.CLAIMABLE, lc.CLOSED],
+            lc.CLAIMABLE: [lc.CLOSED],
+            lc.CANCELLED: [lc.REFUNDABLE, lc.CLOSED],
+            lc.REFUNDABLE: [lc.CLOSED],
+        }.get(self.status, [])
+        for target in path:
+            try:
+                self._set_status(target)
+            except Exception:
+                continue
+        if self.status == lc.CLOSED:
+            self.store.append_action(self.room_id, -1, "system", {"close": reason}, True)
+
+    def hub_clients(self) -> int:
+        """Connected client count for this room (used by the reaper)."""
+        try:
+            return self.hub.count(self.room_id)
+        except Exception:
+            return 0
+
     def deadline(self) -> float | None:
         return self._deadline
 
@@ -471,7 +508,48 @@ class Scheduler:
                     # Deadline enforcement is independent of connected clients.
                     if rt.status == lc.RUNNING and rt.deadline() and now >= rt.deadline() and not rt.engine.finished:
                         await rt.finish(now)
+                self._enforce_schedules(now)
+                self._reap_closed(now)
             await asyncio.sleep(self.interval)
+
+    def _enforce_schedules(self, now: float) -> None:
+        """Open scheduled rooms at their open_at time; close rooms whose close_at
+        has passed. Both are idempotent — the lifecycle module rejects illegal
+        transitions, so a late sweep can never reopen a closed room."""
+        for rt in list(self.runtimes.values()):
+            timing = getattr(rt.config, "timing", None)
+            if timing is None:
+                continue
+            # scheduled opening: draft/preview -> registration once open_at arrives
+            if timing.open_at and now >= timing.open_at and rt.status in (lc.DRAFT, lc.PREVIEW_PUBLISHED):
+                try:
+                    if rt.status == lc.DRAFT:
+                        rt._set_status(lc.PREVIEW_PUBLISHED)
+                    if rt.status == lc.PREVIEW_PUBLISHED:
+                        rt._set_status(lc.REGISTRATION)
+                except Exception:
+                    pass
+            # scheduled closing: any live state -> CLOSED once close_at passes
+            if timing.close_at and now >= timing.close_at and rt.status not in lc.TERMINAL:
+                try:
+                    rt.close("schedule elapsed")
+                except Exception:
+                    pass
+
+    def _reap_closed(self, now: float) -> None:
+        """Drop runtimes for rooms that have been CLOSED for a while, freeing
+        scheduler CPU and memory so the process can host more rooms. The room row
+        stays in the store (history, claims), only the in-memory runtime goes."""
+        reap_after = getattr(self, "reap_after", 120.0)
+        for rid, rt in list(self.runtimes.items()):
+            if rt.status != lc.CLOSED:
+                continue
+            closed_at = getattr(rt, "_closed_at", None)
+            if closed_at is None:
+                rt._closed_at = now  # start the timer on first sighting
+                continue
+            if now - closed_at >= reap_after and not rt.hub_clients():
+                self.runtimes.pop(rid, None)
 
     def start(self) -> None:
         if self._task is None or self._task.done():

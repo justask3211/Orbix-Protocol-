@@ -22,7 +22,9 @@ import { AdminPanel } from './AdminPanel'
 import { bindRoomOnChain, payJoinToken as payJoinTokenGated } from './gate'
 import { FundsPanel, TxPreview } from './funds'
 import { SharePanel } from './SharePanel'
-import { copyText, parseRoomInput } from './share'
+import { ActionCards } from './ActionCards'
+import { BackButton } from './BackButton'
+import { copyText } from './share'
 import { DepositPanel } from './DepositPanel'
 import { useRoomChannel } from './ws'
 import './center.css'
@@ -119,9 +121,21 @@ function WalletChip({ session, onOpenWallet }: { session: ReturnType<typeof useS
       if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1200) }
     })
   }
+  // Before a wallet is connected there is nothing real to show — no placeholder
+  // address, no dash balance. Only the connect control appears.
+  if (!session.token) {
+    return (
+      <div className="ct-wallet">
+        <button className="ct-wallet-connect" onClick={onOpenWallet} disabled={session.signingIn}>
+          {session.signingIn ? 'signing in…' : 'Connect wallet'}
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="ct-wallet" title={session.address ?? undefined}>
-      <span className={`dot${session.token ? '' : ' off'}`} />
+      <span className="dot" />
       <button className="ct-wallet-addr mono" onClick={copy} title="copy address">
         {shortAddress(session.address)}
         {copied ? ' ✓' : ''}
@@ -129,15 +143,9 @@ function WalletChip({ session, onOpenWallet }: { session: ReturnType<typeof useS
       <span className="ct-wallet-bal">
         {liveLabel
           ? <><i className="live-dot" /> {liveLabel}</>
-          : vault.data ? `${vault.data.balance} ${vault.data.label}` : session.token ? '…' : '—'}
+          : vault.data ? `${vault.data.balance} ${vault.data.label}` : '…'}
       </span>
-      {session.token ? (
-        <button className="link" onClick={session.signOut}>sign out</button>
-      ) : (
-        <button className="ct-wallet-connect" onClick={onOpenWallet} disabled={session.signingIn}>
-          {session.signingIn ? 'signing in…' : 'Connect'}
-        </button>
-      )}
+      <button className="link" onClick={session.signOut}>sign out</button>
     </div>
   )
 }
@@ -191,48 +199,6 @@ function FeaturedGame({ templates, onPlay }: { templates: TemplateList | null; o
 }
 
 
-function JoinById() {
-  const [input, setInput] = useState('')
-  const [err, setErr] = useState<string | null>(null)
-  const parsed = parseRoomInput(input)
-
-  const go2 = () => {
-    if (!parsed) { setErr('Paste a room ID or a share link.'); return }
-    setErr(null)
-    const q = parsed.invite ? `?invite=${parsed.invite}` : ''
-    window.location.href = `/center/rooms/${parsed.roomId}${q}`
-  }
-
-  return (
-    <div className="join-by-id">
-      <div>
-        <span className="ct-kicker">HAVE A ROOM ID?</span>
-        <h2 className="ct-sub" style={{ marginTop: 4 }}>Join with an ID or link.</h2>
-        <p className="sub" style={{ marginTop: 4 }}>
-          Public rooms appear in the catalog. Unlisted rooms need their link. Private rooms need the invite link.
-        </p>
-      </div>
-      <div className="join-by-id-row">
-        <input
-          type="text"
-          value={input}
-          spellCheck={false}
-          autoComplete="off"
-          placeholder="Room ID or full share link"
-          onChange={(e) => { setInput(e.target.value); setErr(null) }}
-          onKeyDown={(e) => { if (e.key === 'Enter') go2() }}
-          aria-label="Room ID or share link"
-        />
-        <button className="btn-primary" onClick={go2} disabled={!parsed}>
-          Open room <span aria-hidden="true">↗</span>
-        </button>
-      </div>
-      {err && <p className="err" role="alert">{err}</p>}
-      {input && !parsed && <p className="muted">That doesn't look like a room ID or link yet.</p>}
-    </div>
-  )
-}
-
 function Catalog({ session: _session }: { session: ReturnType<typeof useSession> }) {
   const templates = useAsync(() => center.templates(), [])
   const rooms = useAsync(() => center.rooms(), [])
@@ -259,7 +225,7 @@ function Catalog({ session: _session }: { session: ReturnType<typeof useSession>
       </section>
       <div className="ct-signal-row"><span><b>{templates.data?.count ?? templates.data?.templates.length ?? 19}</b> game formats</span><span><b>LIVE</b> room play</span><span><b>Testnet</b> funded rewards</span></div>
       <FeaturedGame templates={templates.data ?? null} onPlay={(id) => go(`/center/create?template=${id}`)} />
-      <JoinById />
+      <ActionCards session={_session} go={go} />
       <header className="ct-head">
         <div><span className="ct-kicker">FORMAT LIBRARY</span><h2 className="ct-sub">Find your kind of chaos.</h2><p className="sub">From quick duels to co-op raids, every format is ready to configure.</p></div>
         <div className="ct-head-count"><b>{String(shown.length).padStart(2, '0')}</b><span>FORMATS</span></div>
@@ -355,6 +321,9 @@ type DraftState = {
   entryAmount: number
   payoutMode?: 'creator' | 'custom' | 'burn'
   payoutAddress?: string
+  openMode?: 'now' | 'schedule'
+  openAtLocal?: string
+  closeAfterHours?: number
   hintVisibility: 'private' | 'public'
   durationSeconds: number
   playerCap: number
@@ -606,6 +575,15 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
       payout_mode: draft.entryToken ? (draft.payoutMode ?? 'creator') : undefined,
       payout_address: draft.payoutMode === 'custom' ? draft.payoutAddress : undefined,
       },
+      timing: (() => {
+        const openAt = draft.openMode === 'schedule' && draft.openAtLocal
+          ? Math.floor(new Date(draft.openAtLocal).getTime() / 1000)
+          : 0
+        const closeAt = draft.closeAfterHours && draft.closeAfterHours > 0
+          ? Math.floor(Date.now() / 1000) + draft.closeAfterHours * 3600
+          : 0
+        return { open_at: openAt > 0 ? openAt : 0, close_at: closeAt > 0 ? closeAt : 0 }
+      })(),
       entry: draft.entryToken && draft.entryAmount > 0
         ? { kind: 'erc20' as const, token: draft.entryToken, amount: draft.entryAmount }
         : { kind: 'free' as const },
@@ -992,6 +970,37 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
               )}
             </>
           )}
+          <label>
+            <span>Room opening</span>
+            <select
+              value={draft.openMode ?? 'now'}
+              onChange={(e) => set('openMode', e.target.value as 'now' | 'schedule')}
+            >
+              <option value="now">Open room now</option>
+              <option value="schedule">Schedule opening</option>
+            </select>
+            <small>Open immediately, or set a time for the room to go live.</small>
+          </label>
+          {draft.openMode === 'schedule' && (
+            <label>
+              <span>Open at</span>
+              <input
+                type="datetime-local"
+                value={draft.openAtLocal ?? ''}
+                onChange={(e) => set('openAtLocal', e.target.value)}
+              />
+              <small>The room becomes joinable at this time.</small>
+            </label>
+          )}
+          <label>
+            <span>Auto-close after (hours, 0 = never)</span>
+            <input
+              type="number" min={0} max={168}
+              value={draft.closeAfterHours ?? 0}
+              onChange={(e) => set('closeAfterHours', Number(e.target.value))}
+            />
+            <small>When this elapses the room closes and frees its resources.</small>
+          </label>
           <label>
             <span>Winner points (preview)</span>
             <input type="number" min={0} value={draft.rewardPoints} onChange={(e) => set('rewardPoints', Number(e.target.value))} />
@@ -1650,6 +1659,7 @@ export function CenterApp() {
   return (
     <div className="ct-app">
       <a className="ct-skip-link" href="#center-main">Skip to content</a>
+      <BackButton onFallback={() => go('/center')} />
       <header className="ct-topbar">
         <a className="ct-brand" href="/center" onClick={(e) => { e.preventDefault(); go('/center') }}>
           <span className="orb" />

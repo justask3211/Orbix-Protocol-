@@ -24,6 +24,9 @@ export type RoomSummary = {
   mode: string
   players: number
   rewards: string
+  entryKind?: string | null
+  entryToken?: string | null
+  entryAmount?: number | null
 }
 
 export type Participant = { who: string; role: string; ready: boolean }
@@ -38,6 +41,7 @@ export type RoomDetail = {
   participants: Participant[]
   joinerFee?: string
   ticket?: string
+  timing?: { open_at?: number; close_at?: number }
 }
 
 export type Allocation = {
@@ -150,6 +154,11 @@ export const center = {
       { method: 'PATCH', body: JSON.stringify(body), headers: { 'X-Admin-Proof': signature } },
       token),
   rooms: () => request<{ rooms: RoomSummary[] }>('/rooms'),
+  myRooms: (token: string) =>
+    request<{ rooms: { roomId: string; name: string; templateId: string; status: string; visibility: string; players: number; openAt: number | null; closeAt: number | null; scheduled: string | null; expiring: string | null; active: boolean }[] }>(
+      '/my/rooms', {}, token),
+  closeRoom: (roomId: string, token: string) =>
+    request<{ status: string }>(`/rooms/${roomId}/close`, { method: 'POST' }, token),
   room: (roomId: string) => request<RoomDetail>(`/rooms/${roomId}`),
   invite: (roomId: string, token: string) => request<{ invite: string; shareUrl: string }>(`/rooms/${roomId}/invites`, { method: 'POST' }, token),
   join: (roomId: string, token: string, invite?: string) =>
