@@ -172,6 +172,9 @@ export const center = {
   onchainBalance: (token: string) => request<OnchainBalance>('/wallet/onchain-balance', {}, token),
   deposit: (amount: number, token: string) => request<{ balance: number }>('/wallet/vault/deposit', { method: 'POST', body: JSON.stringify({ amount }) }, token),
   ledgerCsvUrl: () => `${API_BASE}/wallet/ledger.csv`,
+  checkDeposit: (token: string) =>
+    request<{ credited: number; balance: number; wallet: number; symbol: string; synced: boolean }>(
+      '/wallet/deposit/check', { method: 'POST' }, token),
 }
 
 /** Turn any thrown value into something a player can read. */

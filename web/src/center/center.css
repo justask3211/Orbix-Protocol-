@@ -449,3 +449,53 @@ button:active:not(:disabled){transform:translateY(1px) scale(.99)}
 .board-row .who{max-width:32ch}
 .ct-card-top h3,.gcard h3{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 p.sub,p.muted{text-wrap:pretty}
+
+/* ---- Deposit panel (contract + QR tabs) ---- */
+.dp-tabs{display:flex;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:14px 0 4px;max-width:420px}
+.dp-tabs [role=tab]{flex:1;background:#111316;border:0;border-right:1px solid var(--line);color:#8d9095;padding:11px 14px;font-size:12.5px;cursor:pointer;transition:background .15s ease,color .15s ease}
+.dp-tabs [role=tab]:last-child{border-right:0}
+.dp-tabs [role=tab]:hover{color:#e9e7e2}
+.dp-tabs [role=tab].on{background:#1a1d14;color:#fff;box-shadow:inset 0 -2px 0 var(--orange)}
+.dp-tabs [role=tab]:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
+.dp-qr-wrap{margin-top:6px}
+.dp-qr-row{display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.dp-qr{border:1px solid #26292c;border-radius:10px;background:#0a0c0d;padding:8px;flex:none}
+.dp-addr{font-size:12px;word-break:break-all;background:#0e1012;border:1px solid #202326;border-radius:8px;padding:10px 12px;max-width:34ch}
+
+/* ---- Designer master prompt pass ---- */
+/* subtle background environment behind everything */
+.ct-app:before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(ellipse 60% 40% at 85% -5%, rgba(255,107,34,.07), transparent 60%),
+    radial-gradient(ellipse 45% 35% at 8% 108%, rgba(105,217,200,.05), transparent 60%),
+    radial-gradient(ellipse 30% 30% at 55% 40%, rgba(255,255,255,.014), transparent 70%)}
+@media (prefers-reduced-motion:reduce){.ct-app:before{display:none}}
+
+/* featured game */
+.feat{display:grid;grid-template-columns:1.25fr 1fr;border:1px solid #26292c;border-radius:18px;overflow:hidden;min-height:230px;background:#101214}
+@media (max-width:760px){.feat{grid-template-columns:1fr}}
+.feat-art{position:relative;min-height:230px;overflow:hidden}
+.feat-art svg.gcard-art{width:100%;height:100%;display:block;transition:transform .5s cubic-bezier(.16,1,.3,1)}
+.feat:hover .feat-art svg.gcard-art{transform:scale(1.04)}
+.feat-glow{position:absolute;inset:0;background:radial-gradient(ellipse at 70% 30%, color-mix(in srgb,var(--gc,#ff5f5f) 18%,transparent), transparent 65%);opacity:0;transition:opacity .4s ease}
+.feat:hover .feat-glow{opacity:1}
+.feat-body{padding:28px;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.feat-title{font-size:clamp(26px,4vw,38px);letter-spacing:-.03em;margin:0;color:#fff}
+.feat-desc{margin:0;color:#b6b3ad;font-size:13px;line-height:1.65;max-width:44ch}
+.feat-meta{color:#6c7075;font-size:11px;letter-spacing:.06em}
+.feat-play{align-self:flex-start;margin-top:8px;box-shadow:0 0 0 rgba(255,107,34,0);transition:box-shadow .3s ease,transform .3s ease}
+.feat-play:hover{box-shadow:0 8px 30px -8px rgba(255,107,34,.55);transform:translateY(-1px)}
+@media (prefers-reduced-motion:reduce){.feat-art svg.gcard-art{transition:none}.feat:hover .feat-art svg.gcard-art{transform:none}.feat-glow{transition:none}.feat-play{transition:none}}
+
+/* game card cinematic hover (zoom artwork under the gradient) */
+.gcard .gcard-art{transition:transform .45s cubic-bezier(.16,1,.3,1)}
+.gcard:hover .gcard-art{transform:scale(1.05)}
+@media (prefers-reduced-motion:reduce){.gcard .gcard-art{transition:none}.gcard:hover .gcard-art{transform:none}}
+.gcard .ct-card-cta{opacity:0;transform:translateY(4px);transition:opacity .25s ease,transform .25s ease}
+.gcard:hover .ct-card-cta,.gcard:focus-within .ct-card-cta{opacity:1;transform:none}
+@media (hover:none){.gcard .ct-card-cta{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.gcard .ct-card-cta{transition:none;opacity:1;transform:none}}
+.gcard .ct-card-cta{margin:0 16px 14px;align-self:flex-start}
+
+/* card grid rhythm: featured row spans full width naturally */
+.ct-catalog{gap:22px}

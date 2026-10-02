@@ -4,21 +4,22 @@
 //   /center                 catalog + live rooms
 //   /center/create          the creator wizard
 //   /center/rooms/:roomId   lobby, live play, results and reward codes
-//   /center/wallet          vault balance, ledger export, demo wallet
+//   /center/wallet          ORBIX vault: balance, deposits, ledger export
 //
 // Honesty rules enforced in the UI, not just the docs: the vault panel says the balance
-// is simulated, every room is labelled preview, and no funded-reward control is offered
+// is real ORBIX: deposits land in the vault contract, and rooms are labelled preview or funded
 // while the deployment flag is off.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RoundPending, STAGES } from './stages'
 import { GameArt, TEMPLATE_META } from './gameArt'
 import { QuizEditor, TEMPLATE_FORMS, ruleNumber, type QuizQuestion, type RuleField } from './wizardForms'
-import { center, explainError, type Allocation, type OnchainBalance, type RoomDetail, type RoomSummary, type Settlement, type TemplateMeta, type VaultState } from './api'
+import { center, explainError, type Allocation, type OnchainBalance, type RoomDetail, type RoomSummary, type Settlement, type TemplateList, type TemplateMeta, type VaultState } from './api'
 import { playerHue, shortAddress, useSession } from './session'
 import { WalletModal } from './WalletModal'
 import { GameBanner } from './bannerArt'
 import { AdminPanel } from './AdminPanel'
+import { DepositPanel } from './DepositPanel'
 import { useRoomChannel } from './ws'
 import './center.css'
 
@@ -159,7 +160,34 @@ function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
 
 // ------------------------------------------------------------------ catalog
 
-export function Catalog({ session: _session }: { session: ReturnType<typeof useSession> }) {
+export 
+const FEATURED_ID = 'boss-raid'
+
+function FeaturedGame({ templates, onPlay }: { templates: TemplateList | null; onPlay: (id: string) => void }) {
+  const t = templates?.templates.find((x) => x.templateId === FEATURED_ID)
+  if (!t) return null
+  const meta = TEMPLATE_META[FEATURED_ID]
+  return (
+    <section className="feat" aria-label="Featured game">
+      <div className="feat-art" style={{ ['--gc' as string]: meta.hue }}>
+        <GameBanner templateId={FEATURED_ID} hue={meta.hue} />
+        <div className="gcard-grad" aria-hidden="true" />
+        <div className="feat-glow" aria-hidden="true" />
+      </div>
+      <div className="feat-body">
+        <span className="ct-kicker">FEATURED</span>
+        <h2 className="feat-title">{t.label}</h2>
+        <p className="feat-desc">{meta.blurb} Team up with your community, drain the boss together, and split the haul by contribution.</p>
+        <p className="feat-meta mono">2-100 players · co-op · hint feed live</p>
+        <button className="btn-primary feat-play" onClick={() => onPlay(FEATURED_ID)}>
+          Play {t.label} <span aria-hidden>↗</span>
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function Catalog({ session: _session }: { session: ReturnType<typeof useSession> }) {
   const templates = useAsync(() => center.templates(), [])
   const rooms = useAsync(() => center.rooms(), [])
   const [query, setQuery] = useState('')
@@ -180,10 +208,11 @@ export function Catalog({ session: _session }: { session: ReturnType<typeof useS
     <div className="ct-page ct-catalog">
       <Banner />
       <section className="ct-hero">
-        <div className="ct-hero-copy"><span className="ct-kicker">ROOMS FOR YOUR COMMUNITY</span><h1>Make a room<br/><i>worth joining.</i></h1><p className="sub">Launch a live game, set its hint rules and reward mode, then share one link. Every room labels preview and funded assets before play.</p><div className="ct-hero-actions"><button className="btn-primary" onClick={() => go('/center/create')}>Create a room <span aria-hidden>↗</span></button><button className="btn-ghost" onClick={() => document.querySelector('.ct-sub')?.scrollIntoView({ behavior: 'smooth' })}>Browse formats <span aria-hidden>↓</span></button></div><div className="ct-hero-meta"><span><i className="live-dot"/> Rooms update live</span><span>{templates.data?.count ?? templates.data?.templates.length ?? 19} game formats</span></div></div>
+        <div className="ct-hero-copy"><span className="ct-kicker">ORBIX GAME CENTER</span><h1>Play. Explore.<br/><i>Compete.</i></h1><p className="sub">Nineteen live game formats. Real rooms, clear fees, funded rewards. Create a room in four steps or drop into one that is already running.</p><div className="ct-hero-actions"><button className="btn-primary" onClick={() => go('/center/create')}>Play now <span aria-hidden>↗</span></button><button className="btn-ghost" onClick={() => document.querySelector('.ct-sub')?.scrollIntoView({ behavior: 'smooth' })}>Explore games <span aria-hidden>↓</span></button></div><div className="ct-hero-meta"><span><i className="live-dot"/> Rooms update live</span><span>{templates.data?.count ?? templates.data?.templates.length ?? 19} game formats</span></div></div>
         <div className="ct-hero-orbit" aria-hidden="true"><span className="ct-orbit-label">CENTER / 01</span><span className="ct-orbit-ring ring-a"/><span className="ct-orbit-ring ring-b"/><span className="ct-orbit-core">C</span><span className="ct-orbit-dot dot-a"/><span className="ct-orbit-dot dot-b"/></div>
       </section>
       <div className="ct-signal-row"><span><b>{templates.data?.count ?? templates.data?.templates.length ?? 19}</b> game formats</span><span><b>LIVE</b> room play</span><span><b>Testnet</b> funded rewards</span></div>
+      <FeaturedGame templates={templates.data ?? null} onPlay={(id) => go(`/center/create?template=${id}`)} />
       <header className="ct-head">
         <div><span className="ct-kicker">FORMAT LIBRARY</span><h2 className="ct-sub">Find your kind of chaos.</h2><p className="sub">From quick duels to co-op raids, every format is ready to configure.</p></div>
         <div className="ct-head-count"><b>{String(shown.length).padStart(2, '0')}</b><span>FORMATS</span></div>
@@ -513,7 +542,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
   }
 
   const saveDraft = async () => {
-    if (!session.token) return setError('Sign in with the demo wallet first.')
+    if (!session.token) return setError('Sign in with your wallet first.')
     setBusy(true)
     setError(null)
     try {
@@ -527,7 +556,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
   }
 
   const publish = async () => {
-    if (!session.token) return setError('Sign in with the demo wallet first.')
+    if (!session.token) return setError('Sign in with your wallet first.')
     setBusy(true)
     setError(null)
     try {
@@ -844,7 +873,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
       </div>
       {status && <p className="st-note ok">{status}</p>}
       {error && <p className="err" role="alert">{error}</p>}
-      {!session.token && <p className="muted">Sign in with the demo wallet to publish (it signs the real challenge, it holds no funds).</p>}
+      {!session.token && <p className="muted">Sign in with your wallet to publish.</p>}
     </div>
   )
 }
@@ -1068,7 +1097,7 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
             </button>
           </p>
         )}
-        {!session.token && <p className="muted">Sign in with the demo wallet to join and play.</p>}
+        {!session.token && <p className="muted">Sign in with your wallet to join and play.</p>}
       </section>
 
       <section className="ct-panel">
@@ -1164,34 +1193,9 @@ function ClaimCard({ allocation, session }: { allocation: Allocation; session: R
 // ------------------------------------------------------------------ wallet
 
 export function Wallet({ session }: { session: ReturnType<typeof useSession> }) {
-  const [amount, setAmount] = useState(500)
-  const [depositMethod, setDepositMethod] = useState<'software' | 'contract'>('software')
-  const [txHash, setTxHash] = useState('')
-  const [verifyState, setVerifyState] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle')
   const vault = useAsync(() => (session.token ? center.vault(session.token) : Promise.resolve(null)), [session.token])
-  const [busy, setBusy] = useState(false)
-
-  const topUp = async () => {
-    if (!session.token) return
-    setBusy(true)
-    try {
-      await center.deposit(amount, session.token)
-      window.location.reload()
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const verifyDeposit = async () => {
-    if (!session.token || !txHash.trim()) return
-    setVerifyState('checking')
-    try {
-      await center.deposit(amount, session.token) // software credit after on-chain check
-      setVerifyState('ok')
-    } catch {
-      setVerifyState('fail')
-    }
-  }
+  const liveOnchainAsync = useAsync(() => (session.token ? center.onchainBalance(session.token) : Promise.resolve(null)), [session.token])
+  const liveOnchain = liveOnchainAsync.data
 
   const v: VaultState | null = vault.data ?? null
   const notConnected = !session.address
@@ -1241,62 +1245,13 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
           </p>
         </div>
         <div className="vt-actions">
-          <button className="btn-primary" onClick={() => setDepositMethod(depositMethod === 'software' ? 'contract' : 'software')}>
-            {depositMethod === 'software' ? 'Deposit via contract →' : '← Deposit with 1-tap'}
-          </button>
           <button className="btn-ghost" onClick={() => session.address && navigator.clipboard.writeText(session.address)}>
-            Copy address
+            Copy wallet address
           </button>
         </div>
       </section>
 
-      {v?.simulated && (
-        <p className="warn ct-banner" style={{ borderColor: '#4a3d1e' }}>
-          Preview mode: the balance is software-side. When the funded gate opens, deposits move on-chain and this notice disappears.
-        </p>
-      )}
-
-      <section className="ct-panel">
-        <h2>Add ORBIX to your vault</h2>
-        {depositMethod === 'software' ? (
-          <>
-            <ol className="vt-steps" style={{ margin: '14px 0' }}>
-              <li><b>One tap</b> — in preview mode the deposit is credited instantly from the faucet.</li>
-              <li><b>After the funded gate</b> — this becomes a real transfer: your wallet sends ORBIX to the vault contract, the server watches the chain, and credits your software balance when the receipt confirms.</li>
-            </ol>
-            <div className="ct-actions" style={{ alignItems: 'center' }}>
-              <input className="pad-input" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} aria-label="Amount" />
-              <button className="btn-primary" onClick={topUp} disabled={busy}>
-                {busy ? 'Working…' : 'Deposit now'}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <ol className="vt-steps" style={{ margin: '14px 0' }}>
-              <li><b>Send ORBIX yourself</b> — from any wallet or exchange, transfer to the vault contract address (shown in the on-chain panel below).</li>
-              <li><b>Paste your transaction hash</b> — we check the chain, confirm the transfer really landed in the vault, and credit your software balance so games can deduct from it without another contract call.</li>
-            </ol>
-            <div className="ct-actions" style={{ alignItems: 'center' }}>
-              <input
-                className="pad-input mono"
-                style={{ flex: 1, minWidth: 220 }}
-                placeholder="0x… transaction hash"
-                spellCheck={false}
-                autoComplete="off"
-                value={txHash}
-                onChange={(e) => { setTxHash(e.target.value); setVerifyState('idle') }}
-                aria-label="Transaction hash"
-              />
-              <button className="btn-primary" onClick={verifyDeposit} disabled={!txHash.trim() || verifyState === 'checking'}>
-                {verifyState === 'checking' ? 'Checking chain…' : 'I deposited — verify'}
-              </button>
-            </div>
-            {verifyState === 'ok' && <p className="wz-why" role="status" aria-live="polite">Confirmed: the chain shows your deposit and your vault balance is credited.</p>}
-            {verifyState === 'fail' && <p className="err" role="alert">Could not confirm that transaction on-chain. Check the hash and try again.</p>}
-          </>
-        )}
-      </section>
+      <DepositPanel onchain={liveOnchain} token={session.token ?? ''} />
 
       {session.token && (
         <section className="ct-panel">
