@@ -263,6 +263,19 @@ class Admission(Strict):
     min_ready_to_start: int = Field(default=2, ge=1, le=100)
 
 
+class Timing(Strict):
+    """Room opening + closing schedule. Both optional; 0 = no schedule."""
+
+    open_at: int = Field(default=0, ge=0)
+    close_at: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def _sane(self) -> "Timing":
+        if self.open_at and self.close_at and self.close_at <= self.open_at:
+            raise ValueError("close_at must be after open_at")
+        return self
+
+
 class Access(Strict):
     """Vault-access descriptor. In preview the token is unset and nothing is charged."""
 
@@ -332,6 +345,7 @@ class RoomConfig(Strict):
     mode: Mode = "preview"
     rules: RulesUnion
     admission: Admission = Field(default_factory=Admission)
+    timing: Timing = Field(default_factory=Timing)
     access: Access = Field(default_factory=Access)
     entry: Entry = Field(default_factory=Entry)
     rewards: Rewards = Field(default_factory=Rewards)

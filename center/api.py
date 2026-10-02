@@ -486,10 +486,42 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                     "status": r["status"], "visibility": r["visibility"], "mode": r["mode"],
                     "players": len([p for p in store.participants(r["id"]) if p["role"] == "player"]),
                     "rewards": r["config"]["rewards"]["kind"],
+                    "entryKind": r["config"]["entry"].get("kind", "free"),
+                    "entryToken": r["config"]["entry"].get("token"),
+                    "entryAmount": r["config"]["entry"].get("amount") or None,
                 }
                 for r in rows
             ]
         }
+
+    @app.get(f"{API_PREFIX}/my/rooms")
+    def my_rooms(who: str = Depends(require_wallet)) -> dict:
+        """Rooms created by the connected wallet, with live status and timing."""
+        mine = []
+        for row in store.list_rooms(limit=200):
+            if row["owner"].lower() != who.lower():
+                continue
+            cfg = row["config"]
+            timing = cfg.get("timing", {}) if isinstance(cfg, dict) else {}
+            now = time.time()
+            open_at = timing.get("open_at", 0)
+            close_at = timing.get("close_at", 0)
+            scheduled = "scheduled" if (open_at and now < open_at) else None
+            expiring = "closing" if (close_at and now >= close_at - 60) else None
+            mine.append({
+                "roomId": row["id"],
+                "name": cfg.get("name", ""),
+                "templateId": row.get("template_id", ""),
+                "status": row["status"],
+                "visibility": row["visibility"],
+                "players": len([p for p in store.participants(row["id"]) if p["role"] == "player"]),
+                "openAt": open_at or None,
+                "closeAt": close_at or None,
+                "scheduled": scheduled,
+                "expiring": expiring,
+                "active": row["status"] not in ("closed", "cancelled"),
+            })
+        return {"rooms": mine}
 
     @app.get(f"{API_PREFIX}/rooms/{{room_id}}")
     def get_room(room_id: str) -> dict:
@@ -498,15 +530,27 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "no such room"})
         # Unlisted rooms are readable by URL but never listed; private rooms hide their rules.
         config = row["config"] if row["visibility"] != "private" else {"name": row["config"]["name"]}
+        timing = row["config"].get("timing", {}) if isinstance(row["config"], dict) else {}
         return {
             "roomId": row["id"], "status": row["status"], "visibility": row["visibility"],
             "mode": row["mode"], "owner": row["owner"], "config": config,
+            "timing": timing,
             "pricingSnapshot": FeeSchedule.from_dict(store.get_setting(f"pricing:{room_id}")).as_dict(),
             "participants": [
                 {"who": p["who"], "role": p["role"], "ready": bool(p["ready"])}
                 for p in store.participants(room_id)
             ],
         }
+
+    @app.post(f"{API_PREFIX}/rooms/{{room_id}}/close")
+    def close_room(room_id: str, who: str = Depends(require_wallet)) -> dict:
+        rt = runtime_for(room_id)
+        if rt.owner != who:
+            raise HTTPException(403, detail={"code": "FORBIDDEN", "message": "only the host may close the room"})
+        if rt.status == lc.CLOSED:
+            return {"status": "closed"}
+        rt.close("host closed")
+        return {"status": rt.status}
 
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/invites")
     def create_invite(room_id: str, who: str = Depends(require_wallet)) -> dict:
