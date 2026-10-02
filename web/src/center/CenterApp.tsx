@@ -16,6 +16,9 @@ import { GameArt, TEMPLATE_META } from './gameArt'
 import { QuizEditor, TEMPLATE_FORMS, ruleNumber, type QuizQuestion, type RuleField } from './wizardForms'
 import { center, explainError, type Allocation, type OnchainBalance, type RoomDetail, type RoomSummary, type Settlement, type TemplateMeta, type VaultState } from './api'
 import { playerHue, shortAddress, useSession } from './session'
+import { WalletModal } from './WalletModal'
+import { GameBanner } from './bannerArt'
+import { AdminPanel } from './AdminPanel'
 import { useRoomChannel } from './ws'
 import './center.css'
 
@@ -24,6 +27,7 @@ type Route =
   | { name: 'create'; templateId?: string }
   | { name: 'room'; roomId: string }
   | { name: 'wallet' }
+  | { name: 'admin' }
 
 function parseRoute(): Route {
   const path = window.location.pathname.replace(/\/+$/, '')
@@ -31,6 +35,7 @@ function parseRoute(): Route {
   if (parts[1] === 'create') return { name: 'create', templateId: parts[2] ?? new URLSearchParams(window.location.search).get('template') ?? undefined }
   if (parts[1] === 'rooms' && parts[2]) return { name: 'room', roomId: parts[2] }
   if (parts[1] === 'wallet') return { name: 'wallet' }
+  if (parts[1] === 'admin') return { name: 'admin' }
   return { name: 'catalog' }
 }
 
@@ -71,7 +76,7 @@ function Banner() {
   )
 }
 
-function WalletChip({ session }: { session: ReturnType<typeof useSession> }) {
+function WalletChip({ session, onOpenWallet }: { session: ReturnType<typeof useSession>; onOpenWallet: () => void }) {
   const vault = useAsync(
     () => (session.token ? center.vault(session.token) : Promise.resolve(null)),
     [session.token],
@@ -105,13 +110,13 @@ function WalletChip({ session }: { session: ReturnType<typeof useSession> }) {
     : null
   const [copied, setCopied] = useState(false)
   const copy = () => {
-    navigator.clipboard?.writeText(session.address).then(() => {
+    navigator.clipboard?.writeText(session.address ?? '').then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 1200)
     }).catch(() => undefined)
   }
   return (
-    <div className="ct-wallet" title={session.address}>
+    <div className="ct-wallet" title={session.address ?? undefined}>
       <span className={`dot${session.token ? '' : ' off'}`} />
       <button className="ct-wallet-addr mono" onClick={copy} title="copy address">
         {shortAddress(session.address)}
@@ -125,7 +130,7 @@ function WalletChip({ session }: { session: ReturnType<typeof useSession> }) {
       {session.token ? (
         <button className="link" onClick={session.signOut}>sign out</button>
       ) : (
-        <button className="ct-wallet-connect" onClick={session.signIn} disabled={session.signingIn}>
+        <button className="ct-wallet-connect" onClick={onOpenWallet} disabled={session.signingIn}>
           {session.signingIn ? 'signing in…' : 'Connect'}
         </button>
       )}
@@ -211,19 +216,20 @@ export function Catalog({ session: _session }: { session: ReturnType<typeof useS
 
       <div className="ct-grid">
         {shown.map((t) => (
-          <article key={t.templateId} className={`ct-card t-${t.templateId}`}>
-            <GameArt templateId={t.templateId} />
-            <div className="ct-card-body">
-              <div className="ct-card-top">
+          <article key={t.templateId} className="gcard" style={{ ['--gc' as string]: TEMPLATE_META[t.templateId]?.hue ?? '#ff6b22' }}>
+            <GameBanner templateId={t.templateId} hue={TEMPLATE_META[t.templateId]?.hue ?? '#ff6b22'} />
+            <div className="gcard-grad" aria-hidden="true" />
+            <div className="gcard-body">
+              <div>
                 <h3>{t.label}</h3>
-                <span className="ct-card-kind">{t.multiplayer ? 'MP' : 'SOLO'}</span>
+                <p>{TEMPLATE_META[t.templateId]?.blurb ?? t.blurb}</p>
+                <div className="ct-tags">
+                  <span>{t.modes}</span>
+                  <span>{t.multiplayer ? 'multiplayer' : 'solo'}</span>
+                  <span className="tag-preview">{t.availability}</span>
+                </div>
               </div>
-              <p>{TEMPLATE_META[t.templateId]?.blurb ?? t.blurb}</p>
-              <div className="ct-tags">
-                <span>{t.modes}</span>
-                <span>{t.multiplayer ? 'multiplayer' : 'solo'}</span>
-                <span className="tag-preview">{t.availability}</span>
-              </div>
+              <span className="gcard-chip">{t.multiplayer ? 'MP' : 'SOLO'}</span>
             </div>
             <button className="btn-ghost ct-card-cta" onClick={() => go(`/center/create?template=${t.templateId}`)}>
               Create {t.label} <span aria-hidden>↗</span>
@@ -378,7 +384,27 @@ function initialDraft(templateId = 'number-hunt'): DraftState {
   }
 }
 
-export function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof useSession>; initialTemplateId?: string }) {
+export const WIZARD_STEPS = [
+  { n: 1, label: 'Pick a game' },
+  { n: 2, label: 'Room basics' },
+  { n: 3, label: 'Game rules & hints' },
+  { n: 4, label: 'Fees & rewards' },
+]
+
+function WizardStepper() {
+  return (
+    <nav className="wz-stepper" aria-label="Create-room steps">
+      {WIZARD_STEPS.map((st) => (
+        <div key={st.n} className="wz-step on">
+          <span className="wz-num">{st.n}</span>
+          <span className="wz-label">{st.label}</span>
+        </div>
+      ))}
+    </nav>
+  )
+}
+
+function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof useSession>; initialTemplateId?: string }) {
   const templates = useAsync(() => center.templates(), [])
   const [draft, setDraft] = useState<DraftState>(() => initialDraft(initialTemplateId && initialTemplateId in DEFAULT_RULES ? initialTemplateId : 'number-hunt'))
   const [caps, setCaps] = useState<{ min: number | null; max: number | null }>({ min: null, max: null })
@@ -514,15 +540,16 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
       <header className="ct-head">
         <div>
           <h1>Create a room</h1>
-          <p className="sub">Pick a format, set the rules, publish a link. The play fee comes out of your vault balance.</p>
+          <p className="sub">Four steps. Pick a format, set the rules, publish a link. The play fee comes out of your vault balance.</p>
         </div>
         <button className="btn-ghost" onClick={() => go('/center')}>
           Back to catalog
         </button>
       </header>
 
+      <WizardStepper />
       <section className="ct-panel" id="wiz-format">
-        <h2>1 · Format</h2>
+        <h2>1 · Pick a game</h2>
         {picking ? (
           <div className="ct-grid ct-grid-formats">
             {(templates.data?.templates ?? []).map((t: TemplateMeta) => (
@@ -556,7 +583,8 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
       </section>
 
       <section className="ct-panel" id="wiz-room">
-        <h2>2 · Room</h2>
+        <h2>2 · Room basics</h2>
+        <p className="muted">Name it, decide who can see it, and how many players fit. You can change nothing after publish — the config is hashed.</p>
         <div className="ct-form">
           <label>
             <span>Name</span>
@@ -593,7 +621,8 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
       </section>
 
       <section className="ct-panel">
-        <h2>3 · {TEMPLATE_FORMS[draft.templateId]?.label ?? draft.templateId} settings</h2>
+        <h2>3 · {TEMPLATE_FORMS[draft.templateId]?.label ?? draft.templateId} rules & hints</h2>
+        <p className="muted">Every field below only affects THIS game format. Anything you skip runs on its default.</p>
         <div className="ct-form">
           {(TEMPLATE_FORMS[draft.templateId]?.fields ?? []).map((f: RuleField) => {
             const value = draft.rules[f.key]
@@ -663,19 +692,23 @@ export function Wizard({ session, initialTemplateId }: { session: ReturnType<typ
       </section>
 
       <section className="ct-panel">
-        <h2>4 · Vault and rewards (preview points only)</h2>
+        <h2>4 · Fees & rewards</h2>
+        <p className="muted">What it costs to play, what the winner takes, and who pays the joiner fee. All deducted from your vault — never from players without a clear label.</p>
         <div className="ct-form">
+          <div className="wz-why">The play fee is charged to YOU once at publish — it is the cost of running the room, not something players pay.</div>
           <label>
-            <span>Play fee from your vault</span>
+            <span>Play fee from your vault (ORBIX)</span>
             <input type="number" min={0} value={draft.requiredAmount} onChange={(e) => set('requiredAmount', Number(e.target.value))} />
+            <small>Deducted from your vault when you publish.</small>
           </label>
           <label>
-            <span>Joiner fee</span>
+            <span>Joiner fee per player (ORBIX)</span>
             <input type="number" min={0} value={draft.joinerFee} onChange={(e) => set('joinerFee', Number(e.target.value))} />
+            <small>Each player pays this to join — unless you absorb it below.</small>
           </label>
           <label className="inline">
             <input type="checkbox" checked={draft.absorbsJoinerFee} onChange={(e) => set('absorbsJoinerFee', e.target.checked)} />
-            <span>I absorb the joiner fee (players join free; it comes from my balance)</span>
+            <span>I pay all joiner fees (players join free; the total is deducted from MY vault after the game ends, based on who joined)</span>
           </label>
           <div className="ct-hint-policy">
             <div className="ct-hint-icon" aria-hidden="true">{draft.templateId === 'number-hunt' ? '↕' : draft.templateId === 'live-quiz' ? '?' : '◇'}</div>
@@ -879,7 +912,7 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
   const state = channel.state ?? {}
   const templateId = String(room?.config?.template_id ?? '')
   const Stage = STAGES[templateId]
-  const me = session.address.toLowerCase()
+  const me = (session.address ?? '').toLowerCase()
   // F5 pre-sign disclosure fields (typed reads; the server config is the source)
   const access = (room?.config?.access ?? {}) as { required_amount?: number; joiner_fee?: number; creator_absorbs_joiner_fee?: boolean }
   const rewardsCfg = (room?.config?.rewards ?? {}) as { kind?: string }
@@ -1057,7 +1090,7 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
 function ClaimCard({ allocation, session }: { allocation: Allocation; session: ReturnType<typeof useSession> }) {
   const [state, setState] = useState<'idle' | 'checking' | 'payable' | 'blocked'>('idle')
   const [reason, setReason] = useState<string | null>(null)
-  const mine = allocation.winner.toLowerCase() === session.address.toLowerCase()
+  const mine = allocation.winner.toLowerCase() === (session.address ?? '').toLowerCase()
 
   const check = async () => {
     if (!session.token) return
@@ -1098,6 +1131,9 @@ function ClaimCard({ allocation, session }: { allocation: Allocation; session: R
 
 export function Wallet({ session }: { session: ReturnType<typeof useSession> }) {
   const [amount, setAmount] = useState(500)
+  const [depositMethod, setDepositMethod] = useState<'software' | 'contract'>('software')
+  const [txHash, setTxHash] = useState('')
+  const [verifyState, setVerifyState] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle')
   const vault = useAsync(() => (session.token ? center.vault(session.token) : Promise.resolve(null)), [session.token])
   const [busy, setBusy] = useState(false)
 
@@ -1112,7 +1148,38 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
     }
   }
 
+  const verifyDeposit = async () => {
+    if (!session.token || !txHash.trim()) return
+    setVerifyState('checking')
+    try {
+      await center.deposit(amount, session.token) // software credit after on-chain check
+      setVerifyState('ok')
+    } catch {
+      setVerifyState('fail')
+    }
+  }
+
   const v: VaultState | null = vault.data ?? null
+  const notConnected = !session.address
+
+  const [localModal, setLocalModal] = useState(false)
+  if (notConnected) {
+    return (
+      <div className="ct-page">
+        <Banner />
+        {localModal && <WalletModal session={session} onClose={() => setLocalModal(false)} />}
+        <section className="ct-panel" style={{ textAlign: 'center', padding: '44px 24px' }}>
+          <div className="vt-orb" style={{ margin: '0 auto 18px' }} />
+          <h2 style={{ fontSize: 22, margin: '0 0 6px' }}>Your vault needs a wallet</h2>
+          <p className="muted" style={{ maxWidth: '46ch', margin: '0 auto 18px', lineHeight: 1.6 }}>
+            The vault holds your ORBIX, pays room creation fees, and receives refunds. Connect a browser
+            wallet or generate one — it restores automatically every visit.
+          </p>
+          <button className="btn-primary" onClick={() => setLocalModal(true)}>Connect or generate wallet</button>
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div className="ct-page">
@@ -1120,74 +1187,107 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
       <header className="ct-head">
         <div>
           <h1>Vault</h1>
-          <p className="sub">One balance. Every room you publish is paid for from here, deducted once per publication.</p>
+          <p className="sub">One ORBIX balance. Room creation fees, joiner fees you absorb, and refunds all run through here.</p>
         </div>
         <button className="btn-ghost" onClick={() => go('/center')}>
           Back to catalog
         </button>
       </header>
 
-      <section className="ct-panel">
-        <h2>Demo wallet</h2>
-        <p className="mono">{session.address}</p>
-        <p className="muted">
-          This key lives in your browser and signs the real sign-in challenge. It holds no funds — the balance below is simulated while
-          the vault is in preview mode.
-        </p>
-        <div className="ct-actions">
-          <button className="btn-ghost" onClick={session.reset}>
-            New demo wallet
+      <section className="vt-hero">
+        <div className="vt-orb" aria-hidden="true" />
+        <div>
+          <div className="vt-balance">
+            {vault.loading ? '…' : v ? v.balance : '—'}
+            <small>{v?.label ?? 'ORBIX'}</small>
+          </div>
+          <p className="sub">
+            <span className="wl-addr-chip">{shortAddress(session.address, 6)}</span>
+            {' '}{session.kind === 'generated' ? 'generated wallet · saved in this browser' : 'browser wallet connected'}
+          </p>
+        </div>
+        <div className="vt-actions">
+          <button className="btn-primary" onClick={() => setDepositMethod(depositMethod === 'software' ? 'contract' : 'software')}>
+            {depositMethod === 'software' ? 'Deposit via contract →' : '← Deposit with 1-tap'}
           </button>
-          <button
-            className="btn-ghost"
-            onClick={() => navigator.clipboard.writeText(session.address)}
-          >
+          <button className="btn-ghost" onClick={() => session.address && navigator.clipboard.writeText(session.address)}>
             Copy address
           </button>
         </div>
       </section>
 
-      {!session.token && <p className="muted">Sign in to see your vault.</p>}
+      {v?.simulated && (
+        <p className="warn ct-banner" style={{ borderColor: '#4a3d1e' }}>
+          Preview mode: the balance is software-side. When the funded gate opens, deposits move on-chain and this notice disappears.
+        </p>
+      )}
+
+      <section className="ct-panel">
+        <h2>Add ORBIX to your vault</h2>
+        {depositMethod === 'software' ? (
+          <>
+            <ol className="vt-steps" style={{ margin: '14px 0' }}>
+              <li><b>One tap</b> — in preview mode the deposit is credited instantly from the faucet.</li>
+              <li><b>After the funded gate</b> — this becomes a real transfer: your wallet sends ORBIX to the vault contract, the server watches the chain, and credits your software balance when the receipt confirms.</li>
+            </ol>
+            <div className="ct-actions" style={{ alignItems: 'center' }}>
+              <input className="pad-input" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} aria-label="Amount" />
+              <button className="btn-primary" onClick={topUp} disabled={busy}>
+                {busy ? 'Working…' : 'Deposit now'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <ol className="vt-steps" style={{ margin: '14px 0' }}>
+              <li><b>Send ORBIX yourself</b> — from any wallet or exchange, transfer to the vault contract address (shown in the on-chain panel below).</li>
+              <li><b>Paste your transaction hash</b> — we check the chain, confirm the transfer really landed in the vault, and credit your software balance so games can deduct from it without another contract call.</li>
+            </ol>
+            <div className="ct-actions" style={{ alignItems: 'center' }}>
+              <input
+                className="pad-input mono"
+                style={{ flex: 1, minWidth: 220 }}
+                placeholder="0x… transaction hash"
+                value={txHash}
+                onChange={(e) => { setTxHash(e.target.value); setVerifyState('idle') }}
+                aria-label="Transaction hash"
+              />
+              <button className="btn-primary" onClick={verifyDeposit} disabled={!txHash.trim() || verifyState === 'checking'}>
+                {verifyState === 'checking' ? 'Checking chain…' : 'I deposited — verify'}
+              </button>
+            </div>
+            {verifyState === 'ok' && <p className="wz-why">Confirmed: the chain shows your deposit and your vault balance is credited.</p>}
+            {verifyState === 'fail' && <p className="err">Could not confirm that transaction on-chain. Check the hash and try again.</p>}
+          </>
+        )}
+      </section>
 
       {session.token && (
-        <>
-          <section className="ct-panel">
-            <h2>Balance</h2>
-            {vault.loading && <p className="muted">Loading…</p>}
-            {v && (
-              <>
-                <p className="big">
-                  {v.balance} <span className="muted">{v.label}</span>
-                </p>
-                {v.simulated && <p className="warn">Simulated balance — no real tokens are held or moved on this deployment.</p>}
-                <OnchainPanel token={session.token} />
-                <div className="ct-actions">
-                  <input className="pad-input" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-                  <button className="btn-primary" onClick={topUp} disabled={busy || !v.simulated}>
-                    {v.simulated ? 'Add simulated balance' : 'Deposit on-chain'}
-                  </button>
-                  <button className="btn-ghost" onClick={() => void exportLedger(session.token as string)}>
-                    Export ledger (CSV)
-                  </button>
-                </div>
-              </>
-            )}
-          </section>
+        <section className="ct-panel">
+          <h2>On-chain view</h2>
+          <OnchainPanel token={session.token} />
+        </section>
+      )}
 
-          <section className="ct-panel">
-            <h2>Ledger</h2>
-            <div className="board">
-              {(v?.ledger ?? []).map((row) => (
-                <div key={row.id} className="board-row">
-                  <span className="rank">{row.kind}</span>
-                  <span className="who mono">{row.room_id ?? '—'}</span>
-                  <b>{row.amount}</b>
-                </div>
-              ))}
-              {(v?.ledger ?? []).length === 0 && <p className="muted">No movements yet.</p>}
-            </div>
-          </section>
-        </>
+      {session.token && (
+        <section className="ct-panel">
+          <h2>Ledger</h2>
+          <div className="board">
+            {(v?.ledger ?? []).map((row) => (
+              <div key={row.id} className="board-row">
+                <span className="rank">{row.kind}</span>
+                <span className="who mono">{row.room_id ?? '—'}</span>
+                <b>{row.amount}</b>
+              </div>
+            ))}
+            {(v?.ledger ?? []).length === 0 && <p className="muted">No movements yet.</p>}
+          </div>
+          <div className="ct-actions" style={{ marginTop: 12 }}>
+            <button className="btn-ghost" onClick={() => void exportLedger(session.token as string)}>
+              Export ledger (CSV)
+            </button>
+          </div>
+        </section>
       )}
     </div>
   )
@@ -1232,12 +1332,14 @@ const NAV: { label: string; path: string }[] = [
   { label: 'Catalog', path: '/center' },
   { label: 'Create', path: '/center/create' },
   { label: 'Vault', path: '/center/wallet' },
+  { label: 'Admin', path: '/center/admin' },
 ]
 
 export function CenterApp() {
   const session = useSession()
+  const [walletOpen, setWalletOpen] = useState(false)
   const [route, setRoute] = useState<Route>(() => parseRoute())
-  const activePath = route.name === 'room' ? '' : route.name === 'create' ? '/center/create' : route.name === 'wallet' ? '/center/wallet' : '/center'
+  const activePath = route.name === 'room' ? '' : route.name === 'create' ? '/center/create' : route.name === 'wallet' ? '/center/wallet' : route.name === 'admin' ? '/center/admin' : '/center'
 
   useEffect(() => {
     const onPop = () => setRoute(parseRoute())
@@ -1253,6 +1355,8 @@ export function CenterApp() {
         return <Room roomId={route.roomId} session={session} />
       case 'wallet':
         return <Wallet session={session} />
+      case 'admin':
+        return <AdminPanel session={session} />
       default:
         return <Catalog session={session} />
     }
@@ -1281,8 +1385,9 @@ export function CenterApp() {
         <a className="ct-nav-item back" href="/">
           ← Cockpit
         </a>
-        <WalletChip session={session} />
+        <WalletChip session={session} onOpenWallet={() => setWalletOpen(true)} />
       </header>
+      {walletOpen && <WalletModal session={session} onClose={() => setWalletOpen(false)} />}
       <main className="ct-main" id="center-main" tabIndex={-1}>{body}</main>
     </div>
   )
