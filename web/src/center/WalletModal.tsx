@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import type { SessionState, GeneratedWallet } from './session'
 import { hasInjected, shortAddress } from './session'
+import { copyText } from './share'
 
 export function WalletModal({ session, onClose }: { session: SessionState; onClose: () => void }) {
   const [generated, setGenerated] = useState<GeneratedWallet | null>(null)
@@ -21,8 +22,8 @@ export function WalletModal({ session, onClose }: { session: SessionState; onClo
 
   const copyKey = async () => {
     if (!generated) return
-    await navigator.clipboard.writeText(generated.privateKey)
-    setCopied(true)
+    const ok = await copyText(generated.privateKey)
+    setCopied(ok)
   }
 
   return (

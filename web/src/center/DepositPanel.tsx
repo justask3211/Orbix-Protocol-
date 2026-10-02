@@ -14,6 +14,7 @@
 import { useState } from 'react'
 import { encodeFunctionData, parseUnits, formatUnits } from 'viem'
 import { center, explainError } from './api'
+import { copyText } from './share'
 import type { OnchainBalance } from './api'
 
 const ERC20_ABI = [
@@ -217,7 +218,7 @@ export function DepositPanel({ onchain, token }: {
             <div style={{ minWidth: 0 }}>
               <p className="mono dp-addr" translate="no">{vault}</p>
               <div className="ct-actions">
-                <button className="btn-ghost" onClick={() => navigator.clipboard.writeText(vault)}>
+                <button className="btn-ghost" onClick={() => void copyText(vault)}>
                   Copy vault address
                 </button>
               </div>
