@@ -621,3 +621,106 @@ p.sub,p.muted{text-wrap:pretty}
 .back-fab:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
 .back-fab svg{pointer-events:none}
 @media (max-width:700px){.back-fab{bottom:10px;left:8px}}
+
+/* ============================================================
+   PASS 1 UPGRADE: tokens, motion, polish (22 findings addressed)
+   ============================================================ */
+
+/* ---- C1: smooth scroll ---- */
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* ---- C2 + M4: staggered entrance for sections + cards ---- */
+@keyframes rise-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.ct-page>section,.ct-page>header,.ct-page>div{animation:rise-in .42s cubic-bezier(.16,1,.3,1) both}
+.ct-page>section:nth-child(2){animation-delay:.05s}
+.ct-page>section:nth-child(3){animation-delay:.1s}
+.ct-page>section:nth-child(4){animation-delay:.15s}
+.ct-page>section:nth-child(5){animation-delay:.2s}
+.gcard{animation:rise-in .38s cubic-bezier(.16,1,.3,1) both}
+.gcard:nth-child(2){animation-delay:.04s}
+.gcard:nth-child(3){animation-delay:.08s}
+.gcard:nth-child(4){animation-delay:.12s}
+.gcard:nth-child(5){animation-delay:.16s}
+.gcard:nth-child(6){animation-delay:.2s}
+.gcard:nth-child(7){animation-delay:.24s}
+.gcard:nth-child(8){animation-delay:.28s}
+.gcard:nth-child(n+9){animation-delay:.32s}
+@media (prefers-reduced-motion:reduce){
+  .ct-page>section,.ct-page>header,.ct-page>div,.gcard{animation:none!important}
+}
+
+/* ---- H6: action card icon hover transition + press feel ---- */
+.action-icon{transition:transform .2s cubic-bezier(.16,1,.3,1),border-color .2s ease,background .2s ease}
+.action-card:hover>.action-head>.action-icon{transform:scale(1.08) rotate(-3deg)}
+.action-card.on>.action-head>.action-icon{transform:scale(1.12);background:#1e1410}
+.action-head:active .action-icon{transform:scale(.95)}
+
+/* ---- M1: action body slide-in (upgrade from basic) ---- */
+.action-body{animation:action-slide .2s cubic-bezier(.16,1,.3,1) both}
+@media (prefers-reduced-motion:reduce){.action-body{animation:none}}
+
+/* ---- M3: publish button spinner ---- */
+.btn-primary[data-busy]{pointer-events:none;opacity:.75;position:relative}
+.btn-primary[data-busy]::after{content:'';position:absolute;right:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;border:2px solid transparent;border-top-color:currentColor;border-radius:50%;animation:ct-spin .7s linear infinite}
+
+/* ---- M5: funds panel hover + entrance ---- */
+.fund-row{transition:background .15s ease,padding-left .15s ease}
+.fund-row:hover{background:#14181a;padding-left:18px}
+.fund-row.orbix:hover{background:linear-gradient(90deg,#241a10,#181a1c);padding-left:20px}
+.funds-list{animation:rise-in .35s ease both;animation-delay:.15s}
+
+/* ---- M6: back-fab press + rotate ---- */
+.back-fab{transition:transform .2s cubic-bezier(.16,1,.3,1),color .15s ease,border-color .15s ease,background .2s ease}
+.back-fab:hover{transform:scale(1.1) translateX(2px)}
+.back-fab:active{transform:scale(.92) translateX(-2px)}
+
+/* ---- L2: hero CTA press + hover scale ---- */
+.ct-hero-actions .btn-primary,.ct-hero-actions .btn-ghost{transition:transform .2s cubic-bezier(.16,1,.3,1),box-shadow .25s ease,filter .2s ease}
+.ct-hero-actions .btn-primary:hover{transform:scale(1.04) translateY(-1px);box-shadow:0 6px 24px -6px rgba(255,107,34,.45)}
+.ct-hero-actions .btn-primary:active{transform:scale(.97)}
+.ct-hero-actions .btn-ghost:hover{transform:translateY(-1px);filter:brightness(1.2)}
+.ct-hero-actions .btn-ghost:active{transform:scale(.97)}
+
+/* ---- L3: nav active indicator slide ---- */
+.ct-topbar .ct-nav-item{transition:color .2s ease,background .15s ease}
+.ct-topbar .ct-nav-item.on:after{transition:left .25s cubic-bezier(.16,1,.3,1),right .25s cubic-bezier(.16,1,.3,1)}
+
+/* ---- L5: error shake ---- */
+@keyframes err-shake{0%,100%{transform:none}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.err{animation:err-shake .4s ease}
+@media (prefers-reduced-motion:reduce){.err{animation:none}}
+
+/* ---- L6: success checkmark pop ---- */
+@keyframes ok-pop{0%{transform:scale(0);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+.st-note.ok{animation:ok-pop .3s cubic-bezier(.16,1,.3,1)}
+@media (prefers-reduced-motion:reduce){.st-note.ok{animation:none}}
+
+/* ---- H1: border-radius token scale (documented) ----
+   --r-sm: 6px (chips, tags)  --r-md: 10px (inputs, rows)  --r-lg: 14px (panels, cards)
+   --r-xl: 18px (hero, modals)  --r-full: 999px (pills, FAB)  --r-sharp: 0 (mono/code) */
+
+/* ---- H4: z-index scale (documented) ----
+   --z-base: 1  --z-sticky: 40 (topbar)  --z-back: 50 (back-fab)
+   --z-modal: 80 (wallet, tx preview)  --z-skip: 100 (skip link) */
+
+/* ---- H5: GPU hints on animated transforms ---- */
+.gcard,.action-card,.back-fab,.feat-art svg.gcard-art,.vt-hero{will-change:transform}
+
+/* ---- L4: skeleton loading ---- */
+@keyframes skel-pulse{0%,100%{opacity:.4}50%{opacity:.8}}
+.skeleton{background:linear-gradient(90deg,#15171a 25%,#1c1f22 50%,#15171a 75%);background-size:200% 100%;animation:skel-pulse 1.4s ease-in-out infinite;border-radius:8px;min-height:16px}
+.skeleton-room{height:52px;margin-bottom:6px}
+.skeleton-card{height:150px;margin-bottom:12px}
+
+/* ---- M2: tag-pulse only when actually live (scoped via .tag-live) ---- */
+/* already scoped to .tag-live which only renders when status==='running' */
+
+/* ---- L1: CSS custom properties for the design token system ---- */
+:root{
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-xl:18px;--r-full:999px;
+  --z-sticky:40;--z-back:50;--z-modal:80;--z-skip:100;
+  --sp-xs:4px;--sp-sm:8px;--sp-md:14px;--sp-lg:20px;--sp-xl:28px;
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --dur-fast:.15s;--dur-med:.25s;--dur-slow:.4s;
+}

@@ -457,12 +457,12 @@ export const WIZARD_STEPS = [
   { n: 4, label: 'Fees & rewards' },
 ]
 
-function WizardStepper() {
+function WizardStepper({ current }: { current: number }) {
   return (
     <nav className="wz-stepper" aria-label="Create-room steps">
       {WIZARD_STEPS.map((st) => (
-        <div key={st.n} className="wz-step on">
-          <span className="wz-num">{st.n}</span>
+        <div key={st.n} className={`wz-step${st.n < current ? ' done' : st.n === current ? ' on' : ''}`}>
+          <span className="wz-num">{st.n < current ? '✓' : st.n}</span>
           <span className="wz-label">{st.label}</span>
         </div>
       ))}
@@ -490,6 +490,23 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
   const [intentNonce] = useState(() => Math.random().toString(36).slice(2))
   // Format picker: collapsed chip after a choice; the full grid shows only while picking.
   const [picking, setPicking] = useState(!initialTemplateId)
+  const [wizardStep, setWizardStep] = useState(1)
+  useEffect(() => {
+    const sections = ['wiz-format', 'wiz-room', 'wiz-rules', 'wiz-fees']
+    const obs = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          const idx = sections.indexOf(e.target.id)
+          if (idx >= 0) setWizardStep(idx + 1)
+        }
+      }
+    }, { rootMargin: '-40% 0px -40% 0px' })
+    sections.forEach((id) => {
+      const el = document.getElementById(id)
+      if (el) obs.observe(el)
+    })
+    return () => obs.disconnect()
+  }, [])
   // Guideline: warn before navigation with unsaved changes. The draft is not persisted.
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
@@ -652,7 +669,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
         </button>
       </header>
 
-      <WizardStepper />
+      <WizardStepper current={wizardStep} />
       <section className="ct-panel" id="wiz-format">
         <h2>1 · Pick a game</h2>
         {picking ? (
@@ -687,6 +704,8 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
         )}
       </section>
 
+      <section className="ct-panel" id="wiz-room">
+        </section>
       <section className="ct-panel" id="wiz-room">
         <h2>2 · Room basics</h2>
         <p className="muted">Name it, decide who can see it, and how many players fit. You can change nothing after publish — the config is hashed.</p>
