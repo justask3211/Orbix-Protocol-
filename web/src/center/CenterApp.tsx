@@ -1280,6 +1280,7 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
   const entryCfg = (room?.config?.entry ?? {}) as { kind?: string; token?: string; amount?: number }
   const entryToken = String(entryCfg.token ?? '')
   const entryAmount = Number(entryCfg.amount ?? 0)
+  const entrySymbol = entryToken ? `token ${shortAddress(entryToken, 4)}` : '' 
   const players = (room?.participants ?? []).filter((p) => p.role === 'player').map((p) => p.who.toLowerCase())
   const amPlayer = players.includes(me)
   const finished = Boolean(state.finished) || Boolean(settlement) || room?.status === 'claimable'
@@ -1414,6 +1415,15 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
             </button>
           )}
         </div>
+        {entryToken && (
+          <div className="entry-info">
+            <span className="tag tag-pay">ENTRY: {entryAmount} {entrySymbol || 'tokens'}</span>
+            <span className="mono" style={{ fontSize: 10.5, color: '#8d9095' }} translate="no">
+              {shortAddress(entryToken, 6)}
+            </span>
+            {absorbsFee && <span className="tag tag-free">ORBIX absorbed by creator</span>}
+          </div>
+        )}
         <SharePanel roomId={roomId} visibility={room?.visibility ?? 'unlisted'} />
         {inviteGenerated && (
           <p className="st-note mono" translate="no">
