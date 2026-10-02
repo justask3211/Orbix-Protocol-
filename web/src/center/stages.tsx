@@ -127,7 +127,7 @@ export function NumberHuntStage({ state, act, me, finished }: StageProps) {
           Random
         </button>
       </div>
-      {flash && <p className="st-note ok">{flash}</p>}
+      {flash && <p className="st-note ok" role="status" aria-live="polite">{flash}</p>}
       {state.lastGuess && (
         <p className="st-note" role="status">
           {state.lastGuess.who === me ? 'Your' : short(state.lastGuess.who)} guess: {state.lastGuess.number}
@@ -192,7 +192,7 @@ export function QuizStage({ state, act, me, finished }: StageProps) {
           </button>
         ))}
       </div>
-      {answered && <p className="st-note ok">Answer locked in.</p>}
+      {answered && <p className="st-note ok" role="status" aria-live="polite">Answer locked in.</p>}
       <div className="board">
         {(state.leaderboard ?? []).map((row: { who: string; score: number }, i: number) => (
           <div key={row.who} className={`board-row${row.who === me ? ' me' : ''}`}>
@@ -368,7 +368,7 @@ export function DuelStage({ state, act, me, players, finished }: StageProps) {
           Reveal {pending.choice}
         </button>
       )}
-      {log && <p className="st-note ok">{log}</p>}
+      {log && <p className="st-note ok" role="status" aria-live="polite">{log}</p>}
       <div className="board">
         {((state.history as any[]) ?? []).map((row, i) => (
           <div key={i} className="board-row">
