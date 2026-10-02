@@ -318,6 +318,13 @@ Scope: Robinhood testnet 46630 only. This is an acceptance checklist, not a clai
 - Frontend already live since ef0fc11a (F5 + hint wizards).
 - Full stack now live: cockpit + Center (orbixcore), Center API (orbix-center), source on GitHub with green CI.
 
+### 2026-10-02 addendum 22 — Creator token binding contract (E6 creator-token flow)
+
+- New `src/center/CreatorTokenGate.sol` implements the owner's creator-token system: creator binds their token CA + per-joiner token fee to a room (only when ORBIX joiner fees are creator-absorbed, enforced by the server); joiners approve once and the gate pulls THEIR token — joiner ORBIX untouched; creator-or-absorbed ORBIX stays on the server-side ledger as today.
+- Mutable by design: updateBinding (fee/token swap) + setPaused emit events the backend logs. Pull-based custody (allowance required), one-entry-per-player, relayed join with EIP-191 signature binding (roomId, player, nonce), one-time nonce, admin/treasury rotation events.
+- 15 new tests (CreatorTokenGate.t.sol): bind/update/pause/permissions, join pays treasury exactly, double-join + no-allowance + insufficient-balance rejections (failed join never marks joined), relayed join wrong-signer + replay + wrong-signer-nonce refusal, treasury rotation.
+- Foundry: 97/97 green. Committed with the UI 100x pass (4c21c24b) and CI fixes.
+
 ## Delivery log — 2026-10-02
 
 Mechanisms-first pass (2× core focus per A-to-Z plan), all evidence recorded:
