@@ -139,6 +139,16 @@ export const center = {
       { method: 'POST', body: JSON.stringify({ config, intentNonce }) },
       token,
     ),
+  adminPricing: (token: string) =>
+    request<{ pricing: { creatorFee: number; joinerFee: number }; caps: Record<string, number>; admin: string; chainId: number }>(
+      '/admin/pricing', {}, token),
+  adminNonce: (token: string) =>
+    request<{ nonce: string; message: string }>('/auth/nonce', { method: 'POST', body: JSON.stringify({ purpose: 'admin' }) }, token),
+  adminUpdatePricing: (token: string, signature: string, body: { creatorFee: number; joinerFee: number }) =>
+    request<{ pricing: { creatorFee: number; joinerFee: number }; caps: Record<string, number>; chainId: number }>(
+      '/admin/pricing',
+      { method: 'PATCH', body: JSON.stringify(body), headers: { 'X-Admin-Proof': signature } },
+      token),
   rooms: () => request<{ rooms: RoomSummary[] }>('/rooms'),
   room: (roomId: string) => request<RoomDetail>(`/rooms/${roomId}`),
   invite: (roomId: string, token: string) => request<{ invite: string; shareUrl: string }>(`/rooms/${roomId}/invites`, { method: 'POST' }, token),
