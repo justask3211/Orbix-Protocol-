@@ -49,7 +49,7 @@
 .ct-wallet-connect:hover{filter:brightness(1.1)}
 .ct-wallet .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
 .ct-wallet .mono{flex:1}
-.link{background:none;border:0;color:var(--orange);cursor:pointer;font-size:11px;padding:0}
+.link{background:none;border:0;color:var(--orange);cursor:pointer;font-size:11px;padding:8px 4px;min-height:44px;min-width:44px;display:inline-flex;align-items:center}
 .ct-main{flex:1;min-width:0;padding:26px 30px 60px}
 .ct-page{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
 .ct-banner{border:1px solid #3a2c1c;background:linear-gradient(90deg,#221a12,#1a1613);color:#d8cdc2;padding:10px 12px;border-radius:6px;font-size:12px;line-height:1.5}
@@ -777,3 +777,8 @@ html{scroll-behavior:smooth}
 .entry-info{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0;align-items:center}
 .entry-info .tag{font-size:10px}
 .entry-info .mono{flex:none}
+
+/* ---- stage animations: respect reduced motion ---- */
+@media (prefers-reduced-motion:reduce){
+  .pad-input,.digits.pad .digit,.type-area,.st-note{animation:none!important;transition:none!important}
+}

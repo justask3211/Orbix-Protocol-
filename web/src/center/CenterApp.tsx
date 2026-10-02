@@ -1161,7 +1161,15 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
 
 // ------------------------------------------------------------------ room
 
-export function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof useSession> }) {
+export function timeLeftShort(closeAt: number): string {
+  const secs = closeAt - Math.floor(Date.now() / 1000)
+  if (secs <= 0) return 'closing'
+  if (secs < 3600) return `${Math.ceil(secs / 60)}m`
+  if (secs < 86400) return `${Math.ceil(secs / 3600)}h`
+  return `${Math.ceil(secs / 86400)}d`
+}
+
+function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof useSession> }) {
   const [joinStep, setJoinStepRaw] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const setJoinStep = (st: string, detail?: string) => setJoinStepRaw(detail ? `${st}: ${detail}` : st)
@@ -1280,7 +1288,10 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
   const entryCfg = (room?.config?.entry ?? {}) as { kind?: string; token?: string; amount?: number }
   const entryToken = String(entryCfg.token ?? '')
   const entryAmount = Number(entryCfg.amount ?? 0)
-  const entrySymbol = entryToken ? `token ${shortAddress(entryToken, 4)}` : '' 
+  const entrySymbol = entryToken ? `token ${shortAddress(entryToken, 4)}` : ''
+  const timing = room?.timing ?? {}
+  const openAt = Number(timing.open_at ?? 0)
+  const closeAt = Number(timing.close_at ?? 0)
   const players = (room?.participants ?? []).filter((p) => p.role === 'player').map((p) => p.who.toLowerCase())
   const amPlayer = players.includes(me)
   const finished = Boolean(state.finished) || Boolean(settlement) || room?.status === 'claimable'
@@ -1297,6 +1308,12 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
           <p className="sub">
             {templateId} · <span className={`pill s-${room?.status}`}>{STATUS_LABEL[room?.status ?? ''] ?? room?.status}</span> ·{' '}
             <span className="mono">{roomId.slice(0, 10)}…</span>
+            {openAt > 0 && Date.now() / 1000 < openAt && (
+              <> · <span className="tag tag-free">OPENS {new Date(openAt * 1000).toLocaleTimeString()}</span></>
+            )}
+            {closeAt > 0 && Date.now() / 1000 < closeAt && (
+              <> · <span className="tag tag-live">CLOSES {timeLeftShort(closeAt)}</span></>
+            )}
           </p>
         </div>
         <div className="ct-head-actions">
