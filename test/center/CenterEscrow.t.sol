@@ -150,7 +150,6 @@ contract CenterEscrowTest is Test {
         escrow.publishSettlement(ROUND, root, ALLOC, keccak256("transcript"), settleDeadline, abi.encodePacked(r, s, v));
     }
 
-
     function test_paid_entry_and_cap_enforcement() public {
         _createRound(address(token), 10e18, 1);
 
@@ -184,7 +183,8 @@ contract CenterEscrowTest is Test {
         vm.prank(creator);
         escrow.fundERC20(ROUND, address(token), 100e18);
 
-        CenterEscrow.Entitlement memory e = _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 100e18, alice, 1);
+        CenterEscrow.Entitlement memory e =
+            _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 100e18, alice, 1);
         bytes32 leaf = escrow.entitlementLeaf(e);
         _settle(leaf);
 
@@ -206,14 +206,16 @@ contract CenterEscrowTest is Test {
         escrow.fundERC20(ROUND, address(token), 100e18);
 
         // mallory never entered
-        CenterEscrow.Entitlement memory e = _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 1e18, mallory, 1);
+        CenterEscrow.Entitlement memory e =
+            _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 1e18, mallory, 1);
         _settle(escrow.entitlementLeaf(e));
         vm.prank(mallory);
         vm.expectRevert(CenterEscrow.NotAdmitted.selector);
         escrow.claim(e, _emptyProof());
 
         // alice is admitted but this leaf is not in the root
-        CenterEscrow.Entitlement memory e2 = _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 1e18, alice, 9);
+        CenterEscrow.Entitlement memory e2 =
+            _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 1e18, alice, 9);
         vm.prank(alice);
         vm.expectRevert(CenterEscrow.BadProof.selector);
         escrow.claim(e2, _emptyProof());
@@ -225,7 +227,8 @@ contract CenterEscrowTest is Test {
         vm.prank(creator);
         escrow.fundERC20(ROUND, address(token), 5e18); // only 5 funded
 
-        CenterEscrow.Entitlement memory e = _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 10e18, alice, 1);
+        CenterEscrow.Entitlement memory e =
+            _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 10e18, alice, 1);
         _settle(escrow.entitlementLeaf(e));
         vm.prank(alice);
         vm.expectRevert(CenterEscrow.InsufficientReserved.selector);
@@ -239,7 +242,8 @@ contract CenterEscrowTest is Test {
         vm.prank(creator);
         escrow.fundERC20(ROUND, address(token), 100e18);
 
-        CenterEscrow.Entitlement memory a = _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 60e18, alice, 1);
+        CenterEscrow.Entitlement memory a =
+            _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 60e18, alice, 1);
         CenterEscrow.Entitlement memory b = _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 40e18, bob, 2);
         bytes32 la = escrow.entitlementLeaf(a);
         bytes32 lb = escrow.entitlementLeaf(b);
@@ -300,20 +304,23 @@ contract CenterEscrowTest is Test {
         vm.warp(playEnd);
 
         // wrong signer
-        (, bytes32 r1, bytes32 s1) = vm.sign(0xDEAD, escrow.settlementDigest(ROUND, root, ALLOC, keccak256("t"), settleDeadline));
+        (, bytes32 r1, bytes32 s1) =
+            vm.sign(0xDEAD, escrow.settlementDigest(ROUND, root, ALLOC, keccak256("t"), settleDeadline));
         bytes memory bad = abi.encodePacked(r1, s1, uint8(27));
         vm.expectRevert(CenterEscrow.BadSignature.selector);
         escrow.publishSettlement(ROUND, root, ALLOC, keccak256("t"), settleDeadline, bad);
 
         // wrong deadline (not the round's)
-        (, bytes32 r2, bytes32 s2) = vm.sign(SIGNER_PK, escrow.settlementDigest(ROUND, root, ALLOC, keccak256("t"), settleDeadline + 1));
+        (, bytes32 r2, bytes32 s2) =
+            vm.sign(SIGNER_PK, escrow.settlementDigest(ROUND, root, ALLOC, keccak256("t"), settleDeadline + 1));
         bytes memory bad2 = abi.encodePacked(r2, s2, uint8(27));
         vm.expectRevert(CenterEscrow.WrongDeadline.selector);
         escrow.publishSettlement(ROUND, root, ALLOC, keccak256("t"), settleDeadline + 1, bad2);
 
         // expired deadline
         vm.warp(settleDeadline + 1);
-        (, bytes32 r3, bytes32 s3) = vm.sign(SIGNER_PK, escrow.settlementDigest(ROUND, root, ALLOC, keccak256("t"), settleDeadline));
+        (, bytes32 r3, bytes32 s3) =
+            vm.sign(SIGNER_PK, escrow.settlementDigest(ROUND, root, ALLOC, keccak256("t"), settleDeadline));
         bytes memory bad3 = abi.encodePacked(r3, s3, uint8(27));
         vm.expectRevert(CenterEscrow.SignatureExpired.selector);
         escrow.publishSettlement(ROUND, root, ALLOC, keccak256("t"), settleDeadline, bad3);
@@ -324,7 +331,8 @@ contract CenterEscrowTest is Test {
         verifier.revokeEpoch(uint32(EPOCH));
         bytes32 root = keccak256("root");
         vm.warp(playEnd);
-        (, bytes32 r, bytes32 s) = vm.sign(SIGNER_PK, escrow.settlementDigest(ROUND, root, ALLOC, keccak256("t"), settleDeadline));
+        (, bytes32 r, bytes32 s) =
+            vm.sign(SIGNER_PK, escrow.settlementDigest(ROUND, root, ALLOC, keccak256("t"), settleDeadline));
         vm.expectRevert(CenterEscrow.BadSignature.selector);
         escrow.publishSettlement(ROUND, root, ALLOC, keccak256("t"), settleDeadline, abi.encodePacked(r, s, uint8(27)));
     }
@@ -371,7 +379,8 @@ contract CenterEscrowTest is Test {
         vm.prank(creator);
         escrow.fundERC20(ROUND, address(token), 100e18);
 
-        CenterEscrow.Entitlement memory e = _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 100e18, alice, 1);
+        CenterEscrow.Entitlement memory e =
+            _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 100e18, alice, 1);
         _settle(escrow.entitlementLeaf(e));
 
         vm.prank(creator);
@@ -402,7 +411,8 @@ contract CenterEscrowTest is Test {
         vm.prank(creator);
         escrow.fundERC20(ROUND, address(token), 100e18);
 
-        CenterEscrow.Entitlement memory a = _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 30e18, alice, 1);
+        CenterEscrow.Entitlement memory a =
+            _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 30e18, alice, 1);
         CenterEscrow.Entitlement memory b = _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 20e18, bob, 2);
         bytes32 la = escrow.entitlementLeaf(a);
         bytes32 lb = escrow.entitlementLeaf(b);
@@ -431,7 +441,8 @@ contract CenterEscrowTest is Test {
         _enter(alice);
         vm.prank(creator);
         escrow.fundERC20(ROUND, address(token), 10e18);
-        CenterEscrow.Entitlement memory e = _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 10e18, alice, 1);
+        CenterEscrow.Entitlement memory e =
+            _entitlement(CenterEscrow.AssetKind.ERC20, address(token), 0, 10e18, alice, 1);
         _settle(escrow.entitlementLeaf(e));
         vm.warp(claimDeadline + 1);
         vm.prank(alice);

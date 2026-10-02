@@ -56,7 +56,17 @@ contract OrbixLaunchpad is Ownable, ReentrancyGuard {
     error NotCreator();
 
     event CollateralSet(address indexed token, bool allowed);
-    event LaunchCreated(uint256 indexed launchId, address indexed creator, address indexed token, address collateral, address pair, uint256 supply, uint256 collateralSeed, uint256 tokenSeed, bytes32 metadataHash);
+    event LaunchCreated(
+        uint256 indexed launchId,
+        address indexed creator,
+        address indexed token,
+        address collateral,
+        address pair,
+        uint256 supply,
+        uint256 collateralSeed,
+        uint256 tokenSeed,
+        bytes32 metadataHash
+    );
     event LiquidityLocked(uint256 indexed launchId, address indexed token, uint256 unlockAt);
     event LaunchClosed(uint256 indexed launchId, address indexed token);
 
@@ -78,28 +88,58 @@ contract OrbixLaunchpad is Ownable, ReentrancyGuard {
         emit CollateralSet(token, allowed);
     }
 
-    function creatorLaunchCount(address creator) external view returns (uint256) { return _creatorLaunchIds[creator].length; }
-    function creatorLaunchIds(address creator, uint256 index) external view returns (uint256) { return _creatorLaunchIds[creator][index]; }
-    function getLaunch(uint256 launchId) external view returns (Launch memory) { return _launches[launchId]; }
+    function creatorLaunchCount(address creator) external view returns (uint256) {
+        return _creatorLaunchIds[creator].length;
+    }
 
-    function createLaunch(string calldata name, string calldata symbol, uint256 supply, address collateral, uint256 tokenSeed, uint256 collateralSeed, bool lockLiquidity)
-        external payable nonReentrant returns (address token, address pair)
-    {
+    function creatorLaunchIds(address creator, uint256 index) external view returns (uint256) {
+        return _creatorLaunchIds[creator][index];
+    }
+
+    function getLaunch(uint256 launchId) external view returns (Launch memory) {
+        return _launches[launchId];
+    }
+
+    function createLaunch(
+        string calldata name,
+        string calldata symbol,
+        uint256 supply,
+        address collateral,
+        uint256 tokenSeed,
+        uint256 collateralSeed,
+        bool lockLiquidity
+    ) external payable nonReentrant returns (address token, address pair) {
         return _createLaunch(name, symbol, supply, collateral, tokenSeed, collateralSeed, lockLiquidity, bytes32(0));
     }
 
-    function createLaunchWithMetadata(string calldata name, string calldata symbol, uint256 supply, address collateral, uint256 tokenSeed, uint256 collateralSeed, bool lockLiquidity, bytes32 metadataHash)
-        external payable nonReentrant returns (address token, address pair)
-    {
+    function createLaunchWithMetadata(
+        string calldata name,
+        string calldata symbol,
+        uint256 supply,
+        address collateral,
+        uint256 tokenSeed,
+        uint256 collateralSeed,
+        bool lockLiquidity,
+        bytes32 metadataHash
+    ) external payable nonReentrant returns (address token, address pair) {
         if (metadataHash == bytes32(0)) revert InvalidMetadata();
         return _createLaunch(name, symbol, supply, collateral, tokenSeed, collateralSeed, lockLiquidity, metadataHash);
     }
 
-    function _createLaunch(string calldata name, string calldata symbol, uint256 supply, address collateral, uint256 tokenSeed, uint256 collateralSeed, bool lockLiquidity, bytes32 metadataHash)
-        internal returns (address token, address pair)
-    {
+    function _createLaunch(
+        string calldata name,
+        string calldata symbol,
+        uint256 supply,
+        address collateral,
+        uint256 tokenSeed,
+        uint256 collateralSeed,
+        bool lockLiquidity,
+        bytes32 metadataHash
+    ) internal returns (address token, address pair) {
         if (msg.value != creationFee) revert NativeFeeRequired();
-        if (bytes(name).length == 0 || bytes(symbol).length == 0 || bytes(name).length > 64 || bytes(symbol).length > 16) revert InvalidMetadata();
+        if (
+            bytes(name).length == 0 || bytes(symbol).length == 0 || bytes(name).length > 64 || bytes(symbol).length > 16
+        ) revert InvalidMetadata();
         if (supply == 0 || tokenSeed == 0 || tokenSeed > supply || collateralSeed == 0) revert InvalidAmount();
         if (collateral == address(0)) revert ZeroAddress();
         if (collateral.code.length == 0) revert InvalidToken();
@@ -111,13 +151,27 @@ contract OrbixLaunchpad is Ownable, ReentrancyGuard {
         pair = factory.getPair(token, collateral);
         if (pair == address(0)) revert InvalidAmount();
 
-        _recordLaunch(msg.sender, token, collateral, pair, supply, collateralSeed, tokenSeed, lockLiquidity, metadataHash);
+        _recordLaunch(
+            msg.sender, token, collateral, pair, supply, collateralSeed, tokenSeed, lockLiquidity, metadataHash
+        );
         return (token, pair);
     }
 
-    function _recordLaunch(address creator, address token, address collateral, address pair, uint256 supply, uint256 collateralSeed, uint256 tokenSeed, bool lockLiquidity, bytes32 metadataHash) internal {
+    function _recordLaunch(
+        address creator,
+        address token,
+        address collateral,
+        address pair,
+        uint256 supply,
+        uint256 collateralSeed,
+        uint256 tokenSeed,
+        bool lockLiquidity,
+        bytes32 metadataHash
+    ) internal {
         uint256 id = nextLaunchId++;
-        Launch memory l = Launch(creator, token, collateral, pair, supply, collateralSeed, tokenSeed, block.timestamp, true, lockLiquidity);
+        Launch memory l = Launch(
+            creator, token, collateral, pair, supply, collateralSeed, tokenSeed, block.timestamp, true, lockLiquidity
+        );
         _launches[id] = l;
         launches[creator] = l;
         _creatorLaunchIds[creator].push(id);
@@ -128,22 +182,40 @@ contract OrbixLaunchpad is Ownable, ReentrancyGuard {
         emit LaunchCreated(id, creator, token, collateral, pair, supply, collateralSeed, tokenSeed, metadataHash);
     }
 
-    function _seedPool(address token, address collateral, uint256 tokenSeed, uint256 collateralSeed, uint256 supply, address creator) internal returns (uint256 liquidity) {
+    function _seedPool(
+        address token,
+        address collateral,
+        uint256 tokenSeed,
+        uint256 collateralSeed,
+        uint256 supply,
+        address creator
+    ) internal returns (uint256 liquidity) {
         uint256 beforeCollateral = IERC20(collateral).balanceOf(address(this));
         IERC20(collateral).safeTransferFrom(creator, address(this), collateralSeed);
-        if (IERC20(collateral).balanceOf(address(this)) - beforeCollateral != collateralSeed) revert TransferAmountMismatch();
+        if (IERC20(collateral).balanceOf(address(this)) - beforeCollateral != collateralSeed) {
+            revert TransferAmountMismatch();
+        }
         IERC20(token).forceApprove(address(router), tokenSeed);
         IERC20(collateral).forceApprove(address(router), collateralSeed);
-        (uint256 usedToken, uint256 usedCollateral, uint256 minted) = router.addLiquidity(token, collateral, tokenSeed, collateralSeed, tokenSeed, collateralSeed, address(this), block.timestamp);
+        (uint256 usedToken, uint256 usedCollateral, uint256 minted) = router.addLiquidity(
+            token, collateral, tokenSeed, collateralSeed, tokenSeed, collateralSeed, address(this), block.timestamp
+        );
         liquidity = minted;
         IERC20(token).forceApprove(address(router), 0);
         IERC20(collateral).forceApprove(address(router), 0);
-        if (liquidity == 0 || usedToken != tokenSeed || usedCollateral != collateralSeed) revert TransferAmountMismatch();
+        if (liquidity == 0 || usedToken != tokenSeed || usedCollateral != collateralSeed) {
+            revert TransferAmountMismatch();
+        }
         IERC20(token).safeTransfer(creator, supply - tokenSeed);
-        if (IERC20(token).balanceOf(address(this)) != 0 || IERC20(collateral).balanceOf(address(this)) != beforeCollateral) revert TransferAmountMismatch();
+        if (
+            IERC20(token).balanceOf(address(this)) != 0
+                || IERC20(collateral).balanceOf(address(this)) != beforeCollateral
+        ) revert TransferAmountMismatch();
     }
 
-    function closeLaunch() external { closeLaunch(_creatorLaunchIds[msg.sender][_creatorLaunchIds[msg.sender].length - 1]); }
+    function closeLaunch() external {
+        closeLaunch(_creatorLaunchIds[msg.sender][_creatorLaunchIds[msg.sender].length - 1]);
+    }
 
     function closeLaunch(uint256 launchId) public nonReentrant {
         Launch storage l = _launches[launchId];
@@ -173,5 +245,7 @@ contract OrbixLaunchpad is Ownable, ReentrancyGuard {
 }
 
 contract LaunchToken is ERC20 {
-    constructor(string memory name_, string memory symbol_, uint256 supply, address recipient) ERC20(name_, symbol_) { _mint(recipient, supply); }
+    constructor(string memory name_, string memory symbol_, uint256 supply, address recipient) ERC20(name_, symbol_) {
+        _mint(recipient, supply);
+    }
 }

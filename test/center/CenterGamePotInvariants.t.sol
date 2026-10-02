@@ -14,10 +14,14 @@ import {MockERC20, MockERC721} from "../../src/center/mocks/Mocks.sol";
 ///   I4  pot conservation: creatorCut + rake + winnerPayouts + unclaimedPot
 ///       equals total entry fees collected (minus active refunds)
 contract CenterGamePotInvariantsTest is Test {
-    CenterGamePot pot; MockERC20 token; MockERC721 nft;
+    CenterGamePot pot;
+    MockERC20 token;
+    MockERC721 nft;
     uint256 constant AUTH_PK = 0xA11CE;
-    address authority; address treasury = address(0xBEEF);
-    address creator = address(0xC0FFEE); address player = address(0xA11CE1);
+    address authority;
+    address treasury = address(0xBEEF);
+    address creator = address(0xC0FFEE);
+    address player = address(0xA11CE1);
     address winner = address(0xA11CE2);
     bytes32 room;
 
@@ -30,8 +34,10 @@ contract CenterGamePotInvariantsTest is Test {
         nft = new MockERC721();
         token.mint(creator, 1_000_000e18);
         token.mint(player, 1_000_000e18);
-        vm.prank(creator); token.approve(address(pot), type(uint256).max);
-        vm.prank(player); token.approve(address(pot), type(uint256).max);
+        vm.prank(creator);
+        token.approve(address(pot), type(uint256).max);
+        vm.prank(player);
+        token.approve(address(pot), type(uint256).max);
         vm.warp(1000);
     }
 
@@ -39,9 +45,7 @@ contract CenterGamePotInvariantsTest is Test {
 
     function _invariant_no_liability_exceeds_custody() internal view {
         assertGe(
-            token.balanceOf(address(pot)),
-            pot.tokenCommitted(address(token)),
-            "I1: committed assets exceed custody"
+            token.balanceOf(address(pot)), pot.tokenCommitted(address(token)), "I1: committed assets exceed custody"
         );
     }
 

@@ -10,14 +10,21 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract SafetyToken is ERC20 {
     constructor() ERC20("Safety", "SAFE") {}
-    function mint(address to, uint256 amount) external { _mint(to, amount); }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 }
 
 contract SyncReentryToken is SafetyToken {
     address public target;
     bool public attempted;
     bool public blocked;
-    function setTarget(address pair) external { target = pair; }
+
+    function setTarget(address pair) external {
+        target = pair;
+    }
+
     function balanceOf(address owner) public view override returns (uint256) {
         if (owner == target && target != address(0)) {
             // staticcall context disallows writes, but a view reentrant call to sync still reaches the lock.
@@ -49,9 +56,13 @@ contract RouterSafetyTest is Test {
         b.approve(address(router), type(uint256).max);
         vm.stopPrank();
     }
+
     function _path(address x, address y) internal pure returns (address[] memory p) {
-        p = new address[](2); p[0] = x; p[1] = y;
+        p = new address[](2);
+        p[0] = x;
+        p[1] = y;
     }
+
     function _seed(uint256 x, uint256 y) internal returns (OrbixPair pair) {
         vm.prank(alice);
         router.addLiquidity(address(a), address(b), x, y, 0, 0, alice, block.timestamp);
@@ -62,6 +73,7 @@ contract RouterSafetyTest is Test {
         vm.expectRevert(OrbixPair.ZeroAddress.selector);
         new OrbixPair(address(0), address(a));
     }
+
     function test_InitialLiquidityEnforcesBothMinimums() public {
         vm.startPrank(alice);
         vm.expectRevert(OrbixRouter.InsufficientAmount.selector);
@@ -71,12 +83,14 @@ contract RouterSafetyTest is Test {
         vm.stopPrank();
         assertEq(factory.getPair(address(a), address(b)), address(0));
     }
+
     function test_ExistingLiquidityEnforcesBothMinimums() public {
         _seed(10 ether, 20 ether);
         vm.prank(alice);
         vm.expectRevert(OrbixRouter.InsufficientAmount.selector);
         router.addLiquidity(address(a), address(b), 1 ether, 2 ether, 2 ether, 0, alice, block.timestamp);
     }
+
     function test_ReverseRemoveReturnsCallerOrderAndChecksCorrectMinimum() public {
         OrbixPair pair = _seed(10 ether, 20 ether);
         uint256 liq = pair.balanceOf(alice);
@@ -89,6 +103,7 @@ contract RouterSafetyTest is Test {
         assertGt(outB, outA);
         assertApproxEqAbs(outB, outA * 2, 2000);
     }
+
     function test_InvalidPathsRecipientsAndMissingPairs() public {
         address[] memory empty = new address[](0);
         vm.expectRevert(OrbixRouter.InvalidPath.selector);
@@ -106,6 +121,7 @@ contract RouterSafetyTest is Test {
         vm.expectRevert(OrbixRouter.InvalidPath.selector);
         router.addLiquidity(address(a), address(b), 1 ether, 1 ether, 0, 0, address(0), block.timestamp);
     }
+
     function test_QuotesRejectZeroReserves() public {
         vm.expectRevert(OrbixRouter.InsufficientAmount.selector);
         router.getAmountOut(1, 0, 1);
@@ -115,6 +131,7 @@ contract RouterSafetyTest is Test {
         vm.expectRevert(OrbixRouter.InsufficientAmount.selector);
         router.getAmountsOut(1, _path(address(a), address(b)));
     }
+
     function test_FuzzSwapConservesBalancesAndInvariant(uint96 amount) public {
         OrbixPair pair = _seed(1000 ether, 2000 ether);
         amount = uint96(bound(amount, 1e12, 100 ether));
@@ -122,7 +139,8 @@ contract RouterSafetyTest is Test {
         uint256 beforeB = b.balanceOf(alice);
         (uint112 r0, uint112 r1,) = pair.getReserves();
         vm.prank(alice);
-        uint256[] memory outs = router.swapExactTokensForTokens(amount, 1, _path(address(a), address(b)), alice, block.timestamp);
+        uint256[] memory outs =
+            router.swapExactTokensForTokens(amount, 1, _path(address(a), address(b)), alice, block.timestamp);
         assertEq(beforeA - a.balanceOf(alice), amount);
         assertEq(b.balanceOf(alice) - beforeB, outs[1]);
         (uint112 s0, uint112 s1,) = pair.getReserves();
@@ -130,23 +148,26 @@ contract RouterSafetyTest is Test {
         assertEq(a.balanceOf(address(pair)), a.totalSupply() - a.balanceOf(alice));
         assertEq(b.balanceOf(address(pair)), b.totalSupply() - b.balanceOf(alice));
     }
+
     function test_FuzzMintBurnReverseOrder(uint96 x, uint96 y) public {
         x = uint96(bound(x, 1 ether, 1000 ether));
         y = uint96(bound(y, 1 ether, 1000 ether));
         vm.prank(alice);
-        (, , uint256 liquidity) = router.addLiquidity(address(b), address(a), y, x, 0, 0, alice, block.timestamp);
+        (,, uint256 liquidity) = router.addLiquidity(address(b), address(a), y, x, 0, 0, alice, block.timestamp);
         OrbixPair pair = OrbixPair(factory.getPair(address(a), address(b)));
         vm.prank(alice);
         pair.approve(address(router), liquidity);
         uint256 beforeA = a.balanceOf(alice);
         uint256 beforeB = b.balanceOf(alice);
         vm.prank(alice);
-        (uint256 outA, uint256 outB) = router.removeLiquidity(address(a), address(b), liquidity, 0, 0, alice, block.timestamp);
+        (uint256 outA, uint256 outB) =
+            router.removeLiquidity(address(a), address(b), liquidity, 0, 0, alice, block.timestamp);
         assertEq(outA, a.balanceOf(alice) - beforeA);
         assertEq(outB, b.balanceOf(alice) - beforeB);
         assertLe(outA, x);
         assertLe(outB, y);
     }
+
     function test_FuzzDonationSyncAndPriorReserveTWAP(uint96 donation, uint32 elapsed) public {
         OrbixPair pair = _seed(10 ether, 20 ether);
         donation = uint96(bound(donation, 1, 10 ether));
@@ -164,6 +185,7 @@ contract RouterSafetyTest is Test {
         assertEq(pair.price0CumulativeLast() - price0, ((uint256(r1) << 112) / r0) * elapsed);
         assertEq(pair.price1CumulativeLast() - price1, ((uint256(r0) << 112) / r1) * elapsed);
     }
+
     function test_TWAPTimestampWrap() public {
         vm.warp(uint256(type(uint32).max) - 3);
         OrbixPair pair = _seed(10 ether, 20 ether);

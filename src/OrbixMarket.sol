@@ -38,8 +38,13 @@ contract OrbixMarket is Ownable, ReentrancyGuard {
         paymentToken = IERC20(_paymentToken);
     }
 
-    function setOrbix666(address a) external onlyOwner { orbix666 = a; }
-    function setFeeBps(uint256 b) external onlyOwner { feeBps = b; }
+    function setOrbix666(address a) external onlyOwner {
+        orbix666 = a;
+    }
+
+    function setFeeBps(uint256 b) external onlyOwner {
+        feeBps = b;
+    }
 
     function list(address nft, uint256 tokenId, uint256 price) external returns (uint256 id) {
         if (IERC721(nft).ownerOf(tokenId) != msg.sender) revert NotOwner();
@@ -65,8 +70,8 @@ contract OrbixMarket is Ownable, ReentrancyGuard {
 
         uint256 discount = 0;
         if (orbix666 != address(0)) {
-            (bool ok, bytes memory data) = orbix666.staticcall(
-                abi.encodeWithSignature("feeDiscountBps(address)", msg.sender));
+            (bool ok, bytes memory data) =
+                orbix666.staticcall(abi.encodeWithSignature("feeDiscountBps(address)", msg.sender));
             if (ok && data.length >= 32) discount = abi.decode(data, (uint256));
         }
         uint256 effectiveFee = feeBps * (10_000 - discount) / 10_000;

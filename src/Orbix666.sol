@@ -21,15 +21,19 @@ contract Orbix666 is ERC721, Ownable, ReentrancyGuard {
     uint256 public constant TIER_BOT = 222;
     uint256 public constant TIER_GPU = 222;
 
-    enum Tier { HUMAN, BOT, GPU }
+    enum Tier {
+        HUMAN,
+        BOT,
+        GPU
+    }
     mapping(Tier => uint256) public minted;
     uint256 public totalMinted;
 
     IERC20 public immutable burnToken;
     uint256 public botBurnPrice = 25_000 ether; // adjustable by owner pre-mint
-    address public claimSigner;                 // signs human-tier winning claims
-    bytes32 public gpuSalt;                     // set once at start, prevents grinding pre-knowledge
-    uint256 public gpuDifficulty = 2 ** 240;    // hash must be BELOW this
+    address public claimSigner; // signs human-tier winning claims
+    bytes32 public gpuSalt; // set once at start, prevents grinding pre-knowledge
+    uint256 public gpuDifficulty = 2 ** 240; // hash must be BELOW this
     string public baseURI;
 
     mapping(uint256 => Tier) public tokenTier;
@@ -46,7 +50,8 @@ contract Orbix666 is ERC721, Ownable, ReentrancyGuard {
     error SaltLocked();
 
     constructor(address _burnToken, address _claimSigner, string memory _baseURI)
-        ERC721("Orbix 666", "ORBIX666") Ownable(msg.sender)
+        ERC721("Orbix 666", "ORBIX666")
+        Ownable(msg.sender)
     {
         burnToken = IERC20(_burnToken);
         claimSigner = _claimSigner;
@@ -60,8 +65,11 @@ contract Orbix666 is ERC721, Ownable, ReentrancyGuard {
         if (usedHumanClaim[msg.sender]) revert AlreadyClaimed();
         if (block.timestamp > ts + 10 minutes) revert BadClaim();
 
-        bytes32 digest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32",
-            keccak256(abi.encodePacked(msg.sender, luckyNumber, ts, seed))));
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19Ethereum Signed Message:\n32", keccak256(abi.encodePacked(msg.sender, luckyNumber, ts, seed))
+            )
+        );
         require(_recover(digest, sig) == claimSigner, BadClaim());
 
         // winning numbers are 6-digit primes chosen by server RNG; server attests by signing
@@ -112,20 +120,41 @@ contract Orbix666 is ERC721, Ownable, ReentrancyGuard {
     }
 
     // ---------- Admin ----------
-    function setBotBurnPrice(uint256 p) external onlyOwner { botBurnPrice = p; }
-    function setClaimSigner(address s) external onlyOwner { claimSigner = s; }
+    function setBotBurnPrice(uint256 p) external onlyOwner {
+        botBurnPrice = p;
+    }
+
+    function setClaimSigner(address s) external onlyOwner {
+        claimSigner = s;
+    }
+
     function lockSalt(bytes32 s) external onlyOwner {
         if (gpuSalt != bytes32(0)) revert SaltLocked();
         gpuSalt = s;
     }
-    function setDifficulty(uint256 d) external onlyOwner { gpuDifficulty = d; }
-    function setBaseURI(string calldata u) external onlyOwner { baseURI = u; }
-    function _baseURI() internal view override returns (string memory) { return baseURI; }
+
+    function setDifficulty(uint256 d) external onlyOwner {
+        gpuDifficulty = d;
+    }
+
+    function setBaseURI(string calldata u) external onlyOwner {
+        baseURI = u;
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return baseURI;
+    }
 
     function _recover(bytes32 digest, bytes memory sig) internal pure returns (address) {
         require(sig.length == 65);
-        bytes32 r; bytes32 s; uint8 v;
-        assembly { r := mload(add(sig, 32)) s := mload(add(sig, 64)) v := byte(0, mload(add(sig, 96))) }
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := mload(add(sig, 32))
+            s := mload(add(sig, 64))
+            v := byte(0, mload(add(sig, 96)))
+        }
         if (v < 27) v += 27;
         return ecrecover(digest, v, r, s);
     }

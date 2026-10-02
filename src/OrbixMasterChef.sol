@@ -48,7 +48,11 @@ contract OrbixMasterChef is Ownable {
         if (_poolExists(address(stakingToken))) revert PoolExists();
         uint256 lastRewardBlock = block.number > START_BLOCK ? block.number : START_BLOCK;
         totalAllocPoint += allocPoint;
-        poolInfo.push(Pool({stakingToken: stakingToken, allocPoint: allocPoint, lastRewardBlock: lastRewardBlock, accEcoPerShare: 0}));
+        poolInfo.push(
+            Pool({
+                stakingToken: stakingToken, allocPoint: allocPoint, lastRewardBlock: lastRewardBlock, accEcoPerShare: 0
+            })
+        );
     }
 
     function _poolExists(address token) internal view returns (bool) {

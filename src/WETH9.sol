@@ -20,7 +20,7 @@ contract WETH9 is ERC20("Wrapped Ether", "WETH") {
     function withdraw(uint256 wad) external {
         require(balanceOf(msg.sender) >= wad);
         _burn(msg.sender, wad);
-        (bool ok, ) = payable(msg.sender).call{value: wad}("");
+        (bool ok,) = payable(msg.sender).call{value: wad}("");
         require(ok);
         emit Withdrawal(msg.sender, wad);
     }
