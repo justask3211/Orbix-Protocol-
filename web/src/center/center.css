@@ -432,3 +432,20 @@ button:active:not(:disabled){transform:translateY(1px) scale(.99)}
 .ad-pill{display:inline-flex;align-items:center;gap:6px;font:10.5px 'DM Mono';letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:4px 10px;border:1px solid}
 .ad-pill.ok{color:#a4d46d;border-color:#3d4a2a;background:#101508}
 .ad-pill.warn{color:#ffd166;border-color:#4a3d1e;background:#151005}
+
+/* ================= guideline compliance pass (Vercel audit 2026-10-02) ==== */
+:root{color-scheme:dark}
+.ct-main{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.wl-backdrop{overscroll-behavior:contain}
+.vt-balance,.ct-wallet-bal,.ct-form input[type=number],.big,.board-row b{font-variant-numeric:tabular-nums}
+.ct-hero h1,.ct-sub,h2{text-wrap:balance}
+.ct-page,.ct-main{padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right))}
+.ct-topbar{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+.ct-topbar{padding-bottom:0}
+@supports (padding:max(0px)){.ct-page{padding-bottom:max(60px,env(safe-area-inset-bottom))}}
+.ct-form select option{background:#121416;color:#f2f0ec}
+.ct-form input,.ct-form textarea{min-width:0}
+.who-chip,.ct-room-name,.mono,.ct-wallet-addr{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.board-row .who{max-width:32ch}
+.ct-card-top h3,.gcard h3{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+p.sub,p.muted{text-wrap:pretty}

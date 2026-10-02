@@ -424,6 +424,17 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
   const [intentNonce] = useState(() => Math.random().toString(36).slice(2))
   // Format picker: collapsed chip after a choice; the full grid shows only while picking.
   const [picking, setPicking] = useState(!initialTemplateId)
+  // Guideline: warn before navigation with unsaved changes. The draft is not persisted.
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    if (status === null && !busy) {
+      window.addEventListener('beforeunload', warn)
+      return () => window.removeEventListener('beforeunload', warn)
+    }
+  }, [status, busy])
 
   const setRule = (key: string, value: unknown) => setDraft((d) => ({ ...d, rules: { ...d.rules, [key]: value } }))
   const set = <K extends keyof DraftState>(key: K, value: DraftState[K]) => setDraft((d) => ({ ...d, [key]: value }))
@@ -832,7 +843,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
         </button>
       </div>
       {status && <p className="st-note ok">{status}</p>}
-      {error && <p className="err">{error}</p>}
+      {error && <p className="err" role="alert">{error}</p>}
       {!session.token && <p className="muted">Sign in with the demo wallet to publish (it signs the real challenge, it holds no funds).</p>}
     </div>
   )
@@ -899,6 +910,24 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
     }
   }
 
+  const cancelRoom = async () => {
+    if (!session.token) return
+    // Guideline: destructive actions need confirmation — never immediate.
+    const sure = window.confirm(
+      'Cancel this room? Every entrant is refunded exactly what they paid, and the room cannot be reopened.',
+    )
+    if (!sure) return
+    setBusy(true)
+    try {
+      await center.cancel(roomId, session.token)
+      await refresh()
+    } catch (err) {
+      setError(explainError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const makeInvite = async () => {
     if (!session.token) return
     try {
@@ -946,7 +975,7 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
         </div>
       </header>
 
-      {error && <p className="err">{error}</p>}
+      {error && <p className="err" role="alert">{error}</p>}
 
       <section className="ct-panel">
         <h2>Players</h2>
@@ -1023,6 +1052,11 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
           {isHost && room?.visibility !== 'public' && (
             <button className="btn-ghost" onClick={makeInvite}>
               Create invite link
+            </button>
+          )}
+          {isHost && !finished && room?.status !== 'cancelled' && (
+            <button className="btn-ghost" onClick={cancelRoom} disabled={busy} style={{ color: '#ff6b6b', borderColor: '#4a2727' }}>
+              Cancel room (refund everyone)
             </button>
           )}
         </div>
@@ -1248,6 +1282,8 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
                 className="pad-input mono"
                 style={{ flex: 1, minWidth: 220 }}
                 placeholder="0x… transaction hash"
+                spellCheck={false}
+                autoComplete="off"
                 value={txHash}
                 onChange={(e) => { setTxHash(e.target.value); setVerifyState('idle') }}
                 aria-label="Transaction hash"
@@ -1256,8 +1292,8 @@ export function Wallet({ session }: { session: ReturnType<typeof useSession> }) 
                 {verifyState === 'checking' ? 'Checking chain…' : 'I deposited — verify'}
               </button>
             </div>
-            {verifyState === 'ok' && <p className="wz-why">Confirmed: the chain shows your deposit and your vault balance is credited.</p>}
-            {verifyState === 'fail' && <p className="err">Could not confirm that transaction on-chain. Check the hash and try again.</p>}
+            {verifyState === 'ok' && <p className="wz-why" role="status" aria-live="polite">Confirmed: the chain shows your deposit and your vault balance is credited.</p>}
+            {verifyState === 'fail' && <p className="err" role="alert">Could not confirm that transaction on-chain. Check the hash and try again.</p>}
           </>
         )}
       </section>

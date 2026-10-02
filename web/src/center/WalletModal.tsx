@@ -76,7 +76,7 @@ export function WalletModal({ session, onClose }: { session: SessionState; onClo
             </p>
             <div className="wl-recovery">
               <p className="wl-warn">Copy this private key now and store it somewhere safe. We cannot show it again or recover it.</p>
-              <code className="wl-key">{generated.privateKey}</code>
+              <code className="wl-key" translate="no" spellCheck={false}>{generated.privateKey}</code>
               <div className="ct-actions">
                 <button className="btn-primary" onClick={copyKey}>{copied ? 'Copied ✓' : 'Copy key'}</button>
                 <button
