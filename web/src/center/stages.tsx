@@ -364,7 +364,7 @@ export function DuelStage({ state, act, me, players, finished }: StageProps) {
         </div>
       )}
       {phase === 'reveal' && pending && !finished && (
-        <button className="btn-primary" onClick={reveal}>
+        <button className="btn-primary" onClick={reveal} disabled={finished}>
           Reveal {pending.choice}
         </button>
       )}
