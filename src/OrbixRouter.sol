@@ -108,12 +108,11 @@ contract OrbixRouter {
         emit SwapExecuted(_pairFor(path[0], path[1]), amountIn, amounts[amounts.length - 1], to);
     }
 
-    function swapExactETHForTokens(
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external payable returns (uint256[] memory amounts) {
+    function swapExactETHForTokens(uint256 amountOutMin, address[] calldata path, address to, uint256 deadline)
+        external
+        payable
+        returns (uint256[] memory amounts)
+    {
         if (block.timestamp > deadline) revert Expired();
         if (to == address(0) || path.length < 2 || path[0] != WETH) revert InvalidPath();
         amounts = getAmountsOut(msg.value, path);
@@ -140,7 +139,7 @@ contract OrbixRouter {
         SafeERC20.safeTransferFrom(IERC20(path[0]), msg.sender, _pairFor(path[0], path[1]), amounts[0]);
         _swap(amounts, path, address(this));
         _withdrawWETH(amounts[amounts.length - 1]);
-        (bool ok, ) = to.call{value: amounts[amounts.length - 1]}("");
+        (bool ok,) = to.call{value: amounts[amounts.length - 1]}("");
         if (!ok) revert EthTransferFailed();
         emit SwapExecuted(_pairFor(path[0], path[1]), amountIn, amounts[amounts.length - 1], to);
     }
@@ -148,7 +147,9 @@ contract OrbixRouter {
     // ---- Quotes & library ----
 
     function getAmountsOut(uint256 amountIn, address[] memory path) public view returns (uint256[] memory amounts) {
-        if (path.length < 2 || amountIn == 0 || path[0] == address(0) || path[1] == address(0) || path[0] == path[1]) revert InvalidPath();
+        if (path.length < 2 || amountIn == 0 || path[0] == address(0) || path[1] == address(0) || path[0] == path[1]) {
+            revert InvalidPath();
+        }
         amounts = new uint256[](path.length);
         amounts[0] = amountIn;
         for (uint256 i = 0; i < path.length - 1; i++) {
@@ -179,8 +180,8 @@ contract OrbixRouter {
 
     function _reserves(address pair, address tokenA, address tokenB) internal view returns (uint256 rA, uint256 rB) {
         if (pair == address(0)) revert PairNotFound();
-        (uint112 r0, uint112 r1, ) = OrbixPair(pair).getReserves();
-        (address t0, ) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        (uint112 r0, uint112 r1,) = OrbixPair(pair).getReserves();
+        (address t0,) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         (rA, rB) = tokenA == t0 ? (r0, r1) : (r1, r0);
     }
 
@@ -204,12 +205,12 @@ contract OrbixRouter {
     }
 
     function _depositWETH(uint256 amount) internal {
-        (bool ok, ) = WETH.call{value: amount}(abi.encodeWithSignature("deposit()"));
+        (bool ok,) = WETH.call{value: amount}(abi.encodeWithSignature("deposit()"));
         if (!ok) revert EthTransferFailed();
     }
 
     function _withdrawWETH(uint256 amount) internal {
-        (bool ok, ) = WETH.call(abi.encodeWithSignature("withdraw(uint256)", amount));
+        (bool ok,) = WETH.call(abi.encodeWithSignature("withdraw(uint256)", amount));
         if (!ok) revert EthTransferFailed();
     }
 }

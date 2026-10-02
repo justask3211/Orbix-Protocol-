@@ -31,10 +31,8 @@ contract DeployCenter is Script {
 
     function run() external {
         // Anvil account 0 owns the platform, account 1 is the settlement authority.
-        uint256 ownerKey = vm.envOr(
-            "CENTER_OWNER_KEY",
-            uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
-        );
+        uint256 ownerKey =
+            vm.envOr("CENTER_OWNER_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         address authority = vm.envOr("CENTER_AUTHORITY", address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8));
         address playerA = vm.envOr("CENTER_PLAYER_A", address(0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC));
         address playerB = vm.envOr("CENTER_PLAYER_B", address(0x90F79bf6EB2c4f870365E785982E1f101E93b906));
@@ -48,10 +46,8 @@ contract DeployCenter is Script {
         SettlementVerifier verifier = new SettlementVerifier();
         CenterRegistry registry = new CenterRegistry();
         CenterVault vault = new CenterVault(IERC20(address(token)));
-        CenterEscrow escrow = new CenterEscrow(
-            ICenterRegistry(address(registry)),
-            ISettlementVerifier(address(verifier))
-        );
+        CenterEscrow escrow =
+            new CenterEscrow(ICenterRegistry(address(registry)), ISettlementVerifier(address(verifier)));
 
         // Registry: only this escrow, this token and the release-one templates are allowed.
         registry.setEscrow(address(escrow), true);

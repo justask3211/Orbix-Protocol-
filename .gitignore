@@ -21,7 +21,8 @@ docs/
 
 # node deps & build outputs (kept out of the repo)
 node_modules/
-web/dist/
+# web/dist IS shipped in the orbix-center image (COPY web/dist/) - keep it out of
+# git but NOT out of the railway upload (railwayignore excludes only what it lists)
 tsconfig.tsbuildinfo
 center/center.db
 .hermes/

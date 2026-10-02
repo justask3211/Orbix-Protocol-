@@ -7,6 +7,7 @@ pragma solidity ^0.8.24;
 interface IOrbix666 {
     function feeDiscountBps(address holder) external view returns (uint256);
 }
+
 interface IECO {
     function transfer(address to, uint256 amount) external returns (bool);
 }
@@ -25,7 +26,10 @@ contract OrbixFeeDiscountModule {
     error NotOperator();
     error NothingPending();
 
-    modifier onlyOperator() { if (msg.sender != operator) revert NotOperator(); _; }
+    modifier onlyOperator() {
+        if (msg.sender != operator) revert NotOperator();
+        _;
+    }
 
     constructor(address _nft, address _eco) {
         nft = IOrbix666(_nft);
@@ -52,5 +56,7 @@ contract OrbixFeeDiscountModule {
         emit RebateClaimed(msg.sender, amt);
     }
 
-    function setOperator(address o) external onlyOperator { operator = o; }
+    function setOperator(address o) external onlyOperator {
+        operator = o;
+    }
 }

@@ -12,7 +12,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockToken is ERC20 {
     constructor(string memory n) ERC20(n, n) {}
-    function mint(address to, uint256 amt) external { _mint(to, amt); }
+
+    function mint(address to, uint256 amt) external {
+        _mint(to, amt);
+    }
 }
 
 contract VibeSwapTest is Test {
@@ -42,14 +45,17 @@ contract VibeSwapTest is Test {
         vm.deal(bob, 100 ether);
     }
 
-    function _deadline() internal view returns (uint256) { return block.timestamp + 600; }
+    function _deadline() internal view returns (uint256) {
+        return block.timestamp + 600;
+    }
 
     // ---------- Factory ----------
     function test_CreatePairDeterministic() public {
         address p1 = factory.createPair(address(tokenA), address(tokenB));
         vm.expectRevert(OrbixFactory.PairExists.selector);
         factory.createPair(address(tokenB), address(tokenA));
-        (address t0, address t1) = address(tokenA) < address(tokenB) ? (address(tokenA), address(tokenB)) : (address(tokenB), address(tokenA));
+        (address t0, address t1) =
+            address(tokenA) < address(tokenB) ? (address(tokenA), address(tokenB)) : (address(tokenB), address(tokenA));
         assertEq(factory.getPair(t0, t1), p1);
         assertEq(OrbixPair(p1).token0(), t0);
     }
@@ -65,16 +71,18 @@ contract VibeSwapTest is Test {
         tokenA.approve(address(router), type(uint256).max);
         tokenB.approve(address(router), type(uint256).max);
         (uint256 a, uint256 b, uint256 liq) = router.addLiquidity(
-            address(tokenA), address(tokenB), 100 ether, 100 ether, 90 ether, 90 ether, alice, _deadline());
+            address(tokenA), address(tokenB), 100 ether, 100 ether, 90 ether, 90 ether, alice, _deadline()
+        );
         assertGt(liq, 0, "liquidity minted");
         address pair = factory.getPair(
             address(tokenA) < address(tokenB) ? address(tokenA) : address(tokenB),
-            address(tokenA) < address(tokenB) ? address(tokenB) : address(tokenA));
+            address(tokenA) < address(tokenB) ? address(tokenB) : address(tokenA)
+        );
         assertEq(OrbixPair(pair).balanceOf(alice), liq);
         // remove
         OrbixPair(pair).approve(address(router), type(uint256).max);
-        (uint256 outA, uint256 outB) = router.removeLiquidity(
-            address(tokenA), address(tokenB), liq, 0, 0, alice, _deadline());
+        (uint256 outA, uint256 outB) =
+            router.removeLiquidity(address(tokenA), address(tokenB), liq, 0, 0, alice, _deadline());
         assertGt(outA, 0);
         assertGt(outB, 0);
         vm.stopPrank();
@@ -85,7 +93,9 @@ contract VibeSwapTest is Test {
         vm.startPrank(alice);
         tokenA.approve(address(router), type(uint256).max);
         tokenB.approve(address(router), type(uint256).max);
-        router.addLiquidity(address(tokenA), address(tokenB), 100 ether, 100 ether, 90 ether, 90 ether, alice, _deadline());
+        router.addLiquidity(
+            address(tokenA), address(tokenB), 100 ether, 100 ether, 90 ether, 90 ether, alice, _deadline()
+        );
         vm.stopPrank();
 
         uint256 balBefore = tokenB.balanceOf(bob);
@@ -103,7 +113,9 @@ contract VibeSwapTest is Test {
         vm.startPrank(alice);
         tokenA.approve(address(router), type(uint256).max);
         tokenB.approve(address(router), type(uint256).max);
-        router.addLiquidity(address(tokenA), address(tokenB), 100 ether, 100 ether, 90 ether, 90 ether, alice, _deadline());
+        router.addLiquidity(
+            address(tokenA), address(tokenB), 100 ether, 100 ether, 90 ether, 90 ether, alice, _deadline()
+        );
         vm.stopPrank();
         vm.startPrank(bob);
         tokenA.approve(address(router), type(uint256).max);
@@ -122,7 +134,9 @@ contract VibeSwapTest is Test {
         weth.approve(address(router), type(uint256).max);
         weth.transfer(address(factory), 0); // noop warm
         // create WETH/TKA pair via router addLiquidity
-        router.addLiquidity(address(weth), address(tokenA), 10 ether, 1000 ether, 5 ether, 500 ether, alice, _deadline());
+        router.addLiquidity(
+            address(weth), address(tokenA), 10 ether, 1000 ether, 5 ether, 500 ether, alice, _deadline()
+        );
         vm.stopPrank();
 
         uint256 before = tokenA.balanceOf(bob);
@@ -211,7 +225,7 @@ contract VibeSwapTest is Test {
         MockToken(t1).transfer(pair, 200 ether);
         OrbixPair(pair).mint(alice);
         vm.stopPrank();
-        (uint112 r0, uint112 r1, ) = OrbixPair(pair).getReserves();
+        (uint112 r0, uint112 r1,) = OrbixPair(pair).getReserves();
         assertEq(uint256(r0), 100 ether);
         assertEq(uint256(r1), 200 ether);
 

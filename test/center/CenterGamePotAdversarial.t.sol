@@ -14,10 +14,14 @@ import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Recei
 /// A2: a fee-on-transfer reward token cannot trick lockRewardERC20 into booking
 ///     more committed value than the pot actually received.
 contract CenterGamePotAdversarialTest is Test {
-    CenterGamePot pot; MockERC20 token; MockERC721 nft;
+    CenterGamePot pot;
+    MockERC20 token;
+    MockERC721 nft;
     uint256 constant AUTH_PK = 0xA11CE;
-    address authority; address treasury = address(0xBEEF);
-    address creator = address(0xC0FFEE); address player = address(0xA11CE1);
+    address authority;
+    address treasury = address(0xBEEF);
+    address creator = address(0xC0FFEE);
+    address player = address(0xA11CE1);
     address winner = address(0xA11CE2);
     bytes32 room;
 
@@ -28,8 +32,10 @@ contract CenterGamePotAdversarialTest is Test {
         nft = new MockERC721();
         token.mint(creator, 1000e18);
         token.mint(player, 1000e18);
-        vm.prank(creator); token.approve(address(pot), type(uint256).max);
-        vm.prank(player); token.approve(address(pot), type(uint256).max);
+        vm.prank(creator);
+        token.approve(address(pot), type(uint256).max);
+        vm.prank(player);
+        token.approve(address(pot), type(uint256).max);
         vm.warp(1000);
     }
 
@@ -135,13 +141,15 @@ contract ReentrantNFT is MockERC721, IERC721Receiver {
         authPk = authPk_;
     }
 
-    function expectAttack() external { armed = true; }
+    function expectAttack() external {
+        armed = true;
+    }
 
-    function mintTo(address to) external { _mint(to, 1); }
+    function mintTo(address to) external {
+        _mint(to, 1);
+    }
 
-    function onERC721Received(address, address, uint256, bytes calldata)
-        external override returns (bytes4)
-    {
+    function onERC721Received(address, address, uint256, bytes calldata) external override returns (bytes4) {
         if (armed && !attacked) {
             attacked = true;
             _attack();
@@ -175,7 +183,9 @@ contract SkimmingToken {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
-    function mint(address to, uint256 amount) external { balanceOf[to] += amount; }
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
 
     function approve(address spender, uint256 amount) external returns (bool) {
         allowance[msg.sender][spender] = amount;
@@ -193,7 +203,7 @@ contract SkimmingToken {
     }
 
     function _transfer(address from, address to, uint256 amount) internal returns (bool) {
-        uint256 kept = amount / 2;              // skims half of every transfer
+        uint256 kept = amount / 2; // skims half of every transfer
         balanceOf[from] -= amount;
         balanceOf[to] += amount - kept;
         balanceOf[address(this)] += kept;

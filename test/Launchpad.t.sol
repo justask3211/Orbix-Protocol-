@@ -11,7 +11,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract LpMock is ERC20 {
     constructor(string memory n) ERC20(n, n) {}
-    function mint(address to, uint256 amt) external { _mint(to, amt); }
+
+    function mint(address to, uint256 amt) external {
+        _mint(to, amt);
+    }
 }
 
 contract LaunchpadTest is Test {
@@ -43,11 +46,13 @@ contract LaunchpadTest is Test {
     }
 
     function _launch(address who, address col, uint256 tokenSeed, uint256 colSeed, bool lock)
-        internal returns (address token, address pair)
+        internal
+        returns (address token, address pair)
     {
         vm.startPrank(who);
         LpMock(col).approve(address(pad), type(uint256).max);
-        (token, pair) = pad.createLaunch{value: 0.001 ether}("Arc Reactor", "ARC", 1_000_000 ether, col, tokenSeed, colSeed, lock);
+        (token, pair) =
+            pad.createLaunch{value: 0.001 ether}("Arc Reactor", "ARC", 1_000_000 ether, col, tokenSeed, colSeed, lock);
         vm.stopPrank();
     }
 
@@ -87,7 +92,9 @@ contract LaunchpadTest is Test {
         (address tokenA,) = _launch(alice, address(collateral), 50_000 ether, 50 ether, false);
         vm.startPrank(bob);
         LpMock(address(ecoCollateral)).approve(address(pad), type(uint256).max);
-        (address tokenB,) = pad.createLaunch{value: 0.001 ether}("Second Launch", "SEC", 500_000 ether, address(ecoCollateral), 25_000 ether, 25 ether, false);
+        (address tokenB,) = pad.createLaunch{value: 0.001 ether}(
+            "Second Launch", "SEC", 500_000 ether, address(ecoCollateral), 25_000 ether, 25 ether, false
+        );
         vm.stopPrank();
         assertTrue(tokenA != tokenB);
         // permissionless pair between two user-launched tokens
@@ -100,7 +107,9 @@ contract LaunchpadTest is Test {
         (address tokenA,) = _launch(alice, address(collateral), 400_000 ether, 40 ether, false);
         vm.startPrank(bob);
         LpMock(address(ecoCollateral)).approve(address(pad), type(uint256).max);
-        (address tokenB,) = pad.createLaunch{value: 0.001 ether}("Beta", "BTA", 400_000 ether, address(ecoCollateral), 20_000 ether, 20 ether, false);
+        (address tokenB,) = pad.createLaunch{value: 0.001 ether}(
+            "Beta", "BTA", 400_000 ether, address(ecoCollateral), 20_000 ether, 20 ether, false
+        );
         // bob holds the BTA leftovers — send alice enough to seed the A/B pair
         LaunchToken(tokenB).transfer(alice, 100_000 ether);
         vm.stopPrank();
@@ -108,7 +117,9 @@ contract LaunchpadTest is Test {
         vm.startPrank(alice);
         LaunchToken(tokenA).approve(address(router), type(uint256).max);
         LaunchToken(tokenB).approve(address(router), type(uint256).max);
-        router.addLiquidity(tokenA, tokenB, 10_000 ether, 100_000 ether, 9_000 ether, 90_000 ether, alice, block.timestamp + 600);
+        router.addLiquidity(
+            tokenA, tokenB, 10_000 ether, 100_000 ether, 9_000 ether, 90_000 ether, alice, block.timestamp + 600
+        );
         uint256 before = LaunchToken(tokenB).balanceOf(alice);
         address[] memory path = new address[](2);
         path[0] = tokenA;
@@ -162,7 +173,7 @@ contract LaunchpadTest is Test {
         vm.warp(block.timestamp + 7 days + 1);
         pad.closeLaunch();
         vm.stopPrank();
-        (,,,,,,,,bool act,) = pad.launches(alice);
+        (,,,,,,,, bool act,) = pad.launches(alice);
         assertEq(act, false);
     }
 

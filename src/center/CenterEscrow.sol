@@ -107,15 +107,34 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
     mapping(bytes32 => bytes32[]) internal _rewardKeys;
     mapping(bytes32 => mapping(bytes32 => uint256)) public declaredReward;
 
-    event RoundCreated(bytes32 indexed roundId, address indexed creator, bytes32 indexed templateId, bytes32 configHash);
+    event RoundCreated(
+        bytes32 indexed roundId, address indexed creator, bytes32 indexed templateId, bytes32 configHash
+    );
     event RegistrationOpened(bytes32 indexed roundId);
     event Funded(bytes32 indexed roundId, uint8 assetKind, address indexed asset, uint256 tokenId, uint256 amount);
     event Entered(bytes32 indexed roundId, address indexed player, uint256 paid);
     event RoundCancelled(bytes32 indexed roundId);
-    event SettlementPublished(bytes32 indexed roundId, bytes32 merkleRoot, bytes32 allocationsHash, bytes32 transcriptHash);
-    event Claimed(bytes32 indexed claimId, bytes32 indexed roundId, address indexed winner, uint8 assetKind, address asset, uint256 tokenId, uint256 amount);
+    event SettlementPublished(
+        bytes32 indexed roundId, bytes32 merkleRoot, bytes32 allocationsHash, bytes32 transcriptHash
+    );
+    event Claimed(
+        bytes32 indexed claimId,
+        bytes32 indexed roundId,
+        address indexed winner,
+        uint8 assetKind,
+        address asset,
+        uint256 tokenId,
+        uint256 amount
+    );
     event EntryRefunded(bytes32 indexed roundId, address indexed player, uint256 amount);
-    event UnusedRewardReclaimed(bytes32 indexed roundId, address indexed creator, uint8 assetKind, address asset, uint256 tokenId, uint256 amount);
+    event UnusedRewardReclaimed(
+        bytes32 indexed roundId,
+        address indexed creator,
+        uint8 assetKind,
+        address asset,
+        uint256 tokenId,
+        uint256 amount
+    );
 
     error NotCreator();
     error NotOpen();
@@ -146,9 +165,7 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
     error RewardNotFunded();
     error PlayNotEnded();
 
-    constructor(ICenterRegistry registry_, ISettlementVerifier verifier_)
-        EIP712("OrbixCenterEscrow", "1")
-    {
+    constructor(ICenterRegistry registry_, ISettlementVerifier verifier_) EIP712("OrbixCenterEscrow", "1") {
         if (address(registry_) == address(0) || address(verifier_) == address(0)) revert ZeroAddress();
         registry = registry_;
         verifier = verifier_;
@@ -299,7 +316,14 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
         bytes32 digest = _hashTypedDataV4(
             keccak256(
                 abi.encode(
-                    SETTLEMENT_TYPEHASH, roundId, r.configHash, merkleRoot, allocationsHash, transcriptHash, deadline, r.authorityEpoch
+                    SETTLEMENT_TYPEHASH,
+                    roundId,
+                    r.configHash,
+                    merkleRoot,
+                    allocationsHash,
+                    transcriptHash,
+                    deadline,
+                    r.authorityEpoch
                 )
             )
         );
@@ -366,7 +390,10 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
     }
 
     /// @notice After the claim window, the creator reclaims reward inventory nobody claimed.
-    function reclaimUnusedReward(bytes32 roundId, AssetKind kind, address asset, uint256 tokenId) external nonReentrant {
+    function reclaimUnusedReward(bytes32 roundId, AssetKind kind, address asset, uint256 tokenId)
+        external
+        nonReentrant
+    {
         Round storage r = _rounds[roundId];
         if (r.creator != msg.sender) revert NotCreator();
         if (block.timestamp <= r.claimDeadline) revert ClaimWindowOpen();
@@ -412,7 +439,14 @@ contract CenterEscrow is EIP712, ReentrancyGuard, IERC721Receiver, IERC1155Recei
         return _hashTypedDataV4(
             keccak256(
                 abi.encode(
-                    SETTLEMENT_TYPEHASH, roundId, r.configHash, merkleRoot, allocationsHash, transcriptHash, deadline, r.authorityEpoch
+                    SETTLEMENT_TYPEHASH,
+                    roundId,
+                    r.configHash,
+                    merkleRoot,
+                    allocationsHash,
+                    transcriptHash,
+                    deadline,
+                    r.authorityEpoch
                 )
             )
         );

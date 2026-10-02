@@ -42,10 +42,21 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
 
     event Mint(address indexed sender, uint256 amount0, uint256 amount1);
     event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to);
-    event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to);
+    event Swap(
+        address indexed sender,
+        uint256 amount0In,
+        uint256 amount1In,
+        uint256 amount0Out,
+        uint256 amount1Out,
+        address indexed to
+    );
     event Sync(uint112 reserve0, uint112 reserve1);
 
-    constructor(address _token0, address _token1) ERC20("Orbix LP Token", "ORBIX-LP") ERC20Permit("Orbix LP Token") Ownable(msg.sender) {
+    constructor(address _token0, address _token1)
+        ERC20("Orbix LP Token", "ORBIX-LP")
+        ERC20Permit("Orbix LP Token")
+        Ownable(msg.sender)
+    {
         if (_token0 == address(0) || _token1 == address(0)) revert ZeroAddress();
         if (_token0 == _token1) revert IdenticalAddresses();
         (token0, token1) = _token0 < _token1 ? (_token0, _token1) : (_token1, _token0);
@@ -59,7 +70,9 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
     function _update(uint256 bal0, uint256 bal1, uint32 blockTimestamp) private {
         if (bal0 > type(uint112).max || bal1 > type(uint112).max) revert Overflow();
         uint32 elapsed;
-        unchecked { elapsed = blockTimestamp - blockTimestampLast; }
+        unchecked {
+            elapsed = blockTimestamp - blockTimestampLast;
+        }
         // UQ112x112 price accumulators over the PRIOR reserves (Uniswap V2 semantics).
         // price0 = reserve1/reserve0, price1 = reserve0/reserve1; accumulate BEFORE overwriting reserves.
         if (elapsed > 0 && reserve0 != 0 && reserve1 != 0) {
@@ -75,7 +88,7 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
     }
 
     function mint(address to) external lock returns (uint256 liquidity) {
-        (uint112 r0, uint112 r1, ) = (reserve0, reserve1, blockTimestampLast);
+        (uint112 r0, uint112 r1,) = (reserve0, reserve1, blockTimestampLast);
         uint256 bal0 = _balance(token0);
         uint256 bal1 = _balance(token1);
         uint256 amount0 = bal0 - r0;
@@ -83,7 +96,9 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
 
         uint256 _totalSupply = totalSupply();
         if (_totalSupply == 0) {
-            if (amount0 == 0 || amount1 == 0 || amount0 * amount1 <= MINIMUM_LIQUIDITY * MINIMUM_LIQUIDITY) revert InsufficientLiquidityMinted();
+            if (amount0 == 0 || amount1 == 0 || amount0 * amount1 <= MINIMUM_LIQUIDITY * MINIMUM_LIQUIDITY) {
+                revert InsufficientLiquidityMinted();
+            }
             liquidity = _sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY;
             _mint(address(1), MINIMUM_LIQUIDITY); // burn-slot at address(1), not zero (OZ forbids zero receiver)
         } else {
@@ -97,7 +112,7 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
 
     function burn(address to) external lock returns (uint256 amount0, uint256 amount1) {
         uint256 liquidity = balanceOf(address(this));
-        (uint112 r0, uint112 r1, ) = (reserve0, reserve1, blockTimestampLast);
+        (uint112 r0, uint112 r1,) = (reserve0, reserve1, blockTimestampLast);
         uint256 bal0 = _balance(token0);
         uint256 bal1 = _balance(token1);
         uint256 _totalSupply = totalSupply();
@@ -113,7 +128,7 @@ contract OrbixPair is ERC20, ERC20Permit, Ownable {
 
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external lock {
         if (amount0Out == 0 && amount1Out == 0) revert InsufficientOutput();
-        (uint112 r0, uint112 r1, ) = (reserve0, reserve1, blockTimestampLast);
+        (uint112 r0, uint112 r1,) = (reserve0, reserve1, blockTimestampLast);
         if (amount0Out >= r0 || amount1Out >= r1) revert InsufficientOutput();
         if (to == token0 || to == token1) revert InvalidRecipient();
 

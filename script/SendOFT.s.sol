@@ -18,8 +18,7 @@ contract SendOFT is Script {
         uint256 amount = vm.envUint("AMOUNT");
         uint256 minAmount = (amount * 90) / 100;
 
-        bytes memory options = OptionsBuilder.newOptions()
-            .addExecutorLzReceiveOption(120000, 0);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(120000, 0);
 
         SendParam memory sendParam = SendParam({
             dstEid: dstEid,
