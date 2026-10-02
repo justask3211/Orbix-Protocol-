@@ -745,6 +745,8 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
       </section>
 
       <section className="ct-panel">
+        </section>
+      <section className="ct-panel" id="wiz-rules">
         <h2>3 · {TEMPLATE_FORMS[draft.templateId]?.label ?? draft.templateId} rules & hints</h2>
         <p className="muted">Every field below only affects THIS game format. Anything you skip runs on its default.</p>
         <div className="ct-form">
@@ -816,6 +818,8 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
       </section>
 
       <section className="ct-panel">
+        </section>
+      <section className="ct-panel" id="wiz-fees">
         <h2>4 · Fees & rewards</h2>
         <p className="muted">What it costs to play, what the winner takes, and who pays the joiner fee. All deducted from your vault — never from players without a clear label.</p>
         <div className="ct-form">
