@@ -1144,11 +1144,24 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
         </p>
       </section>
 
+
+        {/* Room Capsule — compact summary before publish */}
+        <div className="ct-capsule" aria-label="Room summary before publish">
+          <span className="ct-capsule-title">ROOM SUMMARY</span>
+          <div className="ct-capsule-grid">
+            <div><small>Game</small><b>{TEMPLATE_FORMS[draft.templateId]?.label ?? draft.templateId}</b></div>
+            <div><small>Visibility</small><b>{draft.visibility}</b></div>
+            <div><small>Players</small><b>{isSolo ? 1 : draft.playerCap}</b></div>
+            <div><small>Play fee</small><b>{draft.requiredAmount} ORBIX</b></div>
+            <div><small>Joiner fee</small><b>{draft.entryToken ? `${draft.entryAmount} (token)` : draft.joinerFee ? `${draft.joinerFee} ORBIX` : 'Free'}</b></div>
+            <div><small>Winner reward</small><b>{draft.rewardKind === 'preview' ? `${draft.rewardPoints} pts` : draft.rewardKind === 'token' ? `${draft.rewardAmount} tokens` : draft.rewardKind === 'nft' ? `NFT #${draft.rewardNftId}` : draft.rewardKind === 'eth' ? 'ETH' : `${draft.rewardPoints} pts`}</b></div>
+          </div>
+        </div>
       <div className="ct-actions">
         <button className="btn-ghost" onClick={saveDraft} disabled={busy}>
           Save draft
         </button>
-        <button className="btn-primary" onClick={publish} disabled={busy || !session.token}>
+        <button className="btn-primary" onClick={publish} disabled={busy || !session.token} title={!session.token ? "Connect a wallet first" : undefined}>
           {busy ? 'Publishing…' : 'Publish room'}
         </button>
       </div>
