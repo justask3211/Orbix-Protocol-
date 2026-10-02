@@ -692,6 +692,48 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         vault.deposit(who, amount, "simulated")
         return {"balance": vault.balance_of(who, "simulated"), "simulated": True}
 
+    # ------------------------------------------------------------------ deposit check (QR path)
+
+    @app.post(f"{API_PREFIX}/wallet/deposit/check")
+    def wallet_deposit_check(who: str = Depends(require_wallet)) -> dict:
+        """QR-deposit reconciliation: read the vault's on-chain balanceOf(who) and
+        sync the software ledger UP to it. Idempotent, rate-limited (10s/wallet).
+
+        The vault contract credits the depositor on-chain at deposit() time, so
+        the on-chain balanceOf is the source of truth; the software ledger is a
+        convenience cache for game-time deduction. Only increases are credited
+        (the sync can never mint balance) and every sync is audit-logged.
+        """
+        token = flags.vault_token
+        if not (flags.real_burn and token and flags.vault_address):
+            raise HTTPException(409, detail={"code": "FUNDED_DISABLED", "message": "on-chain deposits are not enabled on this deployment"})
+        now = time.time()
+        checks = getattr(app.state, "deposit_check_at", {})
+        if now - checks.get(who, 0) < 10:
+            raise HTTPException(429, detail={"code": "RATE_LIMITED", "message": "wait a few seconds between deposit checks"})
+        checks[who] = now
+        app.state.deposit_check_at = checks
+        rpc_client = getattr(app.state, "balance_rpc", None)
+        if rpc_client is None:
+            rpc_client = JsonRpc(os.environ.get("CENTER_RPC_URL", "https://rpc.testnet.chain.robinhood.com"), flags.chain_id)
+            app.state.balance_rpc = rpc_client
+        who_hex = who.lower().removeprefix("0x").rjust(64, "0")
+        bal_sel = "0x70a08231"  # balanceOf(address)
+        try:
+            vault_hex = str(rpc_client.call("eth_call", [{"to": flags.vault_address, "data": bal_sel + who_hex}, "latest"]) or "0x")
+            wallet_hex = str(rpc_client.call("eth_call", [{"to": token, "data": bal_sel + who_hex}, "latest"]) or "0x")
+        except Exception:
+            raise HTTPException(503, detail={"code": "RPC_DOWN", "message": "chain reads are temporarily unavailable, try again"})
+        onchain_vault = int(vault_hex, 16) if vault_hex not in ("0x", "") else 0
+        wallet_bal = int(wallet_hex, 16) if wallet_hex not in ("0x", "") else 0
+        credited = vault.balance_of(who, token)
+        if onchain_vault > credited:
+            delta = onchain_vault - credited
+            vault.deposit(who, delta, token)
+            store.append_audit("system", "deposit.sync", {"credited": credited}, {"credited": onchain_vault}, flags.chain_id)
+            return {"credited": delta, "balance": onchain_vault, "wallet": wallet_bal, "symbol": os.environ.get("CENTER_VAULT_SYMBOL", "ORBIX"), "synced": True}
+        return {"credited": 0, "balance": max(credited, onchain_vault), "wallet": wallet_bal, "symbol": os.environ.get("CENTER_VAULT_SYMBOL", "ORBIX"), "synced": False}
+
     # ------------------------------------------------------------------ websocket
 
     @app.websocket(f"{API_PREFIX}/ws/rooms/{{room_id}}")
