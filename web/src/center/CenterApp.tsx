@@ -220,7 +220,7 @@ function Catalog({ session: _session }: { session: ReturnType<typeof useSession>
     <div className="ct-page ct-catalog">
       <Banner />
       <section className="ct-hero">
-        <div className="ct-hero-copy"><span className="ct-kicker">ORBIX GAME CENTER</span><h1>Play. Explore.<br/><i>Compete.</i></h1><p className="sub">Nineteen live game formats. Real rooms, clear fees, funded rewards. Create a room in four steps or drop into one that is already running.</p><div className="ct-hero-actions"><button className="btn-primary" onClick={() => go('/center/create')}>Play now <span aria-hidden>↗</span></button><button className="btn-ghost" onClick={() => document.querySelector('.ct-sub')?.scrollIntoView({ behavior: 'smooth' })}>Explore games <span aria-hidden>↓</span></button></div><div className="ct-hero-meta"><span><i className="live-dot"/> Rooms update live</span><span>{templates.data?.count ?? templates.data?.templates.length ?? 19} game formats</span></div></div>
+        <div className="ct-hero-copy"><span className="ct-kicker" translate="no">ORBIX GAME CENTER</span><h1>Play. Explore.<br/><i>Compete.</i></h1><p className="sub">Nineteen live game formats. Real rooms, clear fees, funded rewards. Create a room in four steps or drop into one that is already running.</p><div className="ct-hero-actions"><button className="btn-primary" onClick={() => go('/center/create')}>Play now <span aria-hidden>↗</span></button><button className="btn-ghost" onClick={() => document.querySelector('.ct-sub')?.scrollIntoView({ behavior: 'smooth' })}>Explore games <span aria-hidden>↓</span></button></div><div className="ct-hero-meta"><span><i className="live-dot"/> Rooms update live</span><span>{templates.data?.count ?? templates.data?.templates.length ?? 19} game formats</span></div></div>
         <div className="ct-hero-orbit" aria-hidden="true"><span className="ct-orbit-label">CENTER / 01</span><span className="ct-orbit-ring ring-a"/><span className="ct-orbit-ring ring-b"/><span className="ct-orbit-core">C</span><span className="ct-orbit-dot dot-a"/><span className="ct-orbit-dot dot-b"/></div>
       </section>
       <div className="ct-signal-row"><span><b>{templates.data?.count ?? templates.data?.templates.length ?? 19}</b> game formats</span><span><b>LIVE</b> room play</span><span><b>Testnet</b> funded rewards</span></div>
@@ -1687,7 +1687,7 @@ export function CenterApp() {
         <a className="ct-brand" href="/center" onClick={(e) => { e.preventDefault(); go('/center') }}>
           <span className="orb" />
           <span className="brand-text">
-            <b>ORBIX</b>
+            <b translate="no">ORBIX</b>
             <small>CENTER</small>
           </span>
         </a>
