@@ -310,6 +310,14 @@ type DraftState = {
   playerCap: number
   minReady: number
   rewardPoints: number
+  rewardKind: 'preview' | 'token' | 'nft' | 'eth'
+  rewardToken: string
+  rewardAmount: string
+  rewardNft: string
+  rewardNftId: string
+  rewardClaimMode: 'auto' | 'code' | 'merkle' | 'open'
+  rewardDeadline: number
+  rewardMessage: string
 }
 
 const HINT_POLICIES: Record<string, string> = {
@@ -412,6 +420,14 @@ function initialDraft(templateId = 'number-hunt'): DraftState {
     playerCap: SOLO.has(templateId) ? 1 : 8,
     minReady: SOLO.has(templateId) ? 1 : 2,
     rewardPoints: 100,
+    rewardKind: 'preview',
+    rewardToken: '',
+    rewardAmount: '',
+    rewardNft: '',
+    rewardNftId: '',
+    rewardClaimMode: 'auto',
+    rewardDeadline: 7,
+    rewardMessage: '',
   }
 }
 
@@ -913,10 +929,118 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
             </>
           )}
           <label>
-            <span>Winner points</span>
+            <span>Winner points (preview)</span>
             <input type="number" min={0} value={draft.rewardPoints} onChange={(e) => set('rewardPoints', Number(e.target.value))} />
-            <small>Preview points. Funded rewards use the reward pool system.</small>
+            <small>Set to 0 to disable preview points and use funded rewards below.</small>
           </label>
+        </div>
+
+        <div className="wz-why" style={{ marginTop: 14 }}>
+          Rewards are what winners receive. Preview points are tracked in-app. Funded rewards (tokens, NFTs, ETH) are locked
+          in the RewardEngine contract and transferred to winners when they claim.
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <label className="ct-hint-select">
+            <span>Reward type</span>
+            <select value={draft.rewardKind} onChange={(e) => set('rewardKind', e.target.value as DraftState['rewardKind'])}>
+              <option value="preview">Preview points (in-app, no wallet needed)</option>
+              <option value="token">Creator token (any ERC-20)</option>
+              <option value="nft">NFT (any ERC-721)</option>
+              <option value="eth">ETH (native currency)</option>
+            </select>
+            <small>What winners receive when they claim.</small>
+          </label>
+
+          {draft.rewardKind === 'token' && (
+            <>
+              <label className="ct-hint-select">
+                <span>Reward token contract</span>
+                <input
+                  value={draft.rewardToken}
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder="0x… any ERC-20 contract"
+                  onChange={(e) => set('rewardToken', e.target.value)}
+                />
+                <small>Any ERC-20. You must approve the RewardEngine to transfer from your wallet.</small>
+              </label>
+              <label className="ct-hint-select">
+                <span>Amount per winner</span>
+                <input
+                  type="number" min={1} step="any"
+                  value={draft.rewardAmount || ''}
+                  placeholder="e.g. 100"
+                  onChange={(e) => set('rewardAmount', e.target.value)}
+                />
+                <small>Each winner receives this many tokens.</small>
+              </label>
+            </>
+          )}
+
+          {draft.rewardKind === 'nft' && (
+            <>
+              <label className="ct-hint-select">
+                <span>NFT contract</span>
+                <input
+                  value={draft.rewardNft}
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder="0x… any ERC-721 contract"
+                  onChange={(e) => set('rewardNft', e.target.value)}
+                />
+                <small>Any ERC-721 collection you own tokens from.</small>
+              </label>
+              <label className="ct-hint-select">
+                <span>Token ID</span>
+                <input
+                  type="number" min={0}
+                  value={draft.rewardNftId || ''}
+                  placeholder="e.g. 42"
+                  onChange={(e) => set('rewardNftId', e.target.value)}
+                />
+                <small>The NFT tokenId the winner receives.</small>
+              </label>
+            </>
+          )}
+
+          {draft.rewardKind !== 'preview' && (
+            <>
+              <label className="ct-hint-select">
+                <span>Claim mode</span>
+                <select value={draft.rewardClaimMode} onChange={(e) => set('rewardClaimMode', e.target.value as DraftState['rewardClaimMode'])}>
+                  <option value="auto">Auto — pushed to winners instantly at settlement</option>
+                  <option value="code">Claim code — winner pastes a code to claim</option>
+                  <option value="merkle">Merkle — for custom distributions (upload CSV)</option>
+                  <option value="open">Open — first N wallets to claim</option>
+                </select>
+                <small>How winners receive their reward.</small>
+              </label>
+              <label className="ct-hint-select">
+                <span>Claim window (days after settlement)</span>
+                <input
+                  type="number" min={1} max={90}
+                  value={draft.rewardDeadline}
+                  onChange={(e) => set('rewardDeadline', Number(e.target.value))}
+                />
+                <small>Unclaimed rewards return to you after this window.</small>
+              </label>
+              <label className="ct-hint-select">
+                <span>Custom message (shown to the winner)</span>
+                <input
+                  value={draft.rewardMessage}
+                  maxLength={200}
+                  placeholder="e.g. Congratulations — you earned this!"
+                  onChange={(e) => set('rewardMessage', e.target.value)}
+                />
+                <small>Displayed when the winner claims.</small>
+              </label>
+              <div className="wz-why">
+                You will need to approve the RewardEngine contract (0x5b8d…8e1b) to transfer your reward assets.
+                The approval and deposit happen when you publish — one signature per asset type.
+              </div>
+            </>
+          )}
         </div>
         <p className="muted">
           The exact configuration is hashed into the round commitment, so a settled round can be checked against the rules that were
