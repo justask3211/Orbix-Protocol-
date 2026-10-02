@@ -510,6 +510,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
     if (draft.templateId === 'airdrop-quest' && !Array.isArray(rules.achievements)) {
       rules.achievements = ['first-win']
     }
+    if (draft.entryToken) draft.joinerFee = 0
     if (draft.templateId === 'live-quiz') {
       const questions = (rules.questions as QuizQuestion[]) ?? []
       rules.questions = questions.filter((q) => q.prompt.trim() && q.choices.every((c) => c.trim()))
@@ -533,9 +534,11 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
         vault_mode: 'simulated',
         required_amount: draft.requiredAmount,
         joiner_fee: draft.joinerFee,
-        creator_absorbs_joiner_fee: draft.absorbsJoinerFee,
+        creator_absorbs_joiner_fee: draft.absorbsJoinerFee || Boolean(draft.entryToken),
       },
-      entry: { kind: 'free' }, // paid creator-entry stays disabled until the on-chain gate is enabled
+      entry: draft.entryToken && draft.entryAmount > 0
+        ? { kind: 'erc20' as const, token: draft.entryToken, amount: draft.entryAmount }
+        : { kind: 'free' as const },
       rewards: { kind: 'preview-points', slots: [{ rank: 1, points: draft.rewardPoints }, { rank: 2, points: Math.round(draft.rewardPoints / 2) }] },
       branding: { preset: 'solar' },
     }
@@ -742,9 +745,16 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
             <small>Deducted from your vault when you publish.</small>
           </label>
           <label>
-            <span>Joiner fee per player (ORBIX)</span>
-            <input type="number" min={0} value={draft.joinerFee} onChange={(e) => set('joinerFee', Number(e.target.value))} />
-            <small>Each player pays this to join — unless you absorb it below.</small>
+            <span>Joiner fee per player (ORBIX){draft.entryToken ? ' — disabled while a join token is set' : ''}</span>
+            <input
+              type="number" min={0}
+              value={draft.entryToken ? 0 : draft.joinerFee}
+              disabled={Boolean(draft.entryToken)}
+              onChange={(e) => set('joinerFee', Number(e.target.value))}
+            />
+            {draft.entryToken
+              ? <small>Joiners pay the token you chose above — ORBIX joiner fees are absorbed by you.</small>
+              : <small>Each player pays this to join — unless you absorb it below.</small>}
           </label>
           <label className="inline">
             <input type="checkbox" checked={draft.absorbsJoinerFee} onChange={(e) => set('absorbsJoinerFee', e.target.checked)} />
@@ -844,22 +854,39 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
             </div>
           </div>
           <label>
-            <span>Creator entry token</span>
-            <input value={draft.entryToken} disabled placeholder="Available after funded testnet gate" onChange={(e) => set('entryToken', e.target.value)} />
-            <small>Paid entry is designed in the upgrade plan but stays disabled until escrow and swap-route verification pass.</small>
+            <span>Join token contract (any ERC-20, optional)</span>
+            <input
+              value={draft.entryToken}
+              spellCheck={false}
+              autoComplete="off"
+              placeholder="0x… paste any ERC-20 contract address"
+              onChange={(e) => set('entryToken', e.target.value)}
+            />
+            <small>Paste any token you want joiners to pay. Leave empty for a free room. You do NOT need to own or have created it.</small>
           </label>
-          <label>
-            <span>Entry amount</span>
-            <input type="number" min={0} disabled value={draft.entryAmount} onChange={(e) => set('entryAmount', Number(e.target.value))} />
-          </label>
+          {draft.entryToken && (
+            <label>
+              <span>Join amount (in the chosen token)</span>
+              <input
+                type="number"
+                min={1}
+                step="any"
+                value={draft.entryAmount || ''}
+                placeholder="e.g. 25"
+                onChange={(e) => set('entryAmount', Number(e.target.value))}
+              />
+              <small>Each joiner pays this amount of the token above to enter.</small>
+            </label>
+          )}
           <label>
             <span>Winner points</span>
             <input type="number" min={0} value={draft.rewardPoints} onChange={(e) => set('rewardPoints', Number(e.target.value))} />
+            <small>Preview points. Funded rewards use the reward pool system.</small>
           </label>
         </div>
         <p className="muted">
           The exact configuration is hashed into the round commitment, so a settled round can be checked against the rules that were
-          published. Real funded rewards stay disabled while the deployment flag is off.
+          published.
         </p>
       </section>
 
@@ -914,6 +941,10 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
     setBusy(true)
     setError(null)
     try {
+      // If the room has a join token, the joiner pays via CreatorTokenGate first.
+      if (entryToken && entryAmount > 0 && session.address) {
+        await payJoinToken(roomId, entryToken, entryAmount, session.address)
+      }
       const params = new URLSearchParams(window.location.search)
       const joined = await center.join(roomId, session.token, params.get('invite') ?? undefined)
       setTicket(joined.ticket)
@@ -978,6 +1009,9 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
   const joinerFee = Number(access.joiner_fee ?? 0)
   const absorbsFee = Boolean(access.creator_absorbs_joiner_fee)
   const rewardKind = String(rewardsCfg.kind ?? 'preview-points')
+  const entryCfg = (room?.config?.entry ?? {}) as { kind?: string; token?: string; amount?: number }
+  const entryToken = String(entryCfg.token ?? '')
+  const entryAmount = Number(entryCfg.amount ?? 0)
   const players = (room?.participants ?? []).filter((p) => p.role === 'player').map((p) => p.who.toLowerCase())
   const amPlayer = players.includes(me)
   const finished = Boolean(state.finished) || Boolean(settlement) || room?.status === 'claimable'
@@ -1022,17 +1056,27 @@ export function Room({ roomId, session }: { roomId: string; session: ReturnType<
               <summary>Before you join — read the room terms</summary>
               <ul className="ct-presign-list">
                 <li>
-                  <strong>Entry:</strong> joining costs{' '}
-                  <span className="mono">{requiredAmount}</span> preview
-                  points from your vault
-                  {joinerFee > 0 && (
+                  <strong>Entry:</strong>{' '}
+                  {entryToken ? (
                     <>
-                      {' '}plus a joiner fee of{' '}
-                      <span className="mono">{joinerFee}</span>
-                      {absorbsFee ? ' (paid by the creator)' : ''}
+                      joining requires{' '}
+                      <span className="mono">{entryAmount}</span> of the creator's chosen token{' '}
+                      <span className="mono">{shortAddress(entryToken, 4)}</span>{' '}
+                      — you will approve and pay from your wallet
+                    </>
+                  ) : (
+                    <>
+                      joining costs{' '}
+                      <span className="mono">{requiredAmount}</span> preview points from your vault
+                      {joinerFee > 0 && (
+                        <>
+                          {' '}plus a joiner fee of{' '}
+                          <span className="mono">{joinerFee}</span>
+                          {absorbsFee ? ' (paid by the creator)' : ''}
+                        </>
+                      )}
                     </>
                   )}
-                  . Paid token entry is disabled while the funded gate is off.
                 </li>
                 <li>
                   <strong>Reward mode:</strong>{' '}
@@ -1382,4 +1426,94 @@ export function CenterApp() {
       <main className="ct-main" id="center-main" tabIndex={-1}>{body}</main>
     </div>
   )
+}
+
+
+// ------------------------------------------------------------------ join-token payment
+
+const ERC20_ABI_MIN = [
+  { name: 'approve', type: 'function', stateMutability: 'nonpayable',
+    inputs: [{name:'spender',type:'address'},{name:'amount',type:'uint256'}], outputs:[{type:'bool'}] },
+  { name: 'allowance', type: 'function', stateMutability: 'view',
+    inputs: [{name:'owner',type:'address'},{name:'spender',type:'address'}], outputs:[{type:'uint256'}] },
+] as const
+
+const GATE_ABI_MIN = [
+  { name: 'join', type: 'function', stateMutability: 'nonpayable',
+    inputs: [{name:'roomId',type:'bytes32'}], outputs: [] },
+] as const
+
+const GATE_ADDRESS = '0x19ecd51d78b3836863e8161503b1273e2241c08a'
+const CHAIN_46630 = '0xb626'
+
+/** Ensures the browser wallet is on chain 46630 before any contract call. */
+async function ensureChain46630(eth: any): Promise<void> {
+  const current: string = await eth.request({ method: 'eth_chainId' })
+  if (String(current).toLowerCase() === CHAIN_46630) return
+  try {
+    await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_46630 }] })
+  } catch (e: any) {
+    if (e?.code === 4902 || /Unrecognized chain/i.test(String(e?.message))) {
+      await eth.request({ method: 'wallet_addEthereumChain', params: [{
+        chainId: CHAIN_46630,
+        chainName: 'Robinhood Chain Testnet',
+        nativeCurrency: { name: 'Test ETH', symbol: 'ETH', decimals: 18 },
+        rpcUrls: ['https://rpc.testnet.chain.robinhood.com'],
+        blockExplorerUrls: ['https://explorer.testnet.chain.robinhood.com'],
+      }] })
+      return
+    }
+    throw new Error('Switch your wallet to the Robinhood testnet (chain 46630) to join.')
+  }
+}
+
+/** Pay the creator's join token via CreatorTokenGate: approve + join. */
+async function payJoinToken(roomId: string, token: string, amount: number, wallet: string): Promise<void> {
+  const eth = (window as any).ethereum
+  if (!eth) throw new Error('No browser wallet. Generate or connect one first.')
+  await ensureChain46630(eth)
+  const { encodeFunctionData, parseUnits } = await import('viem')
+  const wei = parseUnits(String(amount), 18)
+  if (wei <= 0n) throw new Error('Join amount must be positive.')
+
+  // 1) check allowance
+  const allowanceData = encodeFunctionData({ abi: ERC20_ABI_MIN, functionName: 'allowance',
+    args: [wallet as `0x${string}`, GATE_ADDRESS as `0x${string}`] })
+  const allowanceHex: string = await eth.request({
+    method: 'eth_call',
+    params: [{ from: wallet, to: token, data: allowanceData }, 'latest'],
+  })
+  const allowance = BigInt(allowanceHex)
+  if (allowance < wei) {
+    const approveData = encodeFunctionData({ abi: ERC20_ABI_MIN, functionName: 'approve',
+      args: [GATE_ADDRESS as `0x${string}`, wei] })
+    const approveTx: string = await eth.request({
+      method: 'eth_sendTransaction',
+      params: [{ from: wallet, to: token, data: approveData }],
+    })
+    await waitMined(eth, approveTx)
+  }
+
+  // 2) gate.join(roomId)
+  const roomIdBytes = ('0x' + roomId.replace(/[^0-9a-f]/gi, '').padEnd(64, '0').slice(0, 64)) as `0x${string}`
+  const joinData = encodeFunctionData({ abi: GATE_ABI_MIN, functionName: 'join',
+    args: [roomIdBytes] })
+  const joinTx: string = await eth.request({
+    method: 'eth_sendTransaction',
+    params: [{ from: wallet, to: GATE_ADDRESS, data: joinData }],
+  })
+  await waitMined(eth, joinTx)
+}
+
+async function waitMined(eth: any, txHash: string, timeoutMs = 180_000): Promise<void> {
+  const started = Date.now()
+  while (Date.now() - started < timeoutMs) {
+    const r = await eth.request({ method: 'eth_getTransactionReceipt', params: [txHash] })
+    if (r) {
+      if (String(r.status).toLowerCase() !== '0x1') throw new Error('Transaction reverted on-chain.')
+      return
+    }
+    await new Promise((res) => setTimeout(res, 3000))
+  }
+  throw new Error('Timed out waiting for the transaction to confirm.')
 }
