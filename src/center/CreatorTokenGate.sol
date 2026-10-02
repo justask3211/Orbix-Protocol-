@@ -38,13 +38,13 @@ contract CreatorTokenGate is ReentrancyGuard {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
-    address public admin;              // platform admin (fee/treasury authority)
-    address public treasury;           // where token fees accumulate
+    address public admin; // platform admin (fee/treasury authority)
+    address public treasury; // where token fees accumulate
 
     struct Binding {
         address creator;
-        address token;                 // creator's ERC-20
-        uint256 joinFee;               // in token base units
+        address token; // creator's ERC-20
+        uint256 joinFee; // in token base units
         bool paused;
         bool exists;
     }
@@ -90,19 +90,18 @@ contract CreatorTokenGate is ReentrancyGuard {
     /// @notice Creator binds their token to a room. Only valid when the room's
     ///         ORBIX joiner fees are creator-absorbed (enforced off-chain by the
     ///         server refusing to publish a bound room without that flag).
-    function bindRoom(
-        bytes32 roomId,
-        address token,
-        uint256 joinFee
-    ) external {
+    function bindRoom(bytes32 roomId, address token, uint256 joinFee) external {
         Binding storage b = bindings[roomId];
         if (b.exists) revert AlreadyBound();
         if (token == address(0)) revert ZeroAddress();
         if (joinFee == 0) revert ZeroFee();
         // sanity: the address must behave like a token (symbol/decimals readable)
-        try IERC20MetadataLike(token).decimals() returns (uint8) {
-            // ok
-        } catch {
+        try IERC20MetadataLike(token).decimals() returns (
+            uint8
+        ) {
+        // ok
+        }
+        catch {
             revert BadToken();
         }
         b.creator = msg.sender;
@@ -151,21 +150,18 @@ contract CreatorTokenGate is ReentrancyGuard {
     /// @notice Relay variant: the backend (or anyone) submits a join on behalf of
     ///         a player who signed an intent. The signature binds
     ///         (roomId, player, nonce); the nonce is one-time.
-    function joinRelayed(
-        bytes32 roomId,
-        address player,
-        uint256 nonce,
-        bytes calldata signature
-    ) external nonReentrant {
+    function joinRelayed(bytes32 roomId, address player, uint256 nonce, bytes calldata signature)
+        external
+        nonReentrant
+    {
         Binding storage b = bindings[roomId];
         if (!b.exists) revert NotBound();
         if (b.paused) revert Paused();
         if (joined[roomId][player]) revert AlreadyJoined();
         if (relayNonceUsed[roomId][player][nonce]) revert NonceUsed();
-        bytes32 digest = keccak256(
-            abi.encodePacked("ORBIX_CREATOR_JOIN_V1", address(this), block.chainid, roomId, player, nonce)
-        );
-        (bytes32 msgDigest, ) = _digestToEthSign(digest);
+        bytes32 digest =
+            keccak256(abi.encodePacked("ORBIX_CREATOR_JOIN_V1", address(this), block.chainid, roomId, player, nonce));
+        (bytes32 msgDigest,) = _digestToEthSign(digest);
         if (ECDSA.recover(msgDigest, signature) != player) revert BadToken(); // wrong signer
         relayNonceUsed[roomId][player][nonce] = true;
         joined[roomId][player] = true;
@@ -194,7 +190,11 @@ contract CreatorTokenGate is ReentrancyGuard {
 
     // ------------------------------------------------------------- views
 
-    function bindingOf(bytes32 roomId) external view returns (address creator, address token, uint256 joinFee, bool paused) {
+    function bindingOf(bytes32 roomId)
+        external
+        view
+        returns (address creator, address token, uint256 joinFee, bool paused)
+    {
         Binding storage b = bindings[roomId];
         return (b.creator, b.token, b.joinFee, b.paused);
     }
