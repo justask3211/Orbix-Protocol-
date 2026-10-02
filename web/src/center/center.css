@@ -782,3 +782,11 @@ html{scroll-behavior:smooth}
 @media (prefers-reduced-motion:reduce){
   .pad-input,.digits.pad .digit,.type-area,.st-note{animation:none!important;transition:none!important}
 }
+
+/* ---- Room Capsule summary ---- */
+.ct-capsule{background:linear-gradient(135deg,#1a1d14,#101214);border:1px solid #3a4a1c;border-radius:12px;padding:16px 18px;margin:12px 0}
+.ct-capsule-title{font:10.5px 'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#a4d46d;display:block;margin-bottom:10px}
+.ct-capsule-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.ct-capsule-grid>div{display:flex;flex-direction:column;gap:2px}
+.ct-capsule-grid small{color:#7c8085;font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+.ct-capsule-grid b{font-size:13px;color:#f2f0ec;font-family:'DM Mono',monospace}
