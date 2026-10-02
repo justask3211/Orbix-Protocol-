@@ -18,3 +18,10 @@ docs/
 .env
 .env.*
 !.env.example
+
+# node deps & build outputs (kept out of the repo)
+node_modules/
+web/dist/
+tsconfig.tsbuildinfo
+center/center.db
+.hermes/
