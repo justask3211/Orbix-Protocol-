@@ -271,6 +271,8 @@ class Access(Strict):
     required_amount: int | None = Field(default=None, ge=0)
     joiner_fee: int = Field(default=0, ge=0)
     creator_absorbs_joiner_fee: bool = False
+    payout_mode: Literal["creator", "custom", "burn"] | None = None
+    payout_address: str | None = None
 
 
 class Entry(Strict):
