@@ -1,7 +1,7 @@
 // Deposit flow — real contract invocation from the connected wallet.
 //
 // Contract deposit (default tab):
-//   1. ensure allowance: FREE token -> vault (approve only when needed)
+//   1. ensure allowance: ORBIX token -> vault (approve only when needed)
 //   2. vault.deposit(amount)
 //   each step uses window.ethereum personal wallet; no backend custody.
 //
@@ -53,6 +53,32 @@ async function eth(): Promise<EthProvider> {
   return p
 }
 
+
+/** Railway/Robinhood testnet chain id + params so wallets can switch. */
+const CHAIN_ID_HEX = '0xb626' // 46630
+const CHAIN_PARAMS = {
+  chainId: CHAIN_ID_HEX,
+  chainName: 'Robinhood Chain Testnet',
+  nativeCurrency: { name: 'Test ETH', symbol: 'ETH', decimals: 18 },
+  rpcUrls: ['https://rpc.testnet.chain.robinhood.com'],
+  blockExplorerUrls: ['https://explorer.testnet.chain.robinhood.com'],
+}
+
+async function ensureChain(provider: EthProvider): Promise<void> {
+  const current: string = await provider.request({ method: 'eth_chainId' })
+  if (String(current).toLowerCase() === CHAIN_ID_HEX) return
+  try {
+    await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] })
+  } catch (e: any) {
+    // 4902 = chain not added to the wallet
+    if (e?.code === 4902 || /Unrecognized chain/i.test(String(e?.message))) {
+      await provider.request({ method: 'wallet_addEthereumChain', params: [CHAIN_PARAMS] })
+      return
+    }
+    throw new Error('Switch your wallet to the Robinhood testnet (chain 46630) to deposit.')
+  }
+}
+
 function shortHex(h: string, size = 6): string {
   return `${h.slice(0, 2 + size)}…${h.slice(-size)}`
 }
@@ -81,6 +107,7 @@ export function DepositPanel({ onchain, token }: {
     const provider = await eth()
     const accounts: string[] = await provider.request({ method: 'eth_requestAccounts' })
     const from = accounts[0]
+    await ensureChain(provider)
     const wei = parseUnits(amount || '0', decimals)
     if (wei <= 0n) {
       setErr('Enter an amount greater than zero.')
@@ -124,7 +151,16 @@ export function DepositPanel({ onchain, token }: {
       setStep('done')
     } catch (e) {
       setStep('idle')
-      setErr(e instanceof Error ? e.message : String(e))
+      const msg = e instanceof Error ? e.message : String(e)
+      if (/insufficient funds/i.test(msg)) {
+        setErr('Not enough test ETH for gas. Grab some from the testnet faucet, then try again.')
+      } else if (/insufficient allowance/i.test(msg)) {
+        setErr('The approval did not go through. Approve again when your wallet asks, then deposit.')
+      } else if (/user rejected|denied/i.test(msg)) {
+        setErr('You declined the signature. Nothing was sent.')
+      } else {
+        setErr(msg)
+      }
     }
   }
 
