@@ -231,7 +231,7 @@ function Catalog({ session: _session }: { session: ReturnType<typeof useSession>
         <div className="ct-head-count"><b>{String(shown.length).padStart(2, '0')}</b><span>FORMATS</span></div>
       </header>
 
-      {templates.loading && <p className="muted">Loading formats…</p>}
+      {templates.loading && <p className="muted" role="status" aria-live="polite">Loading formats…</p>}
       {templates.error && <p className="err">{templates.error}</p>}
 
       <div className="ct-filters">
@@ -284,7 +284,7 @@ function Catalog({ session: _session }: { session: ReturnType<typeof useSession>
         <div><span className="ct-kicker">LIVE ROOMS</span><h2 className="ct-sub">Open now.</h2></div>
         <span className="ct-live-badge"><i className="live-dot"/> {rooms.data?.rooms.length ?? 0} open</span>
       </div>
-      {rooms.loading && <p className="muted">Loading rooms…</p>}
+      {rooms.loading && <p className="muted" role="status" aria-live="polite">Loading rooms…</p>}
       {rooms.data?.rooms.length === 0 && <p className="muted">No public rooms yet — create the first one.</p>}
       <div className="ct-rooms">
         {(rooms.data?.rooms ?? []).map((r: RoomSummary) => (
