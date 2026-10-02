@@ -52,7 +52,9 @@ contract CreatorTokenGateTest is Test {
         // an EOA has no decimals() - sanity check must reject it
         vm.prank(creator);
         bool ok = false;
-        try gate.bindRoom(room, joiner, FEE) { ok = true; } catch {}
+        try gate.bindRoom(room, joiner, FEE) {
+            ok = true;
+        } catch {}
         assertFalse(ok, "binding an EOA must fail");
     }
 
@@ -178,7 +180,9 @@ contract CreatorTokenGateTest is Test {
         assertTrue(gate.hasJoined(room, player));
         // replay is refused — by the join flag first, or the one-time nonce
         bool replayed = false;
-        try gate.joinRelayed(room, player, 7, sig) { replayed = true; } catch {}
+        try gate.joinRelayed(room, player, 7, sig) {
+            replayed = true;
+        } catch {}
         assertFalse(replayed, "replayed relay join must be refused");
         // a DIFFERENT player reusing the same nonce is refused by the nonce guard
         creatorToken.mint(joiner2, 1000e18);
@@ -190,7 +194,9 @@ contract CreatorTokenGateTest is Test {
         bytes32 digest2 = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", raw2));
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(0x9001, digest2);
         bool wrong = false;
-        try gate.joinRelayed(room, joiner2, 7, abi.encodePacked(r2, s2, v2)) { wrong = true; } catch {}
+        try gate.joinRelayed(room, joiner2, 7, abi.encodePacked(r2, s2, v2)) {
+            wrong = true;
+        } catch {}
         assertFalse(wrong, "wrong-signer relay must be refused");
     }
 
