@@ -345,8 +345,10 @@ class RoomConfig(Strict):
             raise ValueError(f"rules object does not match template {self.template_id!r}")
         if self.mode == "preview" and self.access.vault_mode != "simulated":
             raise ValueError("preview rooms must use the simulated vault")
-        if self.mode == "preview" and self.entry.kind != "free":
-            raise ValueError("preview rooms cannot require on-chain entry payment")
+        # entry.kind == 'erc20' is allowed in preview: the joiner's token payment
+        # goes through CreatorTokenGate (separate deployed contract), not through
+        # the vault contract. The vault remains simulated for the software
+        # balance that powers room-creation fees. The gate is the real money path.
         if self.access.vault_mode == "simulated" and self.access.token:
             raise ValueError("simulated vault must not name a token")
         if self.rewards.kind == "funded-assets" and self.mode != "testnet":
