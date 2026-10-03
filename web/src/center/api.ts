@@ -185,6 +185,8 @@ export const center = {
     request<{ name: string; bio: string; hue: number; showAddress: boolean; address?: string }>(`/profile/${address}`),
   setProfile: (token: string, body: { name: string; bio: string; hue: number; showAddress: boolean }) =>
     request<{ name: string; bio: string; hue: number; showAddress: boolean }>('/profile', { method: 'POST', body: JSON.stringify(body) }, token),
+  uploadProfileImage: (token: string, dataUrl: string) =>
+    request<{ ok: boolean; url: string }>('/profile/image', { method: 'POST', body: JSON.stringify({ image: dataUrl }) }, token),
   checkDeposit: (token: string) =>
     request<{ credited: number; balance: number; wallet: number; symbol: string; synced: boolean }>(
       '/wallet/deposit/check', { method: 'POST' }, token),

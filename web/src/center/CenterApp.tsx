@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RoundPending, STAGES } from './stages'
 import { GameArt, TEMPLATE_META } from './gameArt'
 import { QuizEditor, TEMPLATE_FORMS, ruleNumber, type QuizQuestion, type RuleField } from './wizardForms'
-import { center, explainError, type Allocation, type OnchainBalance, type RoomDetail, type RoomSummary, type Settlement, type TemplateList, type TemplateMeta, type VaultState } from './api'
+import { center, explainError, API_BASE, type Allocation, type OnchainBalance, type RoomDetail, type RoomSummary, type Settlement, type TemplateList, type TemplateMeta, type VaultState } from './api'
 import { playerHue, shortAddress, useSession } from './session'
 import { WalletModal } from './WalletModal'
 import { GameBanner } from './bannerArt'
@@ -87,15 +87,28 @@ function Banner() {
 
 function ProfileTopButton({ session, onOpen }: { session: ReturnType<typeof useSession>; onOpen: () => void }) {
   const { profile } = useProfile(session.address, session.token)
+  const [avatarLoaded, setAvatarLoaded] = useState(false)
+  const avatarUrl = session.address
+    ? `${API_BASE}/profile/image/${session.address}?t=${Math.floor(Date.now() / 60000)}`
+    : null
+
   if (!session.token) return null
+
   return (
-    <ProfileAvatar
-      name={profile?.name ?? undefined}
-      hue={profile?.hue}
-      size={30}
-      onClick={onOpen}
-      hasWallet
-    />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }}>
+      {profile?.name && <span style={{ fontSize: 12, color: '#c9c6c0', fontWeight: 600 }}>{profile.name}</span>}
+      {avatarUrl && avatarLoaded ? (
+        <button onClick={onOpen} className="pf-avatar" style={{ padding: 0, overflow: 'hidden' }}
+                aria-label="Open profile">
+          <img src={avatarUrl} width={30} height={30} style={{ borderRadius: '50%', objectFit: 'cover' }}
+               onLoad={() => setAvatarLoaded(true)} onError={() => setAvatarLoaded(false)}
+               alt="Profile" />
+        </button>
+      ) : (
+        <ProfileAvatar name={profile?.name ?? undefined} hue={profile?.hue} size={30}
+                       onClick={onOpen} hasWallet />
+      )}
+    </div>
   )
 }
 
