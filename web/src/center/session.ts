@@ -66,6 +66,7 @@ export function playerHue(address: string): number {
 export type SessionState = {
   address: string | null
   kind: WalletKind | null
+  autoSigningIn: boolean
   connected: boolean
   token: string | null
   signingIn: boolean
@@ -168,6 +169,46 @@ export function useSession(): SessionState {
     setError('Generate a wallet first — it takes one tap and you get a recovery key.')
   }, [signInWith, connectInjected])
 
+  // AUTO SIGN-IN: a generated wallet keeps its private key in localStorage, so we
+  // can silently re-establish the session on every visit — no popup, no button.
+  // This fixes the "wallet is back but it says sign in first" case: the stored
+  // token may be stale, and the key is still here to sign a fresh one.
+  const [autoSigningIn, setAutoSigningIn] = useState(false)
+  useEffect(() => {
+    const acct = loadStoredAccount()
+    if (!acct) return
+    setAddress(acct.address)
+    setKind('generated')
+    const existing = localStorage.getItem(TOKEN_STORAGE)
+    if (!existing) {
+      // No token at all: sign in silently.
+      setAutoSigningIn(true)
+      signInWith((msg) => acct.signMessage({ message: msg }), acct.address, 'generated')
+        .catch(() => { /* offline: stay signed out, retry on next action */ })
+        .finally(() => setAutoSigningIn(false))
+      return
+    }
+    // A token exists — PROBE it. If the server rejects it (expired / rotated),
+    // sign a fresh one silently. This is what keeps a returning user signed in.
+    let alive = true
+    ;(async () => {
+      try {
+        await center.vault(existing)  // any cheap authenticated call works
+      } catch {
+        if (!alive) return
+        localStorage.removeItem(TOKEN_STORAGE)
+        setAutoSigningIn(true)
+        try {
+          await signInWith((msg) => acct.signMessage({ message: msg }), acct.address, 'generated')
+        } catch { /* offline */ }
+        finally { setAutoSigningIn(false) }
+      }
+    })()
+    return () => { alive = false }
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const signOut = useCallback(() => {
     localStorage.removeItem(TOKEN_STORAGE)
     setToken(null)
@@ -185,6 +226,7 @@ export function useSession(): SessionState {
   return {
     address,
     kind,
+    autoSigningIn,
     connected: Boolean(address && token),
     token,
     signingIn,
