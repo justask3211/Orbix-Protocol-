@@ -24,6 +24,8 @@ import { FundsPanel, TxPreview } from './funds'
 import { SharePanel } from './SharePanel'
 import { ActionCards } from './ActionCards'
 import { BackButton } from './BackButton'
+import { ProfileAvatar, ProfileModal } from './ProfilePanel'
+import { useProfile } from './ProfilePanel'
 import { copyText } from './share'
 import { DepositPanel } from './DepositPanel'
 import { useRoomChannel } from './ws'
@@ -80,6 +82,20 @@ function Banner() {
     <div className="ct-banner" role="status">
       <strong>Reward status.</strong> Preview rooms award points only. Where available, on-chain wallet and vault balances are shown separately; every room must state its actual funded reward before entry.
     </div>
+  )
+}
+
+function ProfileTopButton({ session, onOpen }: { session: ReturnType<typeof useSession>; onOpen: () => void }) {
+  const { profile } = useProfile(session.address, session.token)
+  if (!session.token) return null
+  return (
+    <ProfileAvatar
+      name={profile?.name ?? undefined}
+      hue={profile?.hue}
+      size={30}
+      onClick={onOpen}
+      hasWallet
+    />
   )
 }
 
@@ -1695,6 +1711,7 @@ const NAV: { label: string; path: string }[] = [
 export function CenterApp() {
   const session = useSession()
   const [walletOpen, setWalletOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [route, setRoute] = useState<Route>(() => parseRoute())
   const activePath = route.name === 'room' ? '' : route.name === 'create' ? '/center/create' : route.name === 'wallet' ? '/center/wallet' : route.name === 'admin' ? '/center/admin' : '/center'
 
@@ -1755,9 +1772,15 @@ export function CenterApp() {
         <a className="ct-nav-item back" href="/">
           ← Cockpit
         </a>
-        <WalletChip session={session} onOpenWallet={() => setWalletOpen(true)} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flex: 'none' }}>
+          {session.token && session.address && (
+            <ProfileTopButton session={session} onOpen={() => setProfileOpen(true)} />
+          )}
+          <WalletChip session={session} onOpenWallet={() => setWalletOpen(true)} />
+        </div>
       </header>
       {walletOpen && <WalletModal session={session} onClose={() => setWalletOpen(false)} />}
+      {profileOpen && <ProfileModalWrapper session={session} onClose={() => setProfileOpen(false)} />}
       <main className="ct-main" id="center-main" tabIndex={-1}>{body}</main>
     </div>
   )
@@ -1767,3 +1790,16 @@ export function CenterApp() {
 // ------------------------------------------------------------------ join-token payment
 
 
+
+
+function ProfileModalWrapper({ session, onClose }: { session: ReturnType<typeof useSession>; onClose: () => void }) {
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    if (session.address) {
+      center.getProfile(session.address).then(setProfile).catch(() => setProfile(null)).finally(() => setLoading(false))
+    }
+  }, [session.address])
+  if (loading) return null
+  return <ProfileModal session={session} profile={profile} onClose={onClose} onSave={() => {}} />
+}
