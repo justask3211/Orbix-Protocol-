@@ -778,6 +778,50 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             return {"credited": delta, "balance": onchain_vault, "wallet": wallet_bal, "symbol": os.environ.get("CENTER_VAULT_SYMBOL", "ORBIX"), "synced": True}
         return {"credited": 0, "balance": max(credited, onchain_vault), "wallet": wallet_bal, "symbol": os.environ.get("CENTER_VAULT_SYMBOL", "ORBIX"), "synced": False}
 
+    # ------------------------------------------------------------------ profiles
+
+    @app.get(f"{API_PREFIX}/profile/{{address}}")
+    def get_profile(address: str) -> dict:
+        """Public profile: name, bio, hue, and whether the address is shown.
+        If showAddress is false, the raw address is not included in the response."""
+        import re as _re
+        if not _re.fullmatch(r"0x[0-9a-fA-F]{40}", address):
+            raise HTTPException(422, detail={"code": "BAD_ADDRESS", "message": "invalid address"})
+        profile = store.get_profile(address)
+        if not profile:
+            return {"address": address.lower(), "name": "", "bio": "", "hue": 0, "showAddress": True}
+        result = {"name": profile["name"], "bio": profile["bio"], "hue": profile["hue"],
+                  "showAddress": profile["showAddress"]}
+        if profile["showAddress"]:
+            result["address"] = address.lower()
+        return result
+
+    @app.post(f"{API_PREFIX}/profile")
+    def set_profile(body: dict, who: str = Depends(require_wallet)) -> dict:
+        from center.profile import validate_name, validate_bio, ProfileError
+        name = str(body.get("name", "")).strip()
+        bio = str(body.get("bio", "")).strip()
+        hue = int(body.get("hue", 0))
+        show_address = bool(body.get("showAddress", True))
+        try:
+            name = validate_name(name)
+            bio = validate_bio(bio)
+        except ProfileError as e:
+            raise HTTPException(422, detail={"code": "INVALID_PROFILE", "message": str(e)})
+        result = store.set_profile(who, name, bio, hue, show_address)
+        return {**result, "address": who.lower()}
+
+    @app.post(f"{API_PREFIX}/profiles/batch")
+    def get_profiles_bulk(body: dict) -> dict:
+        """Batch profile lookup for room pages. Returns profiles keyed by address.
+        If a profile has showAddress=false, the raw address is omitted."""
+        addresses = body.get("addresses", [])
+        if not isinstance(addresses, list) or len(addresses) > 100:
+            raise HTTPException(422, detail={"code": "BAD_INPUT", "message": "addresses must be a list (max 100)"})
+        profiles = store.get_profiles_bulk(addresses)
+        return {addr: {"name": p["name"], "hue": p["hue"], "showAddress": p["showAddress"]}
+                for addr, p in profiles.items()}
+
     # ------------------------------------------------------------------ websocket
 
     @app.websocket(f"{API_PREFIX}/ws/rooms/{{room_id}}")

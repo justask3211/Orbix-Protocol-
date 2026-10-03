@@ -361,7 +361,7 @@ const HINT_POLICIES: Record<string, string> = {
 }
 
 const DEFAULT_RULES: Record<string, Record<string, unknown>> = {
-  'number-hunt': { digits: 4, min: 1111, max: 9999, guess_budget: 10, hints: 'on', target_count: 1, win_mode: 'first-hit', guess_cooldown_ms: 500 },
+  'number-hunt': { digits: 4, min: 1111, max: 9999, guess_budget: 10, hints: 'on', hint_visibility: 'public', target_count: 1, win_mode: 'first-hit', guess_cooldown_ms: 500 },
   'live-quiz': {
     question_seconds: 15,
     scoring: 'accuracy',

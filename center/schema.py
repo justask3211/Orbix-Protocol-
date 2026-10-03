@@ -36,7 +36,7 @@ class NumberHuntRules(Strict):
     guess_budget: int = Field(ge=1, le=50)
     duration_seconds: int = Field(ge=15, le=300)
     hints: Literal["off", "on"] = "off"
-    hint_visibility: Literal["private", "public"] = "private"
+    hint_visibility: Literal["private", "public"] = "public"
     target_count: int = Field(default=1, ge=1, le=20)
     win_mode: Literal["first-hit", "split-at-end"] = "first-hit"
     guess_cooldown_ms: int = Field(default=500, ge=300, le=2000)

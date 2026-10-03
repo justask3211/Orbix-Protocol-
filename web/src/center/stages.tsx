@@ -128,16 +128,20 @@ export function NumberHuntStage({ state, act, me, finished }: StageProps) {
         </button>
       </div>
       {flash && <p className="st-note ok" role="status" aria-live="polite">{flash}</p>}
-      {state.lastGuess && (
-        <p className="st-note" role="status">
-          {state.lastGuess.who === me ? 'Your' : short(state.lastGuess.who)} guess: {state.lastGuess.number}
-          {state.lastGuess.hit ? ' — target found' : ''}
-        </p>
-      )}
-      {state.hintVisibility === 'public' && state.lastGuess?.hint && (
-        <p className="st-note hint-public" role="status">
-          {short(state.lastGuess.hint.who)} guessed {state.lastGuess.hint.number} — target is {state.lastGuess.hint.direction}
-        </p>
+      {state.guessLog?.length > 0 && (
+        <div className="guess-log" aria-label="Guess log">
+          <span className="guess-log-title">Guess log</span>
+          {state.guessLog.map((g: {who:string; number:number; hit?:boolean; hint?:{who:string; number:number; direction:string}}, i: number) => (
+            <div key={i} className={`guess-log-entry${g.hit ? ' hit' : ''}`}>
+              <span className="guess-log-who">{g.who === me ? 'You' : short(g.who)}</span>
+              <span className="guess-log-number mono">{g.number}</span>
+              {g.hit && <span className="guess-log-hit">✓ target found</span>}
+              {g.hint && !g.hit && state.hintVisibility === 'public' && (
+                <span className="guess-log-hint">{g.hint.direction}</span>
+              )}
+            </div>
+          ))}
+        </div>
       )}
       {state.targets && <p className="st-note">Targets revealed: {state.targets.join(', ')}</p>}
       <p className="st-note">Guess counts: {Object.entries(state.guessCount ?? {}).map(([k, v]) => `${short(k)}:${v}`).join('  ')}</p>
