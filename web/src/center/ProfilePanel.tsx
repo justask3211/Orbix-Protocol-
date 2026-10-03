@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { center } from './api'
+import { ProfileImageUpload } from './ProfileImage'
 import { shortAddress } from './session'
 
 type Profile = { name: string; bio: string; hue: number; showAddress: boolean }
@@ -64,6 +65,7 @@ export function ProfileModal({ session, profile, onClose, onSave }: {
   const [showAddr, setShowAddr] = useState(profile?.showAddress ?? true)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [hasImage, setHasImage] = useState(false) // fetch from API in useEffect
 
   const save = async () => {
     setBusy(true); setErr(null)
@@ -104,6 +106,18 @@ export function ProfileModal({ session, profile, onClose, onSave }: {
           <textarea value={bio} maxLength={200} rows={2} onChange={(e) => setBio(e.target.value)}
             placeholder="A short bio (optional)" />
         </label>
+
+        {session.address && session.token && (
+          <div className="pf-field">
+            <span>Profile image</span>
+            <ProfileImageUpload
+              address={session.address}
+              token={session.token}
+              hasImage={hasImage}
+              onUploaded={() => setHasImage(true)}
+            />
+          </div>
+        )}
 
         <label className="pf-field">
           <span>Profile color</span>

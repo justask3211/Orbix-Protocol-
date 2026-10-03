@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     bio         TEXT NOT NULL DEFAULT '',
     hue         INTEGER NOT NULL DEFAULT 0,
     show_address INTEGER NOT NULL DEFAULT 1,
+    has_avatar   INTEGER NOT NULL DEFAULT 0,
     updated_at  REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS admin_settings (
@@ -176,6 +177,17 @@ class Store:
             if not row:
                 return None
             return {"name": row[0], "bio": row[1], "hue": row[2], "showAddress": bool(row[3])}
+
+    def set_profile_avatar(self, address: str, has_avatar: bool) -> None:
+        with self.tx() as cx:
+            cx.execute("UPDATE profiles SET has_avatar = ? WHERE address = ?",
+                       (int(has_avatar), address.lower()))
+
+    def has_avatar(self, address: str) -> bool:
+        with self.tx() as cx:
+            row = cx.execute("SELECT has_avatar FROM profiles WHERE address = ?",
+                             (address.lower(),)).fetchone()
+            return bool(row[0]) if row else False
 
     def set_profile(self, address: str, name: str, bio: str, hue: int, show_address: bool) -> dict:
         import time as _t
