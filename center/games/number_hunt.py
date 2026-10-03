@@ -26,6 +26,7 @@ class NumberHuntEngine(Engine):
         self.guesses: dict[str, list[int]] = {}
         self.last_guess_at: dict[str, float] = {}
         self.log: list[dict] = []
+        self.guess_log: list[dict] = []  # public guess log (who, number, hit)
         self.order: list[str] = []
 
     # ------------------------------------------------------------------ lifecycle
@@ -94,6 +95,7 @@ class NumberHuntEngine(Engine):
                 private["hint"] = direction
 
         self.log.append({"who": who, "number": raw, "hit": hit, "at": round(now, 3)})
+        self.guess_log.append({"who": who, "number": raw, "hit": hit})
         return ActionResult(
             True,
             patch=patch,
@@ -148,7 +150,9 @@ class NumberHuntEngine(Engine):
             "budget": self.budget,
             "guesses": {k: v for k, v in self.guesses.items()},
             "lastGuessAt": self.last_guess_at,
+            "guessLog": self.guess_log,
             "log": self.log,
+            "guessLog": self.guess_log,
             "order": self.order,
             "finished": self.finished,
         }
@@ -160,5 +164,6 @@ class NumberHuntEngine(Engine):
         self.guesses = {k: list(v) for k, v in snapshot.get("guesses", {}).items()}
         self.last_guess_at = dict(snapshot.get("lastGuessAt", {}))
         self.log = list(snapshot.get("log", []))
+        self.guess_log = list(snapshot.get("guessLog", []))
         self.order = list(snapshot.get("order", []))
         self.finished = bool(snapshot.get("finished", False))

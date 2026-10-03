@@ -88,7 +88,7 @@ def test_number_hunt_four_digit_truncation_and_budget():
 
 
 def test_number_hunt_hint_only_reveals_direction():
-    e = make("number-hunt", dict(digits=6, min=111111, max=999999, guess_budget=4, duration_seconds=60, hints="on", guess_cooldown_ms=300))
+    e = make("number-hunt", dict(digits=6, min=111111, max=999999, guess_budget=4, duration_seconds=60, hints="on", hint_visibility="private", guess_cooldown_ms=300))
     e.start(0.0)
     guess = 111111
     r = e.act(ALICE, {"kind": "guess", "number": guess}, 1.0)

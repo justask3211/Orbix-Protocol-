@@ -107,6 +107,14 @@ CREATE TABLE IF NOT EXISTS intents (
     state      TEXT NOT NULL,          -- reserved | consumed | refunded
     created_at REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS profiles (
+    address     TEXT PRIMARY KEY,
+    name        TEXT NOT NULL DEFAULT '',
+    bio         TEXT NOT NULL DEFAULT '',
+    hue         INTEGER NOT NULL DEFAULT 0,
+    show_address INTEGER NOT NULL DEFAULT 1,
+    updated_at  REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS admin_settings (
     key        TEXT PRIMARY KEY,
     value_json TEXT NOT NULL,
@@ -161,6 +169,25 @@ class Store:
                 (key, json.dumps(value), time.time()),
             )
 
+    def get_profile(self, address: str) -> dict | None:
+        with self.tx() as cx:
+            row = cx.execute("SELECT name, bio, hue, show_address FROM profiles WHERE address = ?",
+                             (address.lower(),)).fetchone()
+            if not row:
+                return None
+            return {"name": row[0], "bio": row[1], "hue": row[2], "showAddress": bool(row[3])}
+
+    def set_profile(self, address: str, name: str, bio: str, hue: int, show_address: bool) -> dict:
+        import time as _t
+        with self.tx() as cx:
+            cx.execute(
+                "INSERT INTO profiles (address, name, bio, hue, show_address, updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(address) DO UPDATE SET name=excluded.name, bio=excluded.bio, "
+                "hue=excluded.hue, show_address=excluded.show_address, updated_at=excluded.updated_at",
+                (address.lower(), name, bio, hue, int(show_address), _t.time()),
+            )
+        return {"name": name, "bio": bio, "hue": hue, "showAddress": show_address}
+
     def _audit_head_hash(self, cx) -> str:
         row = cx.execute(
             "SELECT entry_hash FROM admin_audit ORDER BY id DESC LIMIT 1"
@@ -205,6 +232,19 @@ class Store:
             }
             for r in rows
         ]
+
+    def get_profiles_bulk(self, addresses: list[str]) -> dict[str, dict]:
+        """Batch profile lookup for room pages — one query instead of N."""
+        if not addresses:
+            return {}
+        lower = [a.lower() for a in addresses]
+        placeholders = ",".join("?" * len(lower))
+        with self.tx() as cx:
+            rows = cx.execute(
+                f"SELECT address, name, hue, show_address FROM profiles WHERE address IN ({placeholders})",
+                lower,
+            ).fetchall()
+        return {r[0]: {"name": r[1], "hue": r[2], "showAddress": bool(r[3])} for r in rows}
 
     def verify_audit_chain(self) -> dict:
         """Recompute the whole hash chain oldest-first; any edit breaks it."""
