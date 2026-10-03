@@ -54,8 +54,8 @@ export function ProfileImageUpload({ address, token, hasImage, onUploaded }: {
     const file = e.target.files?.[0]
     if (!file) return
     setErr(null)
-    if (!file.type.match(/^image\/(jpeg|png)$/)) {
-      setErr('Only JPEG and PNG accepted.')
+    if (!file.type.startsWith('image/')) {
+      setErr('Please choose an image file.')
       return
     }
     try {
@@ -103,7 +103,7 @@ export function ProfileImageUpload({ address, token, hasImage, onUploaded }: {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <input
-          ref={fileRef} type="file" accept="image/jpeg,image/png"
+          ref={fileRef} type="file" accept="image/*"
           onChange={pickFile} style={{ display: 'none' }}
           aria-label="Choose profile image"
         />

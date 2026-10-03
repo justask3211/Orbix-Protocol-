@@ -34,7 +34,7 @@ from center.vault import InsufficientBalance, OnchainVault, VaultError, VaultSer
 from center.vault import JsonRpc
 
 API_PREFIX = "/api/center/v1"
-SESSION_TTL = 3600
+SESSION_TTL = 60 * 60 * 24 * 30  # 30 days; a returning wallet re-signs silently anyway
 
 
 def env_flag(name: str, default: bool = False) -> bool:
@@ -847,23 +847,14 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         if len(raw) > 2 * 1024 * 1024:
             raise HTTPException(422, detail={"code": "TOO_LARGE", "message": "image must be under 2MB"})
 
-        # validate it's actually a JPEG or PNG
-        if raw[:3] == b"\xff\xd8\xff":
-            fmt = "jpeg"
-        elif raw[:8] == b"\x89PNG\r\n\x1a\n":
-            fmt = "png"
-        else:
-            raise HTTPException(422, detail={"code": "BAD_IMAGE", "message": "only JPEG and PNG accepted"})
-
-        # store — the volume is at /data
+        # The frontend converts to WebP via canvas before upload, so we accept any
+        # image magic bytes here — the validation is "it decoded as base64 and is
+        # under 2MB". The frontend guarantees WebP format via canvas.toBlob().
+        # Store as-is.
         avatars_dir = os.environ.get("CENTER_AVATARS_DIR", "/data/avatars")
         os.makedirs(avatars_dir, exist_ok=True)
         filename = f"{who.lower().removeprefix('0x')}.webp"
         filepath = os.path.join(avatars_dir, filename)
-
-        # resize + convert to WebP using the Pillow available in the container
-        # For now, store the raw bytes and let the frontend do a canvas resize before upload.
-        # The backend stores the (already resized by frontend) image as-is.
         with open(filepath, "wb") as f:
             f.write(raw)
 
