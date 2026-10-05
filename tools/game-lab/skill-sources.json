@@ -1,0 +1,83 @@
+[
+  {
+    "source": "https://github.com/anthropics/skills",
+    "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+    "license": "Apache-2.0",
+    "installed": "2026-10-05",
+    "local_changes": false,
+    "skill_sha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+    "name": "frontend-design"
+  },
+  {
+    "source": "https://github.com/Leonxlnx/taste-skill",
+    "ref": "ce26fc25c0e5e8cab638f883de62d9a86ee5e45b",
+    "license": "MIT",
+    "installed": "2026-10-05",
+    "local_changes": false,
+    "skill_sha256": "aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89",
+    "name": "design-taste-frontend"
+  },
+  {
+    "source": "https://github.com/vercel-labs/agent-skills",
+    "ref": "063bee94c3f4df8453406c830b0a7df0f2860278",
+    "license": "MIT declared in skill frontmatter",
+    "installed": "2026-10-05",
+    "local_changes": false,
+    "skill_sha256": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
+    "name": "vercel-react-best-practices"
+  },
+  {
+    "source": "https://github.com/sickn33/antigravity-awesome-skills",
+    "ref": "bdacd76ed9e388733b5f91a5c75a4e8183a7c0b5",
+    "license": "MIT code; CC-BY-4.0 written content",
+    "installed": "2026-10-05",
+    "local_changes": false,
+    "skill_sha256": "fdd1e8c788b731cf89fc8bb964ce9e3b39743ed87805f90b596bb3ffd75ca7b7",
+    "name": "game-development"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-05",
+    "local_changes": true,
+    "skill_sha256": "083693d17bb46e787b23d96c4e7b8afde6faa93300df0878137e0bd7d49fc640",
+    "name": "threejs-geometry"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-05",
+    "local_changes": true,
+    "skill_sha256": "0137da9acfd8de3f8f542b38bb2bee612f803b58f94701458f3f07991668782d",
+    "name": "threejs-animation"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-05",
+    "local_changes": true,
+    "skill_sha256": "446608d106697ec155a40590fc938224d01bb8affc2416460c19704921d1aab7",
+    "name": "threejs-loaders"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-05",
+    "local_changes": true,
+    "skill_sha256": "c46cc90a360a3dadbf72d450baf9d754c76cc0fce3308b5800096da0c3baa303",
+    "name": "threejs-postprocessing"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-05",
+    "local_changes": true,
+    "skill_sha256": "b17c464baf6f61712163a75c754d852b4dccf24453341e896c44da4098af3a6c",
+    "name": "threejs-audio"
+  }
+]
