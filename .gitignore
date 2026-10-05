@@ -35,3 +35,5 @@ arcade/server/.venv/
 /tools/game-lab/test-results/
 /tools/game-lab/playwright-report/
 __pycache__/
+# Local export bundles (large, not source)
+*.tar.gz
