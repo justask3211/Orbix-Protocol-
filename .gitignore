@@ -27,3 +27,11 @@ tsconfig.tsbuildinfo
 center/center.db
 .hermes/
 arcade/server/.venv/
+
+# Local game development research and verification artifacts
+/tools/research/
+/tools/game-lab/dist/
+/tools/game-lab/artifacts/
+/tools/game-lab/test-results/
+/tools/game-lab/playwright-report/
+__pycache__/
