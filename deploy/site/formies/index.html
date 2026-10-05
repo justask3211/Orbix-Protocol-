@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#050506">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Sherlock Finding : a structured findings report from the supplied Fomies site investigation.">
+<title>Sherlock Finding :</title>
+<style>
+:root{
+  --bg:#050506; --panel:#0b0c0e; --panel-2:#101114; --ink:#f5f4f3; --muted:#a7a2a3; --dim:#655f61;
+  --line:#252125; --red:#b42837; --red-hot:#ef5663; --cream:#e9e2e1;
+  --radius:16px; --max:1180px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;background:var(--bg);color-scheme:dark}
+body{margin:0;background:
+ radial-gradient(circle at 78% -12%,#a51f3520,transparent 33rem),
+ radial-gradient(circle at 8% 18%,#ffffff06,transparent 27rem),
+ linear-gradient(180deg,#050506 0%,#08090a 44%,#050506 100%);
+ color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.65;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.022;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+a{color:inherit}
+.skip{position:fixed;left:14px;top:14px;z-index:200;padding:10px 14px;background:#fff;color:#000;border-radius:10px;transform:translateY(-150%);transition:transform .2s ease;box-shadow:0 5px 20px #0008}
+.skip:focus{transform:none}
+.progress{position:fixed;z-index:120;top:0;left:0;height:2px;width:100%;background:linear-gradient(90deg,#7c1120,#ef5663);box-shadow:0 0 16px #d83b4a;transform-origin:left center;pointer-events:none}
+.shell{width:min(var(--max),calc(100% - 48px));margin:0 auto}
+.hero{min-height:92vh;display:flex;align-items:center;position:relative;padding:72px 0 88px}
+.hero-frame{position:relative;width:100%;padding:44px 46px 40px;border:1px solid #322229;background:linear-gradient(145deg,#0c0d10e8,#070809f2);box-shadow:0 26px 90px #0008,0 0 65px #9f1c2a18;overflow:hidden}
+.hero-frame::before{content:"";position:absolute;width:520px;height:520px;right:-230px;top:-250px;border-radius:50%;background:radial-gradient(circle,#d2394e25,transparent 68%);filter:blur(1px);animation:breathe 9s ease-in-out infinite}
+.hero-frame::after{content:"";position:absolute;left:7%;right:7%;top:0;height:1px;background:linear-gradient(90deg,transparent,#f05664,transparent);box-shadow:0 0 20px #e04053}
+@keyframes breathe{50%{transform:scale(1.08);opacity:.75}}
+.eyebrow{font:600 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.2em;color:#d56d77;text-transform:uppercase}
+.hero h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(54px,9vw,128px);line-height:.9;letter-spacing:-.065em;font-weight:700;margin:22px 0 24px;max-width:900px;text-shadow:0 0 32px #bb223322}
+.hero h1 em{font-style:normal;color:transparent;-webkit-text-stroke:1px #d54d5c}
+.hero-lede{font-size:clamp(17px,2vw,22px);line-height:1.55;max-width:810px;color:#c5bfc0;margin:0}
+.hero-rail{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}
+.hero-chip{display:inline-flex;align-items:center;min-height:32px;padding:7px 10px;border:1px solid #3b282d;background:#0d090b;color:#b9aaad;font:600 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
+.hero-meta{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:end;margin-top:44px;padding-top:15px;border-top:1px solid #2a2225;color:#71696b;font:500 10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.08em}
+.case-mark{color:#a64b57;text-align:right}
+.overview{display:grid;grid-template-columns:1.1fr .9fr;gap:38px;padding:8px 0 88px;align-items:start}
+.overview-intro{padding-top:10px;max-width:690px}
+.section-kicker{font:600 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;color:#8a797c;text-transform:uppercase}
+.overview h2{font-family:Georgia,"Times New Roman",serif;font-size:clamp(32px,4.5vw,58px);line-height:1;letter-spacing:-.045em;margin:13px 0 17px}
+.overview p{margin:0;color:#aaa3a4;font-size:15px;max-width:700px}
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.metric{position:relative;padding:17px 16px;background:#090a0b;border:1px solid #242126;box-shadow:0 10px 28px #0005}
+.metric strong{display:block;font:700 27px/1.1 Georgia,"Times New Roman",serif;color:#eee6e5}
+.metric span{display:block;margin-top:7px;color:#71686a;font:600 9px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.11em;text-transform:uppercase}
+.layout{display:grid;grid-template-columns:228px minmax(0,1fr);gap:58px;align-items:start}
+.sidebar{position:sticky;top:18px;align-self:start;max-height:calc(100vh - 34px);display:flex;flex-direction:column;padding-bottom:12px}
+.sidebar-title{font:600 9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;color:#6a6365;text-transform:uppercase;margin-bottom:12px}
+.nav{display:grid;gap:3px;overflow:auto;scrollbar-width:thin}
+.nav a{text-decoration:none;display:grid;grid-template-columns:30px 1fr;gap:8px;padding:9px 10px;border-left:1px solid #282126;color:#71696b;font-size:10px;line-height:1.3;transition:color .2s ease,border-color .2s ease,background .2s ease;touch-action:manipulation}
+.nav a span{font:600 9px ui-monospace,SFMono-Regular,Menlo,monospace;color:#50484b}
+.nav a:hover,.nav a:focus-visible,.nav a.active{color:#eee9e8;border-left-color:#d44354;background:linear-gradient(90deg,#8b1b2a16,transparent);outline:none}
+.side-note{margin-top:auto;padding-top:16px;border-top:1px solid #282126;color:#51494b;font:500 9px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
+.content{min-width:0}
+.group{--accent:#b42837;--accent-soft:#a4273540;--accent-deep:#250d12;position:relative;margin:0 0 104px;scroll-margin-top:28px}
+.group::before{content:"";position:absolute;left:-21px;top:0;bottom:0;width:1px;background:linear-gradient(180deg,var(--accent-soft),transparent 65%);opacity:.9}
+.group-head{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:17px;align-items:end;padding-bottom:23px;border-bottom:1px solid color-mix(in srgb,var(--accent) 25%, #282327)}
+.group-stamp{display:flex;align-items:flex-start;justify-content:flex-start;color:var(--accent);font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;padding-top:7px}
+.group-kicker{color:color-mix(in srgb,var(--accent) 70%, #777);font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase}
+.group h2{font-family:Georgia,"Times New Roman",serif;font-size:clamp(32px,4.3vw,58px);line-height:.98;letter-spacing:-.05em;margin:6px 0 7px;color:#eee6e5}
+.group-head p{margin:0;color:#7f7678;font-size:13px;max-width:670px}
+.group-count{padding-bottom:3px;color:#5f5658;font:600 9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;white-space:nowrap}
+.finding-grid{display:grid;gap:10px;margin-top:16px}
+.finding{position:relative;display:grid;grid-template-columns:54px minmax(0,1fr);gap:17px;padding:20px 20px 20px 16px;border:1px solid #282327;background:linear-gradient(150deg,#0d0e10,#08090a);box-shadow:0 14px 34px #0005;overflow:hidden;scroll-margin-top:28px;content-visibility:auto;contain-intrinsic-size:180px;transition:transform .24s ease,border-color .24s ease,box-shadow .24s ease,background .24s ease}
+.finding::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--accent),transparent 80%);opacity:.75}
+.finding::after{content:"";position:absolute;right:-50px;top:-50px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,var(--accent-soft),transparent 70%);pointer-events:none}
+.finding:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--accent) 50%, #383033);box-shadow:0 18px 45px #0008,0 0 28px color-mix(in srgb,var(--accent) 10%, transparent);background:linear-gradient(150deg,#101114,#090a0b)}
+.finding:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 65%, white);outline-offset:3px}
+.finding-index{font:700 18px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);padding-top:2px;letter-spacing:-.04em}
+.finding-body{min-width:0}
+.finding-top{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.badge{display:inline-flex;align-items:center;min-height:21px;padding:4px 7px;border:1px solid var(--accent-soft);background:var(--accent-deep);color:color-mix(in srgb,var(--accent) 65%, #eadfe0);font:700 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}
+.micro{color:#4f484a;font:600 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em}
+.finding h3{font-size:18px;line-height:1.3;letter-spacing:-.015em;margin:0 0 7px;color:#eee9e8}
+.finding p{margin:0;color:#b1aaab;font-size:15px;line-height:1.7;max-width:920px}
+.finding code,.vent-panel code{font:600 .86em ui-monospace,SFMono-Regular,Menlo,monospace;color:#e1b0b6;background:#160c0f;border:1px solid #382027;padding:1px 4px;border-radius:4px}
+.finding q{color:#ddd1d2;font-family:Georgia,"Times New Roman",serif}
+.tone-signal{--accent:#cf4756;--accent-soft:#b8374735;--accent-deep:#190d10}
+.tone-office{--accent:#b36bce;--accent-soft:#9256ab32;--accent-deep:#120c16}
+.tone-clerk{--accent:#b98b4c;--accent-soft:#9b713933;--accent-deep:#151108}
+.tone-object{--accent:#6e9e9a;--accent-soft:#5e8d8930;--accent-deep:#091212}
+.tone-audio{--accent:#6794c8;--accent-soft:#557fb030;--accent-deep:#091016}
+.tone-telemetry{--accent:#8e93d9;--accent-soft:#777ac52e;--accent-deep:#0d0d17}
+.tone-economy{--accent:#c48454;--accent-soft:#a66b4432;--accent-deep:#160d09}
+.tone-application{--accent:#74a56f;--accent-soft:#65985e32;--accent-deep:#0a120b}
+.tone-chain{--accent:#7aa4d0;--accent-soft:#6089b933;--accent-deep:#091117}
+.tone-security{--accent:#a77777;--accent-soft:#915c5c30;--accent-deep:#130b0b}
+.tone-state{--accent:#7d9ea4;--accent-soft:#65838a2e;--accent-deep:#091113}
+.tone-final{--accent:#e05a65;--accent-soft:#c93b482e;--accent-deep:#170b0e}
+.vent-panel{margin: -42px 0 104px;border:1px solid #40252a;background:linear-gradient(145deg,#0d0e10,#070809);box-shadow:0 25px 80px #0007;position:relative;overflow:hidden}
+.vent-panel::before{content:"";position:absolute;right:-120px;top:-150px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,#a326381d,transparent 68%)}
+details{position:relative}
+summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:16px;align-items:center;padding:22px 22px;touch-action:manipulation;min-height:72px}
+summary::-webkit-details-marker{display:none}
+summary:focus-visible{outline:2px solid #ef5663;outline-offset:-2px}
+.vent-toggle{font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#d84b59}
+.vent-title{font-family:Georgia,"Times New Roman",serif;font-size:23px;color:#eee6e5}
+.vent-hint{color:#62595b;font:600 9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase}
+summary::after{content:"+";font:400 24px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#a53b47;transition:transform .2s ease}
+details[open] summary::after{transform:rotate(45deg)}
+.vent-body{border-top:1px solid #32252a;padding:5px 22px 24px}
+.vent-note{margin:14px 0 18px;max-width:790px;color:#aaa1a3;font-size:14px}
+.vent-list{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.vent-list li{display:grid;grid-template-columns:30px 1fr;gap:10px;padding:13px 12px;border:1px solid #2c2528;background:#090a0b;min-height:58px}
+.vent-list q{font-family:Georgia,"Times New Roman",serif;color:#d6cccd;font-size:14px;line-height:1.45}
+.vent-num{font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace;color:#754049;padding-top:3px}
+.footer{border-top:1px solid #2a2427;padding:26px 0 70px;color:#595153;font:500 9px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em}
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .55s ease}
+.reveal.is-in{opacity:1;transform:none}
+@media (max-width: 980px){
+  .shell{width:min(var(--max),calc(100% - 32px))}
+  .layout{grid-template-columns:1fr;gap:0}
+  .sidebar{position:sticky;top:2px;z-index:80;max-height:none;padding:8px 0;border-bottom:1px solid #241f21;background:#050506e8;backdrop-filter:blur(14px)}
+  .sidebar-title,.side-note{display:none}
+  .nav{display:flex;overflow-x:auto;gap:3px;padding-bottom:2px}
+  .nav a{display:flex;align-items:center;gap:6px;flex:0 0 auto;min-height:44px;border-left:0;border-bottom:1px solid transparent;padding:9px 10px}
+  .nav a.active,.nav a:focus-visible{border-bottom-color:#d44354;background:linear-gradient(180deg,#8b1b2a12,transparent);border-left:0}
+  .group::before{left:-8px}
+}
+@media (max-width: 680px){
+  .shell{width:calc(100% - 26px)}
+  .hero{min-height:0;padding:24px 0 54px}
+  .hero-frame{padding:31px 20px 23px}
+  .hero h1{font-size:clamp(50px,17vw,86px);margin-top:17px}
+  .hero-lede{font-size:16px;line-height:1.58}
+  .hero-meta{grid-template-columns:1fr;gap:8px;margin-top:32px}
+  .case-mark{text-align:left}
+  .overview{grid-template-columns:1fr;gap:22px;padding-bottom:60px}
+  .overview h2{font-size:38px}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .metric strong{font-size:23px}
+  .group{margin-bottom:72px}
+  .group-head{grid-template-columns:42px minmax(0,1fr);gap:10px;align-items:start;padding-bottom:17px;min-width:0}
+  .group-head>div{min-width:0;max-width:100%}
+  .group-count{grid-column:2;order:3;padding:0;max-width:100%;overflow-wrap:anywhere;white-space:normal}
+  .group h2{font-size:36px;line-height:.99;margin-top:4px;max-width:100%;overflow-wrap:anywhere}
+  .group-head p{font-size:13px;line-height:1.5;max-width:100%;overflow-wrap:anywhere}
+  .finding{grid-template-columns:42px minmax(0,1fr);gap:10px;padding:17px 14px 18px 13px;min-width:0;width:100%}
+  .finding-index{font-size:16px;min-width:0}
+  .finding-body{min-width:0;max-width:100%;overflow:hidden}
+  .finding-top{min-width:0;max-width:100%;flex-wrap:wrap}
+  .finding h3{font-size:17px;line-height:1.32;max-width:100%;overflow-wrap:anywhere}
+  .finding p{font-size:15px;line-height:1.68;max-width:100%;overflow-wrap:anywhere}
+  .finding code,.vent-panel code{overflow-wrap:anywhere;word-break:break-word}
+  .badge{min-height:24px;padding:5px 6px}
+  .micro{display:none}
+  .vent-panel{margin-top:-18px;margin-bottom:72px}
+  summary{grid-template-columns:38px minmax(0,1fr) auto;gap:10px;padding:18px 15px;min-height:72px}
+  .vent-title{font-size:20px;line-height:1.2}
+  .vent-hint{font-size:8px}
+  .vent-body{padding:3px 14px 18px}
+  .vent-list{grid-template-columns:1fr;gap:7px}
+  .vent-list li{grid-template-columns:26px 1fr;padding:12px 10px}
+  .vent-list q{font-size:14px}
+}
+@media (max-width: 420px){
+  .shell{width:calc(100% - 20px)}
+  .hero-frame{padding-left:16px;padding-right:16px}
+  .group-head{grid-template-columns:34px minmax(0,1fr);gap:8px}
+  .group h2{font-size:31px}
+  .finding{grid-template-columns:32px minmax(0,1fr);gap:8px;padding-left:10px;padding-right:10px}
+  .finding h3{font-size:16px}
+  .finding p{font-size:14px;line-height:1.65}
+  .finding code,.vent-panel code{font-size:.8em}
+  summary{grid-template-columns:30px minmax(0,1fr) auto;gap:8px;padding-left:11px;padding-right:11px}
+  .vent-title{font-size:18px}
+}
+
+/* Final mobile overflow fix: long technical tokens get their own line. */
+@media (max-width: 680px){
+  html, body, main, .shell, .layout, .content, .group, .group-head,
+  .finding-grid, .finding, .finding-body, .finding-top, .vent-panel,
+  details, summary, .vent-body, .vent-list, .vent-list li, .footer{
+    min-width:0 !important;
+    max-width:100% !important;
+    width:auto;
+  }
+
+  .content, .group, .group-head, .finding-grid, .finding,
+  .finding-body, .vent-panel, .vent-body, .vent-list, .vent-list li{
+    overflow-x:clip;
+  }
+
+  .group h2, .group-head p, .finding h3, .finding p,
+  .finding q, .vent-title, .vent-note, .vent-list q,
+  .footer, .badge, .micro, .group-count{
+    white-space:normal !important;
+    overflow-wrap:break-word;
+    word-wrap:break-word;
+    hyphens:none;
+  }
+
+  /* Intentional mobile reading rhythm: API paths, filenames and identifiers
+     occupy a full new line so the surrounding prose never gets squeezed. */
+  .finding h3 code,
+  .finding p code,
+  .group-head p code,
+  .vent-note code,
+  .vent-list q code{
+    display:block !important;
+    width:fit-content;
+    max-width:100%;
+    margin:.32em 0;
+    white-space:normal !important;
+    overflow-wrap:anywhere !important;
+    word-break:break-all !important;
+    line-height:1.45;
+  }
+
+  /* If a code token is itself the only thing in a line, do not force width. */
+  .finding code, .vent-panel code{
+    box-sizing:border-box;
+    min-width:0;
+  }
+}
+
+@media (max-width: 420px){
+  .finding h3 code,
+  .finding p code,
+  .group-head p code,
+  .vent-note code,
+  .vent-list q code{
+    font-size:.82em;
+    padding:2px 5px;
+    margin:.35em 0;
+  }
+}
+
+
+/* PHONE FINAL FIX v2
+   On touch phones, stop using the desktop grid geometry inside findings and
+   case headers. Everything becomes one predictable reading column. Long
+   technical identifiers are deliberately promoted to their own line. */
+@media (max-width: 760px), (hover: none) and (pointer: coarse){
+  :root{overflow-x:hidden}
+  html,body{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    overflow-x:hidden !important;
+  }
+  body *{
+    box-sizing:border-box;
+    min-width:0;
+    max-width:100%;
+  }
+
+  .shell,
+  .hero,
+  .layout,
+  .content,
+  .group,
+  .finding-grid,
+  .finding,
+  .finding-body,
+  .vent-panel,
+  .vent-body,
+  .vent-list,
+  .vent-list li,
+  .footer{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+  }
+
+  /* CASE / GROUP HEADER: no three-column intrinsic sizing on phones. */
+  .group-head{
+    display:block !important;
+    position:relative !important;
+    width:100% !important;
+    padding:0 0 17px 42px !important;
+  }
+  .group-stamp{
+    position:absolute !important;
+    left:0 !important;
+    top:0 !important;
+    width:32px !important;
+    padding:7px 0 0 !important;
+  }
+  .group-head > div:nth-child(2),
+  .group-head p,
+  .group h2,
+  .group-count{
+    display:block !important;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    white-space:normal !important;
+    overflow:visible !important;
+    overflow-wrap:anywhere !important;
+    word-break:normal !important;
+  }
+  .group-count{
+    margin-top:10px !important;
+    padding:0 !important;
+  }
+
+  /* FINDING CARD: one column, with the number pinned to the left. */
+  .finding{
+    display:block !important;
+    position:relative !important;
+    width:100% !important;
+    padding:17px 14px 18px 58px !important;
+    overflow:hidden !important;
+  }
+  .finding-index{
+    position:absolute !important;
+    left:13px !important;
+    top:20px !important;
+    width:32px !important;
+    min-width:32px !important;
+    padding:0 !important;
+    margin:0 !important;
+  }
+  .finding-body{
+    display:block !important;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    overflow:visible !important;
+  }
+  .finding-top{
+    display:flex !important;
+    align-items:center !important;
+    flex-wrap:wrap !important;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+  }
+  .finding h3,
+  .finding p,
+  .finding q{
+    display:block !important;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    white-space:normal !important;
+    overflow:visible !important;
+    overflow-wrap:anywhere !important;
+    word-break:normal !important;
+  }
+
+  /* The requested pattern: use the line normally, then drop /api/...,
+     filenames, hashes and similar technical identifiers to a new line. */
+  .finding h3 code,
+  .finding p code,
+  .group-head p code,
+  .vent-note code,
+  .vent-list q code{
+    display:block !important;
+    width:max-content !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    margin:.38em 0 !important;
+    padding:2px 5px !important;
+    box-sizing:border-box !important;
+    white-space:normal !important;
+    overflow-wrap:anywhere !important;
+    word-break:break-all !important;
+    vertical-align:middle !important;
+  }
+
+  /* Vent archive is a single readable column on phones. */
+  .vent-panel{overflow:hidden !important}
+  .vent-body{overflow:visible !important}
+  .vent-list{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) !important;
+  }
+  .vent-list li{
+    display:grid !important;
+    grid-template-columns:26px minmax(0,1fr) !important;
+    overflow:visible !important;
+  }
+  .vent-list q{
+    display:block !important;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    white-space:normal !important;
+    overflow-wrap:anywhere !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none !important;transition:none !important}
+  .reveal{opacity:1!important;transform:none!important}
+}
+</style>
+</head>
+<body>
+<a href="#report" class="skip">Skip to report</a>
+<div class="progress" id="progress" aria-hidden="true"></div>
+<header class="hero shell">
+  <div class="hero-frame reveal">
+    <div class="eyebrow">FOMIES · SITE INVESTIGATION · FINDINGS REPORT</div>
+    <h1>Sherlock <em>Finding</em> :</h1>
+    <p class="hero-lede">A forensic-style reading of the supplied investigation: server dialogue, staged rooms, character clues, audio mechanics, telemetry, task economy, approval flow, mint architecture, security surface and browser state.</p>
+    <div class="hero-rail" aria-label="Report characteristics">
+      <span class="hero-chip">12 groups</span><span class="hero-chip">75 findings</span><span class="hero-chip">source-preserved</span><span class="hero-chip">mobile-first rebuild</span>
+    </div>
+    <div class="hero-meta"><span>Evidence labels distinguish verified, inferred and unverified claims.</span><span class="case-mark">CASE / SHERLOCK-01</span></div>
+  </div>
+</header>
+<main id="report" class="shell">
+  <section class="overview reveal" aria-labelledby="overview-heading">
+    <div class="overview-intro"><div class="section-kicker">READ THE REPORT</div><h2 id="overview-heading">The signal is in the architecture.</h2><p>The supplied report points to a site where narrative content, application state and user engagement are tightly connected. This version keeps that evidence intact while removing the investigation's internal process narration and post-ready tweet material.</p></div>
+    <div class="metrics" aria-label="Report metrics">
+      <div class="metric"><strong>75</strong><span>numbered findings</span></div>
+      <div class="metric"><strong>12</strong><span>finding groups</span></div>
+      <div class="metric"><strong>25</strong><span>vent lines reported in merged log</span></div>
+      <div class="metric"><strong>503</strong><span>office preview state</span></div>
+    </div>
+  </section>
+  <div class="layout">
+    <aside class="sidebar" aria-label="Report navigation"><div class="sidebar-title">Case sections</div><nav class="nav"><a href="#group-01"><span>01</span>VENT</a><a href="#group-02"><span>02</span>OFFICE</a><a href="#group-03"><span>03</span>CLERK</a><a href="#group-04"><span>04</span>KEY-404</a><a href="#group-05"><span>05</span>HIDDEN INTERACTIONS</a><a href="#group-06"><span>06</span>BEHAVIOURAL TELEMETRY</a><a href="#group-07"><span>07</span>TASKS</a><a href="#group-08"><span>08</span>APPLICATION</a><a href="#group-09"><span>09</span>MULTI-CHAIN MINT</a><a href="#group-10"><span>10</span>SECURITY</a><a href="#group-11"><span>11</span>ASSETS</a><a href="#group-12"><span>12</span>FINAL VERIFIED PICTURE</a></nav></aside>
+    <div class="content">
+      <section class="vent-panel reveal" aria-labelledby="vent-heading">
+        <details>
+          <summary><span class="vent-toggle">00</span><span><span class="vent-title" id="vent-heading">Vent Dialogue</span><br><span class="vent-hint">Expandable evidence archive · 18 reproduced lines</span></span></summary>
+          <div class="vent-body"><p class="vent-note">The source reports 25 unique lines in its merged dump, with a later dump described as 21 fresh lines. The archive below reproduces the dialogue lines that are explicitly present in the supplied report; no missing lines are invented.</p><ol class="vent-list"><li><span class="vent-num">01</span><q>a fomie. like you. except earlier.</q></li><li><span class="vent-num">02</span><q>i got here before the department opened. before the building, technically. position over comfort.</q></li><li><span class="vent-num">03</span><q>four years. or one bear market. time is soft in here.</q></li><li><span class="vent-num">04</span><q>windows. and candles. the green ones.</q></li><li><span class="vent-num">05</span><q>wait. before you go. what&#x27;s bitcoin doing out there?</q></li><li><span class="vent-num">06</span><q>good. i&#x27;m already positioned.</q></li><li><span class="vent-num">07</span><q>the new voice again. it was talking before the lights came on. nobody answered. it kept going.</q></li><li><span class="vent-num">08</span><q>people keep asking me about the new one. i tell them everything i know. it takes no time at all.</q></li><li><span class="vent-num">09</span><q>he pauses at the file pile more than he used to. i hear the floorboard hold its breath.</q></li><li><span class="vent-num">10</span><q>he says good morning every time he opens his mouth. i&#x27;ve counted eleven mornings today.</q></li><li><span class="vent-num">11</span><q>the vending machine drops one extra biscuit when the hallway shakes. don&#x27;t tell maintenance.</q></li><li><span class="vent-num">12</span><q>the spider moved out. didn&#x27;t even leave a thread.</q></li><li><span class="vent-num">13</span><q>back again. still no rustle. still no file.</q></li><li><span class="vent-num">14</span><q>stamps. sighs. one man who hums. and a bell that people ring more than they should.</q></li><li><span class="vent-num">15</span><q>you said up last time. was it true?</q></li><li><span class="vent-num">16</span><q>what happens past the door?</q></li><li><span class="vent-num">17</span><q>the committee takes them through that door</q></li><li><span class="vent-num">18</span><q>keep the briefcase, you&#x27;ll need it later</q></li></ol></div>
+        </details>
+      </section>
+      <section id="group-01" class="group tone-signal" aria-labelledby="heading-01">
+      <div class="group-head"><div class="group-stamp">01</div><div><div class="group-kicker">CASE FILE · 01</div><h2 id="heading-01">VENT / SERVER SIGNAL</h2><p>The dialogue is an API surface, not a static script.</p></div><div class="group-count">5 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">01</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 01</span></div><h3>The vent dialogue is server-driven</h3><p>The investigation reports that the vent calls <code>/api/scene/step</code>; its lines do not live in the site's client JavaScript.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">02</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 02</span></div><h3>Dialogue varies by session</h3><p>The server rotates or selects dialogue per session, with the report identifying likely audience-state differences between signed-out visitors, applicants with a file, and approved users.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">03</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 03</span></div><h3>The investigation recorded 25 unique vent lines</h3><p>The merged walk log is reported as 25 unique lines in <code>~/fomies/vent_all.json</code>. A later live dump is separately reported as 21 fresh lines; both figures are retained rather than reconciled.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">04</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 04</span></div><h3>The drilling dialogue did not appear in ~40 walks</h3><p>Because the drilling lines remained absent across repeated walks, the report treats them as state-gated content rather than ordinary rotation.</p></div></article><article class="finding inference" tabindex="0"><div class="finding-index">05</div><div class="finding-body"><div class="finding-top"><span class="badge">INFERENCE</span><span class="micro">FINDING 05</span></div><h3>Deeper file state may change what the vent reveals</h3><p>The signed-in versus signed-out difference is used in the report as evidence for state-aware narrative delivery. That interpretation is stronger than a simple random rotation, but remains an inference.</p></div></article></div>
+    </section><section id="group-02" class="group tone-office" aria-labelledby="heading-02">
+      <div class="group-head"><div class="group-stamp">02</div><div><div class="group-kicker">CASE FILE · 02</div><h2 id="heading-02">OFFICE / ELEVATOR</h2><p>A server-side room exists beyond the currently visible route.</p></div><div class="group-count">5 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">06</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 06</span></div><h3><code>scene.office</code> exists server-side</h3><p>The office scene is present in the activity schema and the report records its API response as <code>503 Preview temporarily unavailable</code>.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">07</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 07</span></div><h3>The office is staged, not published</h3><p>A 503 preview response is different from a clean 404: the report treats it as a server-known but unavailable scene bundle.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">08</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 08</span></div><h3>The elevator is disabled</h3><p>The gate contains <code>elevator-disabled.png</code>, and the investigation found the elevator interaction disabled in the current public surface.</p></div></article><article class="finding inference" tabindex="0"><div class="finding-index">09</div><div class="finding-body"><div class="finding-top"><span class="badge">INFERENCE</span><span class="micro">FINDING 09</span></div><h3>Office + elevator form the strongest third-room thread</h3><p>The office scene, disabled elevator and door dialogue are combined in the report as evidence of a future room. The source does not establish a launch date.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">10</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 10</span></div><h3>The bathroom is already a separate scene</h3><p>The activity and scene map distinguish <code>scene.bathroom</code> from <code>scene.office</code>; the source chronology notes the bathroom opened on September 29.</p></div></article></div>
+    </section><section id="group-03" class="group tone-clerk" aria-labelledby="heading-03">
+      <div class="group-head"><div class="group-stamp">03</div><div><div class="group-kicker">CASE FILE · 03</div><h2 id="heading-03">CLERK / BRIEFCASES</h2><p>Character behavior and storage notices connect the application flow to the physical world.</p></div><div class="group-count">5 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">11</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 11</span></div><h3>The clerk's behavior is tracked as dialogue</h3><p>The activity map includes <code>dialogue.clerk</code>, giving the clerk a distinct tracked narrative channel.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">12</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 12</span></div><h3>The report references 98 packed briefcases</h3><p>The investigation repeatedly cites 98 briefcases packed and connects this with the application's approval state.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">13</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 13</span></div><h3>The October 2 notice says briefcases are being packed faster</h3><p>The supplied report quotes the notice as: “Briefcases are being packed faster now.” It also describes temporary storage.</p></div></article><article class="finding inference" tabindex="0"><div class="finding-index">14</div><div class="finding-body"><div class="finding-top"><span class="badge">INFERENCE</span><span class="micro">FINDING 14</span></div><h3>The briefcase is expected to matter after approval</h3><p>The report connects the line “keep the briefcase, you'll need it later” with the temporary-storage notice. The exact future function is not confirmed.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">15</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 15</span></div><h3>The briefcase is part of the tracked scene model</h3><p><code>scene.briefcase</code> appears in the activity tracker, making it a first-class scene rather than only a visual prop.</p></div></article></div>
+    </section><section id="group-04" class="group tone-object" aria-labelledby="heading-04">
+      <div class="group-head"><div class="group-stamp">04</div><div><div class="group-kicker">CASE FILE · 04</div><h2 id="heading-04">KEY-404 / PICKLE</h2><p>Some object claims are directly visible; others remain account-gated or unverified.</p></div><div class="group-count">5 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">16</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 16</span></div><h3>Pickle is a real clickable desk object</h3><p>The report identifies <code>desk-pickle</code> and <code>assets/room/pickle.png</code>, positioned through configuration.</p></div></article><article class="finding unverified" tabindex="0"><div class="finding-index">17</div><div class="finding-body"><div class="finding-top"><span class="badge">UNVERIFIED</span><span class="micro">FINDING 17</span></div><h3>The special pickle code is not in client code</h3><p>The report could not find <code>ESP-28185-B1</code> in site code. It is therefore retained as an unverified code, not a confirmed mechanic.</p></div></article><article class="finding unverified" tabindex="0"><div class="finding-index">18</div><div class="finding-body"><div class="finding-top"><span class="badge">UNVERIFIED</span><span class="micro">FINDING 18</span></div><h3>Key-404 and the broken pencil have no public-code trace</h3><p>The scan found zero hits for those items in the public code/assets examined.</p></div></article><article class="finding inference" tabindex="0"><div class="finding-index">19</div><div class="finding-body"><div class="finding-top"><span class="badge">INFERENCE</span><span class="micro">FINDING 19</span></div><h3>Approved-only content is one possible explanation</h3><p>The report notes that an approved briefcase view could receive server content unavailable to signed-out inspection. That is an explanation, not a direct observation from the scan.</p></div></article><article class="finding inference" tabindex="0"><div class="finding-index">20</div><div class="finding-body"><div class="finding-top"><span class="badge">INFERENCE</span><span class="micro">FINDING 20</span></div><h3>The 404 label reads like a deliberate future-room clue</h3><p>The report interprets “Key 404” as a possible pointer toward a non-existent or future route. No code path was found proving that relationship.</p></div></article></div>
+    </section><section id="group-05" class="group tone-audio" aria-labelledby="heading-05">
+      <div class="group-head"><div class="group-stamp">05</div><div><div class="group-kicker">CASE FILE · 05</div><h2 id="heading-05">HIDDEN INTERACTIONS / AUDIO</h2><p>The building's atmosphere contains deterministic and randomized signals.</p></div><div class="group-count">9 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">21</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 21</span></div><h3>Basement knocking is randomized ambience</h3><p><code>basement-knocking.mp3</code> plays at random intervals reported as roughly 15–40 seconds in the gate/room ambience.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">22</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 22</span></div><h3>The locked door has a 3-strike interaction</h3><p>The report records <code>Nl=3</code> and <code>Dl=2000</code>: 3 clicks within 2 seconds switch the normal locked-door sound to <code>locked-door-angry</code>.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">23</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 23</span></div><h3>Missing the timing window resets the door sound</h3><p>When the 3-click window is missed, the report says the normal locked-door response returns.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">24</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 24</span></div><h3>Three hash-named ambience files are in the playlist</h3><p>The investigation records <code>76aa021504339016.mp3</code>, <code>e9a3f237518b427a.mp3</code> and <code>ffca6210c84a0cea.mp3</code>.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">25</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 25</span></div><h3>The ambience player can play through a wall</h3><p>The report identifies <code>_throughWall: true</code>, combined with low-gain room ambience.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">26</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 26</span></div><h3>Gate + room sounds include water, knocking, footsteps and an electric zap</h3><p>These are listed in the mapped ambience set for the gate and room.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">27</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 27</span></div><h3>Room-only sounds include a neon flicker and microwave</h3><p>The report maps both sounds to the room-only ambience set.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">28</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 28</span></div><h3>Bathroom sounds include water drops and footsteps</h3><p>The bathroom has its own sound set rather than inheriting the full gate/room set.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">29</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 29</span></div><h3>UI actions have their own sound layer</h3><p>The report maps bell, folder, noticeboard, stamp, business-card, gallery-flip, review-paper and task sounds to UI interactions.</p></div></article></div>
+    </section><section id="group-06" class="group tone-telemetry" aria-labelledby="heading-06">
+      <div class="group-head"><div class="group-stamp">06</div><div><div class="group-kicker">CASE FILE · 06</div><h2 id="heading-06">BEHAVIOURAL TELEMETRY</h2><p>The site records what signed-in users actually see and interact with.</p></div><div class="group-count">8 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">30</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 30</span></div><h3>Signed-in sessions use <code>activity.js</code></h3><p>The report identifies a dedicated activity tracker for scene and dialogue engagement.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">31</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 31</span></div><h3>Scenes are tracked individually</h3><p>Tracked scenes include <code>scene.hallway</code>, <code>scene.office</code>, <code>scene.room</code>, <code>scene.bathroom</code> and <code>scene.briefcase</code>.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">32</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 32</span></div><h3>Dialogue channels are tracked individually</h3><p>The report maps <code>dialogue.clerk</code>, <code>dialogue.hallway_vent</code>, <code>dialogue.bathroom_assistant</code> and <code>dialogue.bathroom_vent</code>.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">33</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 33</span></div><h3>The tracker hashes seen/interacted content</h3><p>The investigation reports SHA-256 hashes of content alongside batched “seen” and “interacted” events.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">34</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 34</span></div><h3>Activity is POSTed every 15 seconds</h3><p>The report records batches sent to <code>/api/activity</code> on a 15-second cadence.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">35</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 35</span></div><h3>A release identifier rides with each activity event</h3><p>The tracker reads <code>meta[name="fomies-release"]</code>; the source gives an example beginning <code>a113b6ba…</code>.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">36</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 36</span></div><h3>Two more dialogue channels are staged in the tracker</h3><p><code>dialogue.bathroom_assistant</code> and <code>dialogue.bathroom_vent</code> appear in the schema even though the public scene content does not yet expose their dialogue.</p></div></article><article class="finding inference" tabindex="0"><div class="finding-index">37</div><div class="finding-body"><div class="finding-top"><span class="badge">INFERENCE</span><span class="micro">FINDING 37</span></div><h3>Version-gating or A/B content is possible</h3><p>Because the release identifier is emitted with activity, the report says the site can correlate engagement with deploy versions. It does not prove a specific A/B experiment is active.</p></div></article></div>
+    </section><section id="group-07" class="group tone-economy" aria-labelledby="heading-07">
+      <div class="group-head"><div class="group-stamp">07</div><div><div class="group-kicker">CASE FILE · 07</div><h2 id="heading-07">TASKS / POINTS ECONOMY</h2><p>Tasks are weighted events, not a flat checklist.</p></div><div class="group-count">8 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">38</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 38</span></div><h3><code>telegram_boost</code> is a paid-points task</h3><p>The task type assigns dynamic <code>rewardPoints</code>; the report describes Telegram boosts as paid and limited per Premium account.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">39</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 39</span></div><h3><code>telegram_join</code> is a separate task type</h3><p>Telegram joining appears as its own task rather than being bundled into boost behavior.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">40</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 40</span></div><h3>X tasks cover multiple action types</h3><p>The mapped types include post, reply, quote, repost, follow and like.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">41</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 41</span></div><h3>Rewards are point-weighted per task</h3><p>The server assigns <code>rewardPoints</code> by task type, making the points display a weighted task economy.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">42</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 42</span></div><h3>Combined X bundles are verified part-by-part</h3><p>The <code>combined</code> task type represents multi-part bundles such as like + repost + quote on one post.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">43</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 43</span></div><h3>X verification uses read-only OAuth scopes</h3><p>The source reports <code>tweet.read + users.read</code> and describes the system as verifying public activity rather than posting as the applicant.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">44</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 44</span></div><h3>One active file exists per account</h3><p>The report identifies one active application file per account as a server-side rule.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">45</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 45</span></div><h3>Bell-spam is logged</h3><p>Repeated bell interaction is treated as telemetry, not merely ignored UI noise.</p></div></article></div>
+    </section><section id="group-08" class="group tone-application" aria-labelledby="heading-08">
+      <div class="group-head"><div class="group-stamp">08</div><div><div class="group-kicker">CASE FILE · 08</div><h2 id="heading-08">APPLICATION / APPROVAL</h2><p>The application is a structured decision pipeline.</p></div><div class="group-count">7 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">46</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 46</span></div><h3>The interview has 3 multiple-choice questions</h3><p>The report says the application contains 3 multiple-choice prompts plus 1 written response.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">47</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 47</span></div><h3>There is a 250-character written limit</h3><p>The source records a 250-character cap on the written statement.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">48</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 48</span></div><h3>The prompts can explicitly invite wrong answers</h3><p>One recorded prompt is: “why should we let you in? wrong answers encouraged.”</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">49</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 49</span></div><h3>The decision state has 3 outcomes</h3><p>The application outcomes are <code>approved</code>, <code>waitlisted</code> and <code>not_selected</code>.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">50</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 50</span></div><h3>Waitlisted is a distinct state</h3><p>The report explicitly distinguishes <code>waitlisted</code> from rejection rather than treating it as a synonym.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">51</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 51</span></div><h3>Approval exposes two mint address fields</h3><p>After approval, the source says both Solana and EVM mint addresses are shown as “nominated, unverified”.</p></div></article><article class="finding inference" tabindex="0"><div class="finding-index">52</div><div class="finding-body"><div class="finding-top"><span class="badge">INFERENCE</span><span class="micro">FINDING 52</span></div><h3>The flow is more than a simple yes/no gate</h3><p>The combination of interview, written response and three outcomes forms a staged decision pipeline; the report does not establish how each input is weighted.</p></div></article></div>
+    </section><section id="group-09" class="group tone-chain" aria-labelledby="heading-09">
+      <div class="group-head"><div class="group-stamp">09</div><div><div class="group-kicker">CASE FILE · 09</div><h2 id="heading-09">MULTI-CHAIN MINT</h2><p>The approval layer is prepared for Solana and EVM addresses.</p></div><div class="group-count">4 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">53</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 53</span></div><h3>The code exposes <code>mint-solana</code></h3><p>The report maps a Solana mint flow in the application surface.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">54</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 54</span></div><h3>The code exposes <code>mint-evm</code></h3><p>An EVM-specific mint flow is also present in the mapped UI/code.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">55</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 55</span></div><h3>A <code>mint-wrap</code> flow exists</h3><p>The source reports a separate wrap flow in addition to the two chain-specific mint surfaces.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">56</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 56</span></div><h3>Both chain addresses are collected after approval</h3><p>The final verification notes dual-chain mint as a confirmed part of the post-approval architecture.</p></div></article></div>
+    </section><section id="group-10" class="group tone-security" aria-labelledby="heading-10">
+      <div class="group-head"><div class="group-stamp">10</div><div><div class="group-kicker">CASE FILE · 10</div><h2 id="heading-10">SECURITY / SITE SURFACE</h2><p>The accessible public surface did not expose a hidden admin route or secret room.</p></div><div class="group-count">6 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">57</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 57</span></div><h3>The 404 sweep found clean dead ends</h3><p>The report checked <code>/404</code> and 20+ guesses including <code>/secret</code>, <code>/vault</code>, <code>/basement</code>, <code>/office</code> and <code>/key404</code>; these returned clean 404s.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">58</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 58</span></div><h3><code>/admin.html</code> is behind a 401 login wall</h3><p>The admin route exists, but the public scan hit a 401 rather than an exposed admin surface.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">59</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 59</span></div><h3>No hidden key/pencil/briefcase/drill art was found on the CDN</h3><p>The asset-path sweep did not find those object files in the public asset surface.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">60</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 60</span></div><h3>CSRF and rate-limit controls were observed</h3><p>The report notes CSRF tokens/handling and explicit rate-limit response codes on the gated surface.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">61</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 61</span></div><h3><code>/api/public/*</code> is openly accessible</h3><p>The report describes this as an intentional public API surface rather than an authentication failure.</p></div></article><article class="finding qualified" tabindex="0"><div class="finding-index">62</div><div class="finding-body"><div class="finding-top"><span class="badge">QUALIFIED</span><span class="micro">FINDING 62</span></div><h3>No exploitable surface was found in the scan</h3><p>That is the result of the reported scan, not a guarantee of absolute security or absence of future vulnerabilities.</p></div></article></div>
+    </section><section id="group-11" class="group tone-state" aria-labelledby="heading-11">
+      <div class="group-head"><div class="group-stamp">11</div><div><div class="group-kicker">CASE FILE · 11</div><h2 id="heading-11">ASSETS / BROWSER STATE</h2><p>The client keeps small amounts of local UI state and synchronizes identity across tabs.</p></div><div class="group-count">6 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">63</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 63</span></div><h3>Local storage contains five named UI keys</h3><p>The report lists <code>dof.boardSeen</code>, <code>dof.disclaimerSeen</code>, <code>dof.sound</code>, <code>dof.vol</code> and <code>dof.mute</code>.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">64</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 64</span></div><h3>Two BroadcastChannels are named</h3><p>The browser state includes <code>fomies-identity</code> and <code>fomies-admin-session</code>.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">65</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 65</span></div><h3>Actor changes wipe tracked state</h3><p>The investigation reports state wiping when the active actor/account changes in the same browser.</p></div></article><article class="finding inference" tabindex="0"><div class="finding-index">66</div><div class="finding-body"><div class="finding-top"><span class="badge">INFERENCE</span><span class="micro">FINDING 66</span></div><h3>Cross-account browser use is intentionally detected</h3><p>The combination of identity-channel sync and actor-change wipes is interpreted as multi-user/browser-state detection.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">67</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 67</span></div><h3>The release UUID links state to deployments</h3><p>The release meta identifier is sent with activity events, creating a deploy-version marker in telemetry.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">68</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 68</span></div><h3>The public asset tree was mapped broadly</h3><p>The source reports mining roughly 24 sound assets, referenced assets, CSS, endpoints, dialogue trees and task/tracking code.</p></div></article></div>
+    </section><section id="group-12" class="group tone-final" aria-labelledby="heading-12">
+      <div class="group-head"><div class="group-stamp">12</div><div><div class="group-kicker">CASE FILE · 12</div><h2 id="heading-12">FINAL VERIFIED PICTURE</h2><p>The scan converges on a coherent architecture without claiming what the source cannot prove.</p></div><div class="group-count">7 FINDINGS</div></div>
+      <div class="finding-grid"><article class="finding verified" tabindex="0"><div class="finding-index">69</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 69</span></div><h3>The vent is a live narrative surface</h3><p>The strongest confirmed technical point is that dialogue is delivered server-side through <code>/api/scene/step</code> rather than shipped in the client JS.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">70</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 70</span></div><h3>The office exists as staged server content</h3><p>The report repeatedly rechecked the scene and found the office still returning 503 at the end of the scan.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">71</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 71</span></div><h3>The application has a three-state outcome model</h3><p>Approved, waitlisted and not_selected are all represented in the reported application flow.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">72</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 72</span></div><h3>The post-approval architecture is dual-chain</h3><p>Solana and EVM addresses are both part of the reported mint flow, alongside a wrap surface.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">73</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 73</span></div><h3>Engagement is separately instrumented</h3><p>Scenes and dialogues generate hashed seen/interacted events that are batched to <code>/api/activity</code>.</p></div></article><article class="finding verified" tabindex="0"><div class="finding-index">74</div><div class="finding-body"><div class="finding-top"><span class="badge">VERIFIED</span><span class="micro">FINDING 74</span></div><h3>The final recheck found the scene tree stable</h3><p>The source says the scene tree, office 503 state and <code>config.js</code> were unchanged at the final verification pass, with no newer notice after October 2.</p></div></article><article class="finding qualified" tabindex="0"><div class="finding-index">75</div><div class="finding-body"><div class="finding-top"><span class="badge">QUALIFIED</span><span class="micro">FINDING 75</span></div><h3>Future-room language remains an inference</h3><p>The report connects the staged office, disabled elevator and dialogue clues into a future-room narrative, but the source does not provide a confirmed publication date.</p></div></article></div>
+    </section>
+    </div>
+  </div>
+  <footer class="footer">Sherlock Finding : · Fomies site investigation · Substantive source findings retained; internal reasoning/process narration and tweet drafts/hooks removed. Technical claims are labeled according to the source report's own confidence level.</footer>
+</main>
+<script>
+(()=>{
+ const p=document.getElementById('progress');
+ const onScroll=()=>{const d=document.documentElement;const max=d.scrollHeight-window.innerHeight;p.style.transform=`scaleX(${max>0?window.scrollY/max:0})`;};
+ addEventListener('scroll',onScroll,{passive:true});onScroll();
+ const reveal=document.querySelectorAll('.reveal');
+ const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('is-in');io.unobserve(e.target);}}),{threshold:.08,rootMargin:'0px 0px -8% 0px'});
+ reveal.forEach((e,i)=>{e.style.transitionDelay=Math.min((i%5)*55,220)+'ms';io.observe(e);});
+ const groups=[...document.querySelectorAll('.group')], links=[...document.querySelectorAll('.nav a')];
+ const ni=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+e.target.id));}),{rootMargin:'-22% 0px -68% 0px'});
+ groups.forEach(g=>ni.observe(g));
+})();
+</script>
+</body></html>
