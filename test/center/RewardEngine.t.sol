@@ -43,7 +43,10 @@ contract RewardEngineTest is Test {
         return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", h));
     }
 
-    function _create(RewardEngine.ClaimMode mode, uint32 openCap, bytes32 root, string memory msg_) internal returns (uint256) {
+    function _create(RewardEngine.ClaimMode mode, uint32 openCap, bytes32 root, string memory msg_)
+        internal
+        returns (uint256)
+    {
         vm.prank(creator);
         return engine.createPool(room, mode, uint64(block.timestamp + 7 days), openCap, root, msg_);
     }
@@ -119,13 +122,17 @@ contract RewardEngineTest is Test {
         engine.setAllocation(id, alice, 0, 50e18);
 
         // bob cannot claim alice's allocation
-        bytes32 dig = keccak256(abi.encodePacked("ORBIX_REWARD_CLAIM_V1", address(engine), block.chainid, id, uint256(0), bob, uint256(1)));
+        bytes32 dig = keccak256(
+            abi.encodePacked("ORBIX_REWARD_CLAIM_V1", address(engine), block.chainid, id, uint256(0), bob, uint256(1))
+        );
         vm.prank(bob);
         vm.expectRevert(RewardEngine.NotWinner.selector);
         engine.claimByCode(id, 0, 1, _sig(_ethSigned(dig)));
 
         // alice claims with a valid authority code
-        bytes32 digA = keccak256(abi.encodePacked("ORBIX_REWARD_CLAIM_V1", address(engine), block.chainid, id, uint256(0), alice, uint256(1)));
+        bytes32 digA = keccak256(
+            abi.encodePacked("ORBIX_REWARD_CLAIM_V1", address(engine), block.chainid, id, uint256(0), alice, uint256(1))
+        );
         uint256 before = token.balanceOf(alice);
         vm.prank(alice);
         engine.claimByCode(id, 0, 1, _sig(_ethSigned(digA)));
@@ -143,7 +150,9 @@ contract RewardEngineTest is Test {
         engine.depositERC20(id, address(token), 10e18);
         vm.prank(creator);
         engine.setAllocation(id, alice, 0, 10e18);
-        bytes32 dig = keccak256(abi.encodePacked("ORBIX_REWARD_CLAIM_V1", address(engine), block.chainid, id, uint256(0), alice, uint256(9)));
+        bytes32 dig = keccak256(
+            abi.encodePacked("ORBIX_REWARD_CLAIM_V1", address(engine), block.chainid, id, uint256(0), alice, uint256(9))
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xBAD, _ethSigned(dig));
         vm.prank(alice);
         vm.expectRevert(RewardEngine.NotAuthority.selector);
@@ -196,7 +205,9 @@ contract RewardEngineTest is Test {
         // third wallet: cap reached, all claimed
         vm.prank(address(0xCAFE));
         bool ok = false;
-        try engine.claimOpen(id, 0) { ok = true; } catch {}
+        try engine.claimOpen(id, 0) {
+            ok = true;
+        } catch {}
         assertFalse(ok, "third claimant must be refused");
         // fresh alloc still refused by cap
         vm.prank(creator);
@@ -216,10 +227,11 @@ contract RewardEngineTest is Test {
         winners[0] = alice;
         uint256[] memory idx = new uint256[](1);
         idx[0] = 0;
-        bytes32 dig = keccak256(abi.encodePacked(
-            "ORBIX_REWARD_AUTOPUSH_V1", address(engine), block.chainid, id,
-            keccak256(abi.encode(winners, idx))
-        ));
+        bytes32 dig = keccak256(
+            abi.encodePacked(
+                "ORBIX_REWARD_AUTOPUSH_V1", address(engine), block.chainid, id, keccak256(abi.encode(winners, idx))
+            )
+        );
         // wrong signer
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xBAD, _ethSigned(dig));
         vm.expectRevert(RewardEngine.NotAuthority.selector);
@@ -236,7 +248,9 @@ contract RewardEngineTest is Test {
     // ------------------------------------------------------------ expiry + reclaim
 
     function test_claim_after_deadline_rejected() public {
-        uint256 id = _create(RewardEngine.ClaimMode.Merkle, 0, keccak256(abi.encodePacked(alice, uint256(0), uint256(1e18))), "");
+        uint256 id = _create(
+            RewardEngine.ClaimMode.Merkle, 0, keccak256(abi.encodePacked(alice, uint256(0), uint256(1e18))), ""
+        );
         vm.prank(creator);
         engine.depositERC20(id, address(token), 1e18);
         vm.warp(block.timestamp + 8 days);

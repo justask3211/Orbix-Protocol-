@@ -38,21 +38,35 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
 
     // ------------------------------------------------------------ types
 
-    enum AssetKind { ERC20, ERC721, ERC1155, ETH }
-    enum ClaimMode { Auto, Code, Merkle, Open }
-    enum PoolState { Active, Settled, Expired }
+    enum AssetKind {
+        ERC20,
+        ERC721,
+        ERC1155,
+        ETH
+    }
+    enum ClaimMode {
+        Auto,
+        Code,
+        Merkle,
+        Open
+    }
+    enum PoolState {
+        Active,
+        Settled,
+        Expired
+    }
 
     struct Asset {
         AssetKind kind;
-        address contractAddr;   // zero for ETH
-        uint256 tokenId;        // 0 for ERC20/ETH
-        uint256 amount;         // ERC20 amount, 1155 amount, 1 for 721, ETH wei
+        address contractAddr; // zero for ETH
+        uint256 tokenId; // 0 for ERC20/ETH
+        uint256 amount; // ERC20 amount, 1155 amount, 1 for 721, ETH wei
     }
 
     struct Allocation {
-        address winner;         // zero for OPEN mode
-        uint256 assetIndex;     // index into the pool's asset array
-        uint256 subAmount;      // for ERC20: partial amount; for 721: tokenId
+        address winner; // zero for OPEN mode
+        uint256 assetIndex; // index into the pool's asset array
+        uint256 subAmount; // for ERC20: partial amount; for 721: tokenId
         bool claimed;
     }
 
@@ -61,11 +75,11 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         bytes32 roomId;
         ClaimMode mode;
         uint64 claimDeadline;
-        uint32 maxOpenClaims;   // for OPEN mode
+        uint32 maxOpenClaims; // for OPEN mode
         uint32 openClaimed;
         PoolState state;
         bool exists;
-        bytes32 merkleRoot;     // for Merkle mode
+        bytes32 merkleRoot; // for Merkle mode
         Asset[] assets;
         // allocations indexed by claim slot
         mapping(uint256 => Allocation) allocations;
@@ -79,14 +93,23 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         string message;
     }
 
-    address public authority;           // settlement signer
+    address public authority; // settlement signer
     mapping(uint256 => Pool) public pools;
     // roomId => list of pool ids
     mapping(bytes32 => uint256[]) public roomPools;
     uint256 public poolCount;
 
-    event PoolCreated(uint256 indexed poolId, bytes32 indexed roomId, address indexed creator, uint8 claimMode, uint64 deadline, uint256 assetCount);
-    event AssetDeposited(uint256 indexed poolId, uint8 kind, address indexed contractAddr, uint256 tokenId, uint256 amount);
+    event PoolCreated(
+        uint256 indexed poolId,
+        bytes32 indexed roomId,
+        address indexed creator,
+        uint8 claimMode,
+        uint64 deadline,
+        uint256 assetCount
+    );
+    event AssetDeposited(
+        uint256 indexed poolId, uint8 kind, address indexed contractAddr, uint256 tokenId, uint256 amount
+    );
     event AllocationSet(uint256 indexed poolId, address indexed winner, uint256 assetIndex, uint256 subAmount);
     event RewardClaimed(uint256 indexed poolId, address indexed claimant, uint256 assetIndex, uint256 subAmount);
     event AutoPush(uint256 indexed poolId, address indexed winner, uint256 assetIndex);
@@ -121,7 +144,6 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     constructor(address _authority) {
         authority = _authority;
     }
-
 
     /// @dev EIP-191 personal-sign digest, matching eth_account / wallet signing.
     function _ethSigned(bytes32 h) internal pure returns (bytes32) {
@@ -175,7 +197,11 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         emit AssetDeposited(poolId, uint8(AssetKind.ERC721), token, tokenId, 1);
     }
 
-    function depositERC1155(uint256 poolId, address token, uint256 tokenId, uint256 amount, bytes calldata data) external nonReentrant onlyCreator(poolId) {
+    function depositERC1155(uint256 poolId, address token, uint256 tokenId, uint256 amount, bytes calldata data)
+        external
+        nonReentrant
+        onlyCreator(poolId)
+    {
         if (amount == 0) revert ZeroAmount();
         IERC1155(token).safeTransferFrom(msg.sender, address(this), tokenId, amount, data);
         pools[poolId].assets.push(Asset(AssetKind.ERC1155, token, tokenId, amount));
@@ -192,7 +218,10 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
 
     // ------------------------------------------------------------ allocations
 
-    function setAllocation(uint256 poolId, address winner, uint256 assetIndex, uint256 subAmount) external onlyCreator(poolId) {
+    function setAllocation(uint256 poolId, address winner, uint256 assetIndex, uint256 subAmount)
+        external
+        onlyCreator(poolId)
+    {
         Pool storage p = pools[poolId];
         if (p.state != PoolState.Active) revert AlreadySettled();
         if (assetIndex >= p.assets.length) revert WrongAssetKind();
@@ -209,15 +238,25 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     // ------------------------------------------------------------ claims
 
     /// @notice AUTO mode: authority pushes rewards at settlement. No claim needed.
-    function autoPush(uint256 poolId, address[] calldata winners, uint256[] calldata assetIndices, bytes calldata signature) external nonReentrant {
+    function autoPush(
+        uint256 poolId,
+        address[] calldata winners,
+        uint256[] calldata assetIndices,
+        bytes calldata signature
+    ) external nonReentrant {
         Pool storage p = pools[poolId];
         if (!p.exists) revert PoolNotFound();
         if (p.mode != ClaimMode.Auto) revert WrongAssetKind();
         if (p.state != PoolState.Active) revert AlreadySettled();
-        bytes32 digest = keccak256(abi.encodePacked(
-            "ORBIX_REWARD_AUTOPUSH_V1", address(this), block.chainid, poolId,
-            keccak256(abi.encode(winners, assetIndices))
-        ));
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "ORBIX_REWARD_AUTOPUSH_V1",
+                address(this),
+                block.chainid,
+                poolId,
+                keccak256(abi.encode(winners, assetIndices))
+            )
+        );
         if (ECDSA.recover(_ethSigned(digest), signature) != authority) revert NotAuthority();
         for (uint256 i; i < winners.length && i < assetIndices.length; ++i) {
             _transferAsset(poolId, assetIndices[i], winners[i], p.assets[assetIndices[i]].amount);
@@ -227,7 +266,10 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     }
 
     /// @notice CODE mode: winner pastes a signed claim code (wallet-bound, one-time).
-    function claimByCode(uint256 poolId, uint256 allocIndex, uint256 nonce, bytes calldata signature) external nonReentrant {
+    function claimByCode(uint256 poolId, uint256 allocIndex, uint256 nonce, bytes calldata signature)
+        external
+        nonReentrant
+    {
         Pool storage p = pools[poolId];
         if (!p.exists) revert PoolNotFound();
         if (p.mode != ClaimMode.Code) revert WrongAssetKind();
@@ -236,9 +278,11 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         if (alloc.claimed) revert AlreadyClaimed();
         if (alloc.winner != msg.sender) revert NotWinner();
         // one-time signed code from the authority binds (pool, claimant, allocation, nonce)
-        bytes32 digest = keccak256(abi.encodePacked(
-            "ORBIX_REWARD_CLAIM_V1", address(this), block.chainid, poolId, allocIndex, msg.sender, nonce
-        ));
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "ORBIX_REWARD_CLAIM_V1", address(this), block.chainid, poolId, allocIndex, msg.sender, nonce
+            )
+        );
         if (ECDSA.recover(_ethSigned(digest), signature) != authority) revert NotAuthority();
         alloc.claimed = true;
         p.claimedBy[msg.sender] = true;
@@ -247,7 +291,13 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     }
 
     /// @notice MERKLE mode: winner submits a proof against the committed root.
-    function claimByMerkle(uint256 poolId, bytes32[] calldata proof, address winner, uint256 assetIndex, uint256 subAmount) external nonReentrant {
+    function claimByMerkle(
+        uint256 poolId,
+        bytes32[] calldata proof,
+        address winner,
+        uint256 assetIndex,
+        uint256 subAmount
+    ) external nonReentrant {
         Pool storage p = pools[poolId];
         if (!p.exists) revert PoolNotFound();
         if (p.mode != ClaimMode.Merkle) revert WrongAssetKind();
@@ -349,18 +399,38 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
 
     // ------------------------------------------------------------ views
 
-    function poolInfo(uint256 poolId) external view returns (
-        address creator, bytes32 roomId, uint8 mode, uint64 deadline, uint8 state,
-        uint256 allocCount, bytes32 merkleRoot, string memory message
-    ) {
+    function poolInfo(uint256 poolId)
+        external
+        view
+        returns (
+            address creator,
+            bytes32 roomId,
+            uint8 mode,
+            uint64 deadline,
+            uint8 state,
+            uint256 allocCount,
+            bytes32 merkleRoot,
+            string memory message
+        )
+    {
         Pool storage p = pools[poolId];
-        return (p.creator, p.roomId, uint8(p.mode), p.claimDeadline, uint8(p.state),
-                p.allocationCount, p.merkleRoot, p.message);
+        return (
+            p.creator,
+            p.roomId,
+            uint8(p.mode),
+            p.claimDeadline,
+            uint8(p.state),
+            p.allocationCount,
+            p.merkleRoot,
+            p.message
+        );
     }
 
-    function poolAssets(uint256 poolId) external view returns (
-        uint8[] memory kinds, address[] memory contracts, uint256[] memory tokenIds, uint256[] memory amounts
-    ) {
+    function poolAssets(uint256 poolId)
+        external
+        view
+        returns (uint8[] memory kinds, address[] memory contracts, uint256[] memory tokenIds, uint256[] memory amounts)
+    {
         Pool storage p = pools[poolId];
         uint256 len = p.assets.length;
         kinds = new uint8[](len);
@@ -397,12 +467,15 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         return this.onERC1155Received.selector;
     }
 
-    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata) external pure returns (bytes4) {
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
         return this.onERC1155BatchReceived.selector;
     }
 
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == type(IERC721Receiver).interfaceId
-            || interfaceId == type(IERC1155Receiver).interfaceId;
+        return interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId;
     }
 }
