@@ -30,6 +30,9 @@ from center.pricing import ADMIN_ADDRESS, FeeSchedule, SETTING_KEY, caps as pric
 from center.room import PROTOCOL_VERSION, Hub, RoomRuntime, Scheduler
 from center.schema import TEMPLATE_META, RoomConfig, normalise_keys, parse_rules
 from center.store import Store
+from center.community import CommunityService, CommunityError
+from center.privacy import visible_state
+from center.entry_gate import EntryGateVerifier, EntryGateError, DEPLOYED_GATE
 from center.vault import InsufficientBalance, OnchainVault, VaultError, VaultService, publication_intent
 from center.vault import JsonRpc
 
@@ -173,6 +176,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         raise RuntimeError("Center refuses to start: " + "; ".join(problems))
 
     store = Store(db_path)
+    community = CommunityService(store)
+    app_community_filter = lambda rt, value, viewer=None: visible_state(value, community.public_settings(rt.room_id), viewer, rt.owner)
     if onchain is None and flags.real_burn and flags.vault_token and flags.vault_address:
         # Funded mode: build the on-chain adapter from environment configuration.
         # The signer key never leaves the process; only the deposit path is signed.
@@ -205,12 +210,18 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     app.state.auth = auth
     app.state.drafts = drafts
     app.state.scheduler = scheduler
+    app.state.entry_gate = EntryGateVerifier(JsonRpc(os.environ.get("CENTER_RPC_URL", "https://rpc.testnet.chain.robinhood.com"), flags.chain_id), os.environ.get("CENTER_CREATOR_GATE", DEPLOYED_GATE), chain_id=flags.chain_id)
+
+    @app.exception_handler(EntryGateError)
+    async def entry_gate_error(request, exc):
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503 if "UNAVAILABLE" in exc.code or "RPC" in exc.code else 403, content={"detail": {"code": exc.code, "message": exc.message}})
 
     origins = [o.strip() for o in os.environ.get("CENTER_ALLOWED_ORIGINS", "").split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins or ["http://localhost:5173", "http://127.0.0.1:5173"],
-        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["content-type", "authorization"],
     )
 
@@ -225,6 +236,22 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(401, detail={"code": "UNAUTHORIZED", "message": "sign in first"})
         return who
 
+    def optional_wallet(authorization: str | None = Header(default=None)) -> str | None:
+        return auth.check(authorization[7:].strip()) if authorization and authorization.lower().startswith("bearer ") else None
+
+    @app.exception_handler(CommunityError)
+    async def community_error(request, exc):
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=exc.status, content={"detail": {"code": exc.code, "message": str(exc)}})
+
+    def filter_frame(conn, msg):
+        if msg.get("type") in {"game.patch", "action.ack", "session.ready", "round.started", "room.snapshot"}:
+            rt = runtime_for(conn["room"])
+            return app_community_filter(rt, msg, conn["who"])
+        return msg
+
+    hub.frame_filter = filter_frame
+
     def runtime_for(room_id: str) -> RoomRuntime:
         rt = runtimes.get(room_id)
         if rt is None:
@@ -232,6 +259,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             if rt is None:
                 raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "no such room"})
             runtimes[room_id] = rt
+        if rt.config.entry.kind == "erc20":
+            rt.entry_verifier = lambda player: app.state.entry_gate.require(rt.room_id, player, rt.owner, rt.config.entry.token, rt.config.entry.amount, payout_mode=rt.config.access.payout_mode, payout_address=rt.config.access.payout_address)
         return rt
 
     def validate_config(raw: dict) -> RoomConfig:
@@ -459,6 +488,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(400, detail={"code": "VAULT_ERROR", "message": str(exc)})
 
         rt = RoomRuntime.create(store, vault, hub, owner=who, config=config)
+        community.initialize(rt.room_id, who, config.community_settings)
         # Snapshot the schedule the moment the room is published; a later admin
         # change can never reprice an existing room.
         store.set_setting(f"pricing:{rt.room_id}", FeeSchedule.from_dict(store.get_setting(SETTING_KEY)).as_dict())
@@ -525,22 +555,30 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         return {"rooms": mine}
 
     @app.get(f"{API_PREFIX}/rooms/{{room_id}}")
-    def get_room(room_id: str) -> dict:
+    def get_room(room_id: str, who: str | None = Depends(optional_wallet)) -> dict:
         row = store.get_room(room_id)
         if not row:
             raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "no such room"})
         # Unlisted rooms are readable by URL but never listed; private rooms hide their rules.
-        config = row["config"] if row["visibility"] != "private" else {"name": row["config"]["name"]}
+        members = store.participants(room_id)
+        admitted = who == row["owner"] or any(p["who"] == who for p in members)
+        config = RoomConfig(**row["config"]).public_dict() if row["visibility"] != "private" or admitted else {"name": row["config"]["name"]}
+        settings = community.public_settings(room_id)
+        rt = runtime_for(room_id)
         timing = row["config"].get("timing", {}) if isinstance(row["config"], dict) else {}
         return {
             "roomId": row["id"], "status": row["status"], "visibility": row["visibility"],
             "mode": row["mode"], "owner": row["owner"], "config": config,
             "timing": timing,
+            "communitySettings": settings,
+            "publicState": app_community_filter(rt, rt.engine.public_state(), who) if rt.engine and (row["visibility"] != "private" or admitted) else None,
+            "roundId": rt.round_id, "deadline": rt.deadline(), "serverTimeMs": int(time.time() * 1000),
+            "teams": visible_state((store.get_setting(f"teams:{room_id}") or {}).get("teams", {}), settings, who, row["owner"]),
             "pricingSnapshot": FeeSchedule.from_dict(store.get_setting(f"pricing:{room_id}")).as_dict(),
-            "participants": [
+            "participants": visible_state([
                 {"who": p["who"], "role": p["role"], "ready": bool(p["ready"])}
-                for p in store.participants(room_id)
-            ],
+                for p in members
+            ] if row["visibility"] != "private" or admitted else [], settings, who, row["owner"]),
         }
 
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/close")
@@ -552,6 +590,65 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             return {"status": "closed"}
         rt.close("host closed")
         return {"status": rt.status}
+
+    @app.post(f"{API_PREFIX}/rooms/{{room_id}}/team")
+    async def choose_team(room_id: str, body: dict, who: str = Depends(require_wallet)) -> dict:
+        rt = runtime_for(room_id)
+        if rt.config.template_id != "boss-raid" or getattr(rt.config.rules, "team_mode", "coop") != "teams":
+            raise HTTPException(409, detail={"code": "NOT_A_TEAM_RAID"})
+        if rt.status not in lc.JOINABLE:
+            raise HTTPException(409, detail={"code": "TEAMS_FROZEN"})
+        if not any(p["who"] == who and p["role"] == "player" for p in store.participants(room_id)):
+            raise HTTPException(403, detail={"code": "NOT_ADMITTED"})
+        team = body.get("team")
+        if team not in {"a", "b"}:
+            raise HTTPException(422, detail={"code": "BAD_TEAM"})
+        # One synchronous transaction section in the single-authority process.
+        teams = (store.get_setting(f"teams:{room_id}") or {}).get("teams", {})
+        active = {p["who"] for p in store.participants(room_id) if p["role"] == "player"}
+        teams = {p: t for p, t in teams.items() if p in active}
+        if sum(p != who and t == team for p, t in teams.items()) >= 3:
+            raise HTTPException(409, detail={"code": "TEAM_FULL"})
+        teams[who] = team
+        store.set_setting(f"teams:{room_id}", {"teams": teams})
+        store.set_ready(room_id, who, False)
+        return {"teams": teams}
+
+    @app.get(f"{API_PREFIX}/rooms/{{room_id}}/community")
+    def community_snapshot(room_id: str, after: int = 0, who: str = Depends(require_wallet)):
+        return community.snapshot(room_id, who, after)
+
+    @app.patch(f"{API_PREFIX}/rooms/{{room_id}}/community/settings")
+    def community_settings(room_id: str, body: dict, who: str = Depends(require_wallet)):
+        return community.update_settings(room_id, who, body)
+
+    @app.post(f"{API_PREFIX}/rooms/{{room_id}}/community/messages")
+    def community_post(room_id: str, body: dict, who: str = Depends(require_wallet)):
+        return community.post_message(room_id, who, body.get("text"), body.get("kind", "chat"), delay_seconds=body.get("delaySeconds"))
+
+    @app.delete(f"{API_PREFIX}/rooms/{{room_id}}/community/messages/{{message_id}}")
+    def community_delete(room_id: str, message_id: int, who: str = Depends(require_wallet)):
+        return community.delete_message(room_id, who, message_id)
+
+    @app.get(f"{API_PREFIX}/rooms/{{room_id}}/community/roster")
+    def community_roster(room_id: str, who: str = Depends(require_wallet)):
+        return community.roster(room_id, who)
+
+    @app.post(f"{API_PREFIX}/rooms/{{room_id}}/community/players/{{wallet}}/{{operation}}")
+    async def community_remove(room_id: str, wallet: str, operation: str, who: str = Depends(require_wallet)):
+        if operation not in {"kick", "ban"}:
+            raise HTTPException(404, detail={"code": "NOT_FOUND"})
+        out = getattr(community, operation)(room_id, who, wallet)
+        # Tickets and sockets cannot keep admission after the creator removed it.
+        app.state.tickets = {k: t for k, t in getattr(app.state, "tickets", {}).items() if not (t["room"] == room_id and t["who"] == wallet.lower())}
+        for conn in list(hub._conns.values()):
+            if conn["room"] == room_id and conn["who"] == wallet.lower():
+                await conn["ws"].close(code=4403)
+        return out
+
+    @app.delete(f"{API_PREFIX}/rooms/{{room_id}}/community/players/{{wallet}}/ban")
+    def community_unban(room_id: str, wallet: str, who: str = Depends(require_wallet)):
+        return community.unban(room_id, who, wallet)
 
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/invites")
     def create_invite(room_id: str, who: str = Depends(require_wallet)) -> dict:
@@ -567,8 +664,11 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/join")
     def join_room(room_id: str, body: JoinBody, who: str = Depends(require_wallet)) -> dict:
         rt = runtime_for(room_id)
+        community.assert_can_join(room_id, who)
         try:
             result = rt.join(who, role=body.role, invite=body.invite)
+        except EntryGateError:
+            raise
         except PermissionError:
             raise HTTPException(403, detail={"code": "INVITE_REQUIRED", "message": "this room is private"})
         except ValueError as exc:
@@ -616,7 +716,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         if not rnd:
             raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "no such round"})
         return {
-            "roundId": round_id, "commitHash": rnd["commit_hash"], "seed": rnd["seed"],
+            "roundId": round_id, "commitHash": rnd["commit_hash"], "seed": rnd["seed"] if rnd.get("ended_at") is not None else None,
             "merkleRoot": rnd["merkle_root"], "allocationsHash": rnd["allocations_hash"],
             "transcriptHash": rnd["transcript_hash"], "settlementDeadline": rnd["settlement_deadline"],
         }
@@ -898,6 +998,10 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                 await ws.close(code=4401)
                 return
             who = t["who"]
+            community.assert_can_join(room_id, who)
+            if not any(p["who"] == who for p in store.participants(room_id)):
+                await ws.close(code=4403)
+                return
             rt = runtimes.get(room_id) or RoomRuntime.load(store, vault, hub, room_id)
             if rt is None:
                 await ws.close(code=4404)
@@ -910,12 +1014,13 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                 "v": PROTOCOL_VERSION, "type": "session.ready", "roomId": room_id,
                 "serverTimeMs": int(time.time() * 1000), "status": rt.status,
                 "commitHash": rt.commit,
-                "state": rt.engine.public_state() if rt.engine else None,
+                "roundId": rt.round_id, "deadline": rt.deadline(),
+                "state": app_community_filter(rt, {**rt.engine.public_state(), **(rt.engine.private_state(who) if hasattr(rt.engine, "private_state") else {})}, who) if rt.engine else None,
                 "revision": rt.revision,
             }))
             if rt.engine:
                 await ws.send_text(json.dumps({
-                    "v": PROTOCOL_VERSION, "type": "game.patch", "payload": rt.engine.public_state(),
+                    "v": PROTOCOL_VERSION, "type": "game.patch", "payload": app_community_filter(rt, rt.engine.public_state(), who),
                 }))
             # A client that reconnected after settlement must still see the results: replay
             # the frame, rebuilt from durable state so it survives a restart too.
@@ -938,10 +1043,11 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                     await ws.send_text(json.dumps({"v": PROTOCOL_VERSION, "type": "connection.pong", "serverTimeMs": int(time.time() * 1000)}))
                 elif mtype == "room.sync":
                     since = int(msg.get("seq") or 0)
-                    missed = store.actions_since(room_id, since)
                     await ws.send_text(json.dumps({
                         "v": PROTOCOL_VERSION, "type": "room.snapshot",
-                        "payload": {"actions": missed, "state": rt.engine.public_state() if rt.engine else None},
+                        "roundId": rt.round_id, "deadline": rt.deadline(),
+                        "serverTimeMs": int(time.time() * 1000),
+                        "payload": {"state": app_community_filter(rt, {**rt.engine.public_state(), **(rt.engine.private_state(who) if hasattr(rt.engine, "private_state") else {})}, who) if rt.engine else None},
                     }))
                 elif mtype == "participant.ready":
                     rt.set_ready(who, bool(msg.get("ready", True)))

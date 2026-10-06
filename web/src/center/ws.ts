@@ -37,28 +37,33 @@ export class RoomSocket {
   private attempt = 0
   private closed = false
   private pingTimer: number | null = null
+  private reconnectTimer: number | null = null
   private onFrame: (frame: ServerFrame) => void
   private onStatus: (status: SocketStatus) => void
+  private ticketProvider?: () => Promise<string>
 
-  constructor(roomId: string, onFrame: (frame: ServerFrame) => void, onStatus: (status: SocketStatus) => void) {
+  constructor(roomId: string, onFrame: (frame: ServerFrame) => void, onStatus: (status: SocketStatus) => void, ticketProvider?: () => Promise<string>) {
     this.roomId = roomId
     this.onFrame = onFrame
     this.onStatus = onStatus
+    this.ticketProvider = ticketProvider
   }
 
   start(ticket: string): void {
+    this.close()
     this.ticket = ticket
     this.closed = false
     this.connect()
   }
 
   private connect(): void {
-    if (!this.ticket) return
+    if (!this.ticket || this.closed) return
     this.onStatus(this.attempt === 0 ? 'connecting' : 'reconnecting')
     const socket = new WebSocket(wsUrl(this.roomId))
     this.socket = socket
 
     socket.onopen = () => {
+      if (this.closed || this.socket !== socket) { socket.close(); return }
       this.attempt = 0
       this.onStatus('open')
       this.send({ type: 'session.hello', ticket: this.ticket })
@@ -79,6 +84,7 @@ export class RoomSocket {
     }
 
     socket.onclose = () => {
+      if (this.socket !== socket) return
       if (this.pingTimer) window.clearInterval(this.pingTimer)
       if (this.closed) {
         this.onStatus('closed')
@@ -88,7 +94,15 @@ export class RoomSocket {
       const delay = Math.min(8000, 400 * 2 ** this.attempt)
       this.attempt += 1
       this.onStatus('reconnecting')
-      window.setTimeout(() => this.connect(), delay)
+      this.reconnectTimer = window.setTimeout(async () => {
+        if (this.closed) return
+        try {
+          if (this.ticketProvider) this.ticket = await this.ticketProvider()
+          if (!this.closed) this.connect()
+        } catch {
+          if (!this.closed) { this.onStatus('closed'); this.closed = true }
+        }
+      }, delay)
     }
 
     socket.onerror = () => socket.close()
@@ -120,6 +134,8 @@ export class RoomSocket {
 
   close(): void {
     this.closed = true
+    if (this.reconnectTimer) window.clearTimeout(this.reconnectTimer)
+    this.queue = []
     if (this.pingTimer) window.clearInterval(this.pingTimer)
     this.socket?.close()
   }
@@ -143,6 +159,7 @@ export function useRoomChannel(
     onPatch?: (payload: Record<string, unknown>) => void
     onRoundStarted?: (info: { roundId?: string; commitHash?: string | null; deadline?: number }) => void
     onRejected?: (code: string) => void
+    onReconnectTicket?: () => Promise<string>
   },
 ): RoomChannel {
   const [status, setStatus] = useState<SocketStatus>('idle')
@@ -163,13 +180,13 @@ export function useRoomChannel(
     }
     switch (frame.type) {
       case 'session.ready':
-        setState((frame.state as Record<string, unknown> | null) ?? null)
+        setState(frame.state ? { ...frame.state, roundId: frame.roundId, __deadline: frame.deadline, _serverOffsetMs: (frame.serverTimeMs ?? Date.now()) - Date.now() } : null)
         break
       case 'round.started':
         // The round begins: adopt the server's public state wholesale and reset the
         // sequence window, because the client may have been idle in the lobby.
         seqRef.current = 0
-        setState({ ...((frame.state as Record<string, unknown>) ?? {}), __deadline: frame.deadline ?? null })
+        setState({ ...((frame.state as Record<string, unknown>) ?? {}), roundId: frame.roundId, __deadline: frame.deadline ?? null })
         handlersRef.current.onRoundStarted?.({ roundId: frame.roundId, commitHash: frame.commitHash, deadline: frame.deadline })
         break
       case 'game.patch':
@@ -179,10 +196,12 @@ export function useRoomChannel(
       case 'action.ack': {
         const payload = frame.payload ?? {}
         if (payload.patch) setState((prev) => ({ ...(prev ?? {}), ...(payload.patch as Record<string, unknown>) }))
-        if (typeof payload.points === 'number') setLastError(`+${payload.points}`)
+        if (typeof payload.hint === 'string') setState(prev => ({...(prev ?? {}), privateHint: payload.hint}))
+        if ((payload.patch as Record<string, unknown> | undefined)?.targets) setState(prev => ({...(prev ?? {}), privateHint: undefined}))
+        setLastError(null)
         // Counters live in the full public state, not in the patch: pull a fresh snapshot
         // so budgets and tallies are never stale after an accepted action.
-        socketRef.current?.sync(seqRef.current)
+        // The authority broadcasts its complete public state after each accepted move.
         break
       }
       case 'action.rejected':
@@ -197,7 +216,7 @@ export function useRoomChannel(
         handlersRef.current.onSettlement?.(frame.payload ?? {})
         break
       case 'room.snapshot':
-        setState((frame.payload?.state as Record<string, unknown> | null) ?? null)
+        setState(prev => frame.payload?.state ? { ...(frame.payload.state as Record<string, unknown>), privateHint: prev && prev.roundId === frame.roundId ? prev.privateHint : undefined, roundId: frame.roundId, __deadline: frame.deadline, _serverOffsetMs: (frame.serverTimeMs ?? Date.now()) - Date.now() } : null)
         break
       case 'resync.required':
         socketRef.current?.sync(seqRef.current)
@@ -210,7 +229,7 @@ export function useRoomChannel(
   const connect = useCallback(
     (ticket: string) => {
       if (!roomId) return
-      if (!socketRef.current) socketRef.current = new RoomSocket(roomId, onFrame, setStatus)
+      if (!socketRef.current) socketRef.current = new RoomSocket(roomId, onFrame, setStatus, () => handlersRef.current.onReconnectTicket ? handlersRef.current.onReconnectTicket() : Promise.resolve(ticket))
       socketRef.current.start(ticket)
     },
     [roomId, onFrame],

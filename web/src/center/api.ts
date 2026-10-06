@@ -42,6 +42,12 @@ export type RoomDetail = {
   joinerFee?: string
   ticket?: string
   timing?: { open_at?: number; close_at?: number }
+  teams?: Record<string, 'a' | 'b'>
+  publicState?: Record<string, unknown> | null
+  roundId?: string
+  deadline?: number
+  serverTimeMs?: number
+  communitySettings?: { muteChat: boolean; hidePlayers: boolean; hideGuesses: boolean }
 }
 
 export type Allocation = {
@@ -159,7 +165,8 @@ export const center = {
       '/my/rooms', {}, token),
   closeRoom: (roomId: string, token: string) =>
     request<{ status: string }>(`/rooms/${roomId}/close`, { method: 'POST' }, token),
-  room: (roomId: string) => request<RoomDetail>(`/rooms/${roomId}`),
+  room: (roomId: string, token?: string) => request<RoomDetail>(`/rooms/${roomId}`, {}, token),
+  chooseTeam: (roomId: string, token: string, team: 'a' | 'b') => request<{teams: Record<string, string>}>(`/rooms/${roomId}/team`, {method: 'POST', body: JSON.stringify({team})}, token),
   invite: (roomId: string, token: string) => request<{ invite: string; shareUrl: string }>(`/rooms/${roomId}/invites`, { method: 'POST' }, token),
   join: (roomId: string, token: string, invite?: string) =>
     request<{ role: string; joinerFee: string; status: string; ticket: string }>(`/rooms/${roomId}/join`, { method: 'POST', body: JSON.stringify({ invite: invite ?? null }) }, token),

@@ -10,8 +10,12 @@
 // is real ORBIX: deposits land in the vault contract, and rooms are labelled preview or funded
 // while the deployment flag is off.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { RoundPending, STAGES } from './stages'
+import { FOUR_STAGE_VIEWS } from './GamePlayStages'
+import { CenterJoin } from './CenterJoin'
+import { RoomCommunity } from './RoomCommunity'
+const LobbyWorld = lazy(() => import('./worlds/GameWorld'))
 import { GameArt, TEMPLATE_META } from './gameArt'
 import { QuizEditor, TEMPLATE_FORMS, ruleNumber, type QuizQuestion, type RuleField } from './wizardForms'
 import { center, explainError, API_BASE, type Allocation, type RoomDetail, type Settlement, type TemplateMeta } from './api'
@@ -31,12 +35,15 @@ import { FEATURED_GAMES, isFeaturedGame } from './featuredGames'
 import { Gamepad2, Plus, Wallet as WalletIcon, ArrowUpRight, LogOut } from 'lucide-react'
 import './center.css'
 import './centerShell.css'
+import './gameControls.css'
+import './roomExperience.css'
 
 type Route =
   | { name: 'catalog' }
   | { name: 'create'; templateId?: string }
   | { name: 'room'; roomId: string }
   | { name: 'wallet' }
+  | { name: 'join' }
   | { name: 'admin' }
 
 function parseRoute(): Route {
@@ -45,6 +52,7 @@ function parseRoute(): Route {
   if (parts[1] === 'create') return { name: 'create', templateId: parts[2] ?? new URLSearchParams(window.location.search).get('template') ?? undefined }
   if (parts[1] === 'rooms' && parts[2]) return { name: 'room', roomId: parts[2] }
   if (parts[1] === 'wallet') return { name: 'wallet' }
+  if (parts[1] === 'join') return { name: 'join' }
   if (parts[1] === 'admin') return { name: 'admin' }
   return { name: 'catalog' }
 }
@@ -211,7 +219,7 @@ const DEFAULT_RULES: Record<string, Record<string, unknown>> = {
   'reaction-duel': { rounds: 3, choice_window_seconds: 10, reveal_window_seconds: 5, choice_set: 'classic' },
   'puzzle-sprint': { board: 3, move_cap: 300, score_mode: 'time', top_n: 3, hints: 'off', hint_budget: 3, hint_move_penalty: 2 },
   'hash-hunt': { difficulty_bits: 18, win_mode: 'first-valid', leaderboard_size: 10 },
-  'boss-raid': { min_players: 2, max_players: 8, boss_health: 10000, action_cooldown_ms: 500, contribution_cap: 1000, min_contribution: 10, reward_rule: 'proportional', top_n: 3 },
+  'boss-raid': { min_players: 6, max_players: 6, team_mode: 'teams', boss_health: 4000, action_cooldown_ms: 500, contribution_cap: 2000, min_contribution: 10, reward_rule: 'top-n', top_n: 3 },
   'rps-duel': { rounds: '5', choice_window_seconds: 10, reveal_window_seconds: 5, choice_set: 'classic' },
   'reward-grid': { tiles: 36, reward_slots: 4, reveal_cap_per_wallet: 6, duration_seconds: 180 },
   'logo-bingo': { board: '3', call_cadence_seconds: 4, win_mode: 'first-line', free_centre: true, duration_seconds: 300 },
@@ -270,8 +278,8 @@ function initialDraft(templateId = 'number-hunt'): DraftState {
     entryAmount: 0,
     hintVisibility: 'private',
     durationSeconds: defaultDuration(templateId),
-    playerCap: SOLO.has(templateId) ? 1 : 8,
-    minReady: SOLO.has(templateId) ? 1 : 2,
+    playerCap: templateId === 'boss-raid' ? 6 : templateId === 'reaction-duel' ? 2 : SOLO.has(templateId) ? 1 : 8,
+    minReady: templateId === 'boss-raid' ? 6 : SOLO.has(templateId) ? 1 : 2,
     rewardPoints: 100,
   }
 }
@@ -319,6 +327,8 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
   const [picking, setPicking] = useState(!initialTemplateId)
   const [wizardStep, setWizardStep] = useState(initialTemplateId ? 2 : 1)
   const [edited, setEdited] = useState(false)
+  const [communityOptions, setCommunityOptions] = useState({mute_chat: false, hide_players: false, hide_guesses: false})
+  const [timedHints, setTimedHints] = useState<{delay_seconds: number; text: string}[]>([])
   useEffect(() => {
     if (!edited || status || busy) return
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
@@ -398,7 +408,7 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
       visibility: draft.visibility,
       mode: 'preview',
       rules,
-      admission: { player_cap: isSolo ? 1 : Math.min(draft.playerCap, capMax), min_ready_to_start: isSolo ? 1 : Math.min(draft.minReady, capMax), spectators: false },
+      admission: { player_cap: draft.templateId === 'boss-raid' ? 6 : isSolo ? 1 : Math.min(draft.playerCap, capMax), min_ready_to_start: draft.templateId === 'boss-raid' ? 6 : isSolo ? 1 : Math.min(draft.minReady, capMax), spectators: false },
       access: {
         vault_mode: 'simulated',
         required_amount: draft.requiredAmount,
@@ -419,8 +429,9 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
       entry: draft.entryToken && draft.entryAmount > 0
         ? { kind: 'erc20' as const, token: draft.entryToken, amount: draft.entryAmount }
         : { kind: 'free' as const },
-      rewards: { kind: 'preview-points', slots: [{ rank: 1, points: draft.rewardPoints }, { rank: 2, points: Math.round(draft.rewardPoints / 2) }] },
+      rewards: { kind: 'preview-points', slots: draft.templateId === 'boss-raid' ? [1, 2, 3].map(rank => ({rank, points: draft.rewardPoints})) : [{ rank: 1, points: draft.rewardPoints }, { rank: 2, points: Math.round(draft.rewardPoints / 2) }] },
       branding: { preset: 'solar' },
+      community_settings: {...communityOptions, timed_hints: timedHints.filter(h => h.text.trim()).map(h => ({...h, text: h.text.trim()}))},
     }
   }
 
@@ -550,16 +561,17 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
           )}
           <label>
             <span>Player cap</span>
-            <input type="number" min={1} max={isSolo ? 1 : 100} disabled={isSolo} value={isSolo ? 1 : draft.playerCap} onChange={(e) => set('playerCap', Number(e.target.value))} />
+            <input type="number" min={1} max={isSolo ? 1 : 100} disabled={isSolo || draft.templateId === 'boss-raid'} value={draft.templateId === 'boss-raid' ? 6 : isSolo ? 1 : draft.playerCap} onChange={(e) => set('playerCap', Number(e.target.value))} />
           </label>
           <label>
             <span>Ready needed to start</span>
-            <input type="number" min={1} max={isSolo ? 1 : 100} disabled={isSolo} value={isSolo ? 1 : draft.minReady} onChange={(e) => set('minReady', Number(e.target.value))} />
+            <input type="number" min={1} max={isSolo ? 1 : 100} disabled={isSolo || draft.templateId === 'boss-raid'} value={draft.templateId === 'boss-raid' ? 6 : isSolo ? 1 : draft.minReady} onChange={(e) => set('minReady', Number(e.target.value))} />
           </label>
         </div>
       </section>
 
       <section className="ct-panel" id="wiz-rules" hidden={wizardStep !== 3}>
+        <fieldset className="ct-community-options"><legend>Creator controls</legend><p className="muted">Set your lobby defaults. You can change these controls during play.</p>{([{key: 'mute_chat', label: 'Mute player chat'}, {key: 'hide_players', label: 'Hide player names'}, {key: 'hide_guesses', label: 'Hide the public guess log'}] as const).map(option => <label className="inline" key={option.key}><input type="checkbox" checked={communityOptions[option.key]} onChange={e => {setCommunityOptions(prev => ({...prev, [option.key]: e.target.checked})); setEdited(true)}} /><span>{option.label}</span></label>)}<p className="muted">Your creator roster keeps verified names and wallets available to you. Reward receipts retain their contract identities.</p><h3>Timed host hints</h3><p className="muted">Hints appear after the match starts. They stay private until their scheduled time.</p>{timedHints.map((hint, index) => <div key={index} className="ct-timed-hint"><label><span>Seconds after start</span><input type="number" min={0} max={3600} value={hint.delay_seconds} onChange={e => setTimedHints(prev => prev.map((h, i) => i === index ? {...h, delay_seconds: Number(e.target.value)} : h))} /></label><label><span>Hint message</span><input maxLength={500} value={hint.text} onChange={e => setTimedHints(prev => prev.map((h, i) => i === index ? {...h, text: e.target.value} : h))} /></label><button className="btn-ghost" onClick={() => setTimedHints(prev => prev.filter((_, i) => i !== index))}>Remove hint</button></div>)}<button className="btn-ghost" disabled={timedHints.length >= 20} onClick={() => {setTimedHints(prev => [...prev, {delay_seconds: 30, text: ''}]); setEdited(true)}}>Add timed hint</button></fieldset>
         <h2>3 · {TEMPLATE_FORMS[draft.templateId]?.label ?? draft.templateId} rules & hints</h2>
         <p className="muted">Every field below only affects THIS game format. Anything you skip runs on its default.</p>
         <div className="ct-form">
@@ -902,11 +914,11 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
 
   const refresh = useCallback(async () => {
     try {
-      setRoom(await center.room(roomId))
+      setRoom(await center.room(roomId, session.token ?? undefined))
     } catch (err) {
       setError(explainError(err))
     }
-  }, [roomId])
+  }, [roomId, session.token])
 
   useEffect(() => {
     void refresh()
@@ -918,6 +930,10 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
     onSettlement: (payload) => setSettlement(payload as unknown as Settlement),
     onRoundStarted: () => void refresh(),
     onRejected: (code) => setReject(code),
+    onReconnectTicket: async () => {
+      if (!session.token) throw new Error('Sign in to reconnect.')
+      return (await center.join(roomId, session.token, new URLSearchParams(window.location.search).get('invite') ?? undefined)).ticket
+    },
   })
 
   const join = async () => {
@@ -969,7 +985,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
     if (!session.token) return
     // Guideline: destructive actions need confirmation — never immediate.
     const sure = window.confirm(
-      'Cancel this room? Every entrant is refunded exactly what they paid, and the room cannot be reopened.',
+      'Cancel this room? It cannot be reopened. Token entry payments sent through the creator gate are not automatically refunded by cancelling a room.',
     )
     if (!sure) return
     setBusy(true)
@@ -993,9 +1009,9 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
     }
   }
 
-  const state = channel.state ?? {}
+  const state = channel.state ?? { ...(room?.publicState ?? {}), roundId: room?.roundId, __deadline: room?.deadline, serverTimeMs: room?.serverTimeMs }
   const templateId = String(room?.config?.template_id ?? '')
-  const Stage = STAGES[templateId]
+  const Stage = FOUR_STAGE_VIEWS[templateId] ?? STAGES[templateId]
   const me = (session.address ?? '').toLowerCase()
   // F5 pre-sign disclosure fields (typed reads; the server config is the source)
   const access = (room?.config?.access ?? {}) as { required_amount?: number; joiner_fee?: number; creator_absorbs_joiner_fee?: boolean }
@@ -1019,7 +1035,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   const hasRoundState = Boolean(state.template)
 
   return (
-    <div className="ct-page">
+    <div className="ct-page ct-game-room">
       <Banner />
       <header className="ct-head">
         <div>
@@ -1070,7 +1086,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
         </div>
         <div className="ct-actions">
           {!ticket && (
-            <details className="ct-presign" open>
+            <details className="ct-presign">
               <summary>Before you join — read the room terms</summary>
               <ul className="ct-presign-list">
                 <li>
@@ -1111,8 +1127,8 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
                 <li>
                   <strong>Refunds:</strong>{' '}
                   {room?.status === 'cancelled'
-                    ? 'this room was cancelled — you can refund your entry from the vault panel'
-                    : 'if the creator cancels before settlement, every entrant is refunded exactly what they paid'}
+                    ? 'this room was cancelled. Creator-gate token payments are direct payments and require the recipient to return them separately'
+                    : entryToken ? 'token entry is paid directly through the creator gate. Room cancellation does not automatically return that payment' : 'preview rooms use game credit; token refunds are not involved'}
                 </li>
                 <li>
                   <strong>Claims:</strong> unclaimed rewards expire at the published claim deadline, after
@@ -1130,6 +1146,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
               {busy && joinStep ? 'Working…' : players.includes(me) ? 'Reconnect to room' : 'Join room'}
             </button>
           )}
+          {templateId === 'boss-raid' && (room?.config?.rules as {team_mode?: string})?.team_mode === 'teams' && room?.status !== 'running' && !finished && <div className="ct-team-picker"><strong>Choose your crew · 3 vs 3</strong><p>Highest team damage wins. Equal damage is a draw with no winning-team reward.</p>{(['a', 'b'] as const).map(team => <button key={team} className={room?.teams?.[me] === team ? 'btn-primary' : 'btn-ghost'} disabled={!amPlayer || busy} onClick={async () => { if (!session.token) return; try { await center.chooseTeam(roomId, session.token, team); await refresh() } catch (err) { setError(explainError(err)) } }}>Team {team.toUpperCase()} · {Object.values(room?.teams ?? {}).filter(t => t === team).length}/3</button>)}</div>}
           {ticket && !finished && (
             <button className={`btn-ghost${amPlayer ? '' : ' off'}`} onClick={() => channel.setReady(!room?.participants.find((p) => p.who.toLowerCase() === me)?.ready)}>
               Toggle ready
@@ -1147,7 +1164,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
           )}
           {isHost && !finished && room?.status !== 'cancelled' && (
             <button className="btn-ghost" onClick={cancelRoom} disabled={busy} style={{ color: '#ff6b6b', borderColor: '#4a2727' }}>
-              Cancel room (refund everyone)
+              Cancel room
             </button>
           )}
         </div>
@@ -1173,10 +1190,10 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       <section className="ct-panel">
         <h2>Play</h2>
         {!Stage && <p className="muted">Waiting for the room configuration…</p>}
-        {Stage && !hasRoundState && <RoundPending status={room?.status} />}
+        {Stage && !hasRoundState && <><RoundPending status={room?.status} />{isFeaturedGame(templateId) && <Suspense fallback={<p className="muted">Preparing your world…</p>}><LobbyWorld game={templateId as 'number-hunt' | 'boss-raid' | 'token-catch' | 'reaction-duel'} state={room?.config?.rules ?? {}} me={me} players={players} /></Suspense>}</>}
         {Stage && hasRoundState && (
           <Stage
-            state={{ ...state, roundId: state.roundId ?? undefined }}
+            state={{ ...state, _roomId: roomId, _roundId: state.roundId, _spectating: !amPlayer, _hidePlayers: room?.communitySettings?.hidePlayers, _hideGuesses: room?.communitySettings?.hideGuesses, _canAct: amPlayer && channel.status === 'open' && room?.status === 'running', _connection: channel.status, _actionError: reject }}
             me={me}
             players={players}
             finished={finished}
@@ -1190,6 +1207,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
         {channel.lastError && <p className="st-note ok">{channel.lastError}</p>}
       </section>
 
+      {(amPlayer || isHost) && <RoomCommunity roomId={roomId} session={session} isHost={isHost} roomStatus={room?.status} onSettingsChange={settings => setRoom(prev => prev ? {...prev, communitySettings: settings} : prev)} onRosterChange={() => void refresh()} />}
       {settlement && (
         <section className="ct-panel">
           <h2>Results and rewards</h2>
@@ -1265,7 +1283,7 @@ function ClaimCard({ allocation, session }: { allocation: Allocation; session: R
 const NAV: { label: string; path: string }[] = [
   { label: 'Game center', path: '/center' },
   { label: 'Create room', path: '/center/create' },
-  { label: 'Vault', path: '/center/wallet' },
+  { label: 'Join', path: '/center/join' },
 ]
 
 export function CenterApp() {
@@ -1273,7 +1291,7 @@ export function CenterApp() {
   const [walletOpen, setWalletOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [route, setRoute] = useState<Route>(() => parseRoute())
-  const activePath = route.name === 'room' ? '' : route.name === 'create' ? '/center/create' : route.name === 'wallet' ? '/center/wallet' : route.name === 'admin' ? '/center/admin' : '/center'
+  const activePath = route.name === 'room' ? '' : route.name === 'join' ? '/center/join' : route.name === 'create' ? '/center/create' : route.name === 'wallet' ? '/center/wallet' : route.name === 'admin' ? '/center/admin' : '/center'
 
   useEffect(() => {
     const onPop = () => setRoute(parseRoute())
@@ -1288,6 +1306,7 @@ export function CenterApp() {
       create: 'Create a room — Orbix Game Center',
       room: 'Room — Orbix Game Center',
       wallet: 'Vault — Orbix Game Center',
+      join: 'Join a room — Orbix Game Center',
       admin: 'Admin — Orbix Game Center',
     }
     document.title = titles[route.name] ?? 'Orbix Game Center'
@@ -1299,9 +1318,11 @@ export function CenterApp() {
       case 'create':
         return route.templateId && !isFeaturedGame(route.templateId) ? <div className="ct-page ct-unavailable"><Gamepad2 size={48} /><h1>More worlds are on the way.</h1><p>This game is coming soon. Pick one of the four featured games for your next room.</p><button className="btn-primary" onClick={() => go('/center')}>Explore games</button></div> : <Wizard key={route.templateId ?? 'choose'} session={session} initialTemplateId={route.templateId} onConnect={() => setWalletOpen(true)} />
       case 'room':
-        return <Room roomId={route.roomId} session={session} />
+        return <Room key={`${route.roomId}:${session.address ?? 'watch'}`} roomId={route.roomId} session={session} />
       case 'wallet':
         return <CenterVault session={session} onConnect={() => setWalletOpen(true)} navigate={go} />
+      case 'join':
+        return <CenterJoin session={session} onConnect={() => setWalletOpen(true)} navigate={go} />
       case 'admin':
         return <AdminPanel session={session} />
       default:
@@ -1337,6 +1358,7 @@ export function CenterApp() {
           {session.token && session.address && (
             <ProfileTopButton session={session} onOpen={() => setProfileOpen(true)} />
           )}
+          <button className={`ct-nav-item${route.name === 'wallet' ? ' on' : ''}`} onClick={() => go('/center/wallet')}><WalletIcon size={17} />Vault</button>
           <WalletChip session={session} onOpenWallet={() => setWalletOpen(true)} />
         </div>
       </header>

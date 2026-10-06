@@ -32,6 +32,7 @@ class NumberHuntEngine(Engine):
     # ------------------------------------------------------------------ lifecycle
 
     def start(self, now: float = 0.0) -> None:
+        self.started_at = now
         span = self.rules.max - self.rules.min + 1
         picked: set[int] = set()
         while len(picked) < self.rules.target_count:
@@ -95,7 +96,7 @@ class NumberHuntEngine(Engine):
                 private["hint"] = direction
 
         self.log.append({"who": who, "number": raw, "hit": hit, "at": round(now, 3)})
-        self.guess_log.append({"who": who, "number": raw, "hit": hit})
+        self.guess_log.append(dict(patch["lastGuess"]))
         return ActionResult(
             True,
             patch=patch,
@@ -133,6 +134,10 @@ class NumberHuntEngine(Engine):
             "hints": self.rules.hints,
             "hintVisibility": self.rules.hint_visibility,
             "guessBudget": self.rules.guess_budget,
+            "guessCooldownMs": self.rules.guess_cooldown_ms,
+            "durationSeconds": self.rules.duration_seconds,
+            "startedAt": getattr(self, "started_at", 0),
+            "guessLog": list(self.guess_log[-100:]),
             "targetCount": self.rules.target_count,
             "claimedTargets": len(self.claimed),
             "guessCount": {p: len(self.guesses.get(p, [])) for p in self.participants},
@@ -142,9 +147,20 @@ class NumberHuntEngine(Engine):
             "finished": self.finished,
         }
 
+    def private_state(self, who: str) -> dict:
+        guesses = self.guesses.get(who, [])
+        if not guesses or self.rules.hints != "on" or self.rules.hint_visibility != "private" or self.finished:
+            return {}
+        raw = guesses[-1]
+        if raw in self.targets:
+            return {}
+        nearest = min(self.targets, key=lambda t: abs(t - raw))
+        return {"privateHint": "higher" if nearest > raw else "lower"}
+
     def snapshot(self) -> dict:
         return {
             "participants": self.participants,
+            "startedAt": getattr(self, "started_at", 0),
             "targets": self.targets,
             "claimed": {str(k): v for k, v in self.claimed.items()},
             "budget": self.budget,
@@ -158,6 +174,7 @@ class NumberHuntEngine(Engine):
         }
 
     def _load(self, snapshot: dict) -> None:
+        self.started_at = float(snapshot.get("startedAt", 0))
         self.targets = [int(t) for t in snapshot.get("targets", [])]
         self.claimed = {int(k): v for k, v in snapshot.get("claimed", {}).items()}
         self.budget = dict(snapshot.get("budget", {}))

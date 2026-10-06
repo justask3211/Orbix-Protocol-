@@ -111,6 +111,7 @@ class CatchRules(Strict):
     combo_cap: int = Field(default=3, ge=1, le=5)
     win_threshold: int = Field(default=30, ge=1, le=500)
     top_n: int = Field(default=3, ge=1, le=50)
+    catch_window_ms: int = Field(default=1000, ge=250, le=2000)
 
 
 class DuelRules(Strict):
@@ -157,6 +158,8 @@ class BossRules(Strict):
     min_contribution: int = Field(default=10, ge=1, le=1_000_000)
     reward_rule: Literal["proportional", "top-n", "milestone"] = "proportional"
     top_n: int = Field(default=3, ge=1, le=100)
+    team_mode: Literal["coop", "teams"] = "coop"
+
 
 
 
@@ -332,6 +335,25 @@ class Branding(Strict):
     cover_asset_id: str | None = None
 
 
+class TimedHint(Strict):
+    delay_seconds: int = Field(ge=0, le=3600, strict=True)
+    text: str = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def _hint_text(self) -> "TimedHint":
+        if not self.text.strip() or any(ord(char) < 32 and char not in "\n\t" for char in self.text):
+            raise ValueError("hints require readable text without control characters")
+        self.text = self.text.strip()
+        return self
+
+
+class CommunityOptions(Strict):
+    mute_chat: bool = Field(default=False, strict=True)
+    hide_players: bool = Field(default=False, strict=True)
+    hide_guesses: bool = Field(default=False, strict=True)
+    timed_hints: list[TimedHint] = Field(default_factory=list, max_length=20)
+
+
 # --------------------------------------------------------------------- room config
 
 
@@ -350,6 +372,7 @@ class RoomConfig(Strict):
     entry: Entry = Field(default_factory=Entry)
     rewards: Rewards = Field(default_factory=Rewards)
     branding: Branding = Field(default_factory=Branding)
+    community_settings: CommunityOptions = Field(default_factory=CommunityOptions)
 
     @model_validator(mode="after")
     def _cross_checks(self) -> "RoomConfig":
@@ -378,6 +401,9 @@ class RoomConfig(Strict):
             raise ValueError(f"{self.template_id} is single-player; player_cap must be 1")
         if self.admission.min_ready_to_start > self.admission.player_cap:
             raise ValueError("min_ready_to_start cannot exceed player_cap")
+        if isinstance(self.rules, BossRules) and self.rules.team_mode == "teams":
+            if self.admission.player_cap != 6 or self.admission.min_ready_to_start != 6:
+                raise ValueError("team raids require six players, with all six ready")
         return self
 
     # ---------------------------------------------------------------- helpers
@@ -385,6 +411,8 @@ class RoomConfig(Strict):
     def public_dict(self) -> dict:
         """Payload safe for an unauthenticated client (answers stripped)."""
         d = self.model_dump(mode="json")
+        # Future host hints are durable private schedule records, not early clues.
+        d.get("community_settings", {}).pop("timed_hints", None)
         if isinstance(self.rules, QuizRules):
             for question in d.get("rules", {}).get("questions", []) or []:
                 question.pop("correct_index", None)
@@ -395,7 +423,9 @@ class RoomConfig(Strict):
 
         Includes hidden answers so a settled round is bound to the exact quiz key.
         """
-        return json.dumps(self.model_dump(mode="json", by_alias=True), sort_keys=True, separators=(",", ":"))
+        # Moderation and creator hints are mutable room community metadata. They
+        # must not change a gameplay/reward commitment or its restart hash.
+        return json.dumps(self.model_dump(mode="json", by_alias=True, exclude={"community_settings"}), sort_keys=True, separators=(",", ":"))
 
     def reward_slot_count(self) -> int:
         if self.rewards.kind == "funded-assets":

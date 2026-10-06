@@ -71,7 +71,7 @@ class CatchEngine(Engine):
         if self.elapsed_ms(now) >= self.rules.duration_seconds * 1000:
             self.finished = True
             return ActionResult(True, patch={"finished": True, "scores": self.scores()}, finished=True)
-        return None
+        return ActionResult(True, patch=self.public_state())
 
     # ------------------------------------------------------------------ actions
 
@@ -102,11 +102,11 @@ class CatchEngine(Engine):
             return ActionResult(False, "SLOW_DOWN")
 
         spawn = self.spawns[idx]
-        if spawn.at_ms > now_ms + CATCH_WINDOW_MS:
+        if spawn.at_ms > now_ms:
             return ActionResult(False, "ROUND_NOT_OPEN")  # spawn has not happened yet
         if self.lane[who] != spawn.lane:
             return ActionResult(False, "BAD_PROOF")  # paddle was not in that lane
-        if now_ms - spawn.at_ms > CATCH_WINDOW_MS:
+        if now_ms - spawn.at_ms > self.rules.catch_window_ms:
             return ActionResult(False, "STALE_REVISION")  # missed the window
 
         self.caught[who].add(idx)
@@ -135,10 +135,13 @@ class CatchEngine(Engine):
         return {
             "template": self.template_id,
             "lanes": self.rules.lanes,
+            "catchWindowMs": self.rules.catch_window_ms,
             "durationSeconds": self.rules.duration_seconds,
             "spawnPerSecond": self.rules.spawn_per_second,
             "winThreshold": self.rules.win_threshold,
             "scores": dict(self.score),
+            "startedAt": self.started_at,
+            "caughtIndices": {p: sorted(indices) for p, indices in self.caught.items()},
             "lanesNow": dict(self.lane),
             # A short live window of ALREADY-FALLEN spawns only. Future spawns (lane,
             # timing, points) stay secret so a bot cannot pre-solve the round; the
@@ -147,7 +150,7 @@ class CatchEngine(Engine):
             "recent": [
                 {"index": s.index, "lane": s.lane, "atMs": s.at_ms, "points": s.points}
                 for s in self.spawns
-                if 0 <= self.elapsed_ms(getattr(self, "now", self.started_at)) - s.at_ms <= 300
+                if 0 <= self.elapsed_ms(getattr(self, "now", self.started_at)) - s.at_ms <= self.rules.catch_window_ms
             ],
             "finished": self.finished,
         }
