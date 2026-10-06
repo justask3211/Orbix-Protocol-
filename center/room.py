@@ -21,7 +21,7 @@ from typing import Any
 
 from center import lifecycle as lc
 from center import settlement as st
-from center.games import ENGINES, Engine, commit_hash
+from center.games import ENGINES, Engine, commit_hash, engine_for
 from center.schema import RoomConfig
 from center.store import ConflictError, Store
 from center.vault import VaultService
@@ -116,6 +116,11 @@ class RoomRuntime:
         self.community = CommunityService(store)
         self._last_hint_tick = 0.0
         self.entry_verifier = None
+        self.action_guard = None
+        self._arena_actions = []
+        self._arena_seq = None
+        self._arena_checkpoint_at = 0.0
+        self._arena_broadcast_at = 0.0
 
     # ------------------------------------------------------------------ factories
 
@@ -147,7 +152,7 @@ class RoomRuntime:
         rt = cls(store, vault, hub, row, config)
         rnd = store.room_round(room_id)
         if rnd and rnd.get("snapshot"):
-            engine_cls = ENGINES[config.template_id]
+            engine_cls = engine_for(config)
             rt.engine = engine_cls.restore(config, rnd["round_id"], rnd["seed"], rnd["snapshot"])
             duration = float(getattr(config.rules, "duration_seconds", 120))
             if config.template_id == "reaction-duel":
@@ -223,7 +228,8 @@ class RoomRuntime:
         if role == "spectator" and not self.config.admission.spectators:
             raise ValueError("SPECTATORS_DISABLED")
         if self.config.visibility == "private":
-            if not self.store.invite_valid(self.room_id, invite):
+            previously_admitted=any(p['who']==who for p in self.store.participants(self.room_id))
+            if who!=self.owner and not previously_admitted and not self.store.invite_valid(self.room_id, invite):
                 raise PermissionError("INVITE_REQUIRED")
         players = [p for p in self.store.participants(self.room_id) if p["role"] == "player"]
         if role == "player" and who not in {p["who"] for p in players}:
@@ -251,6 +257,7 @@ class RoomRuntime:
         return {"role": role, "joinerFee": fee_state, "status": self.status}
 
     def set_ready(self, who: str, ready: bool = True) -> dict:
+        if self.action_guard:self.action_guard(who.lower())
         self.store.set_ready(self.room_id, who.lower(), ready)
         return {"ready": self.store.ready_count(self.room_id)}
 
@@ -276,11 +283,30 @@ class RoomRuntime:
         # the wire format always carries the 0x prefix, whatever the helper returns
         self.commit = raw_commit if raw_commit.startswith("0x") else "0x" + raw_commit
 
-        engine_cls = ENGINES[self.config.template_id]
-        self.engine = engine_cls(self.config, self.round_id, self.seed, players)
+        engine_cls = engine_for(self.config)
+        engine = engine_cls(self.config, self.round_id, self.seed, players)
         if self.config.template_id == "boss-raid" and getattr(self.config.rules, "team_mode", "coop") == "teams":
-            self.engine.teams = (self.store.get_setting(f"teams:{self.room_id}") or {}).get("teams", {})
-        self.engine.start(now)
+            engine.teams = (self.store.get_setting(f"teams:{self.room_id}") or {}).get("teams", {})
+            if getattr(engine, 'arena', False):
+                size = self.config.rules.team_size
+                team_count = max(2, (self.config.admission.player_cap + size - 1) // size)
+                teams = {p:t for p,t in engine.teams.items() if p in players and t in {f'team-{i+1}' for i in range(team_count)}}
+                for p in players:
+                    if p not in teams:
+                        teams[p] = min((f'team-{i+1}' for i in range(team_count)), key=lambda t:sum(v==t for v in teams.values()))
+                if len(set(teams.values())) < 2:
+                    raise ValueError('CHOOSE_AT_LEAST_TWO_TEAMS')
+                if any(sum(v==t for v in teams.values()) > size for t in set(teams.values())):
+                    raise ValueError('TEAM_FULL')
+                engine.teams = teams
+                self.store.set_setting(f'teams:{self.room_id}', {'teams':teams})
+        engine.start(now)
+        self.engine = engine
+        if getattr(self.engine,'arena',False):
+            from center.games.arena import CHARACTERS
+            chosen=(self.store.get_setting(f'characters:{self.room_id}') or {}).get('characters',{})
+            for p,character in chosen.items():
+                if p in self.engine.bodies and character in CHARACTERS:self.engine.bodies[p]['character']=character
         duration = float(getattr(self.config.rules, "duration_seconds", 120))
         if self.config.template_id == "reaction-duel":
             duration = self.config.rules.rounds * (self.config.rules.choice_window_seconds + self.config.rules.reveal_window_seconds)
@@ -311,6 +337,10 @@ class RoomRuntime:
         now = now or time.time()
         if self.engine is None or not self.is_playable():
             return {"ok": False, "error": "ROUND_NOT_OPEN"}
+        if self.action_guard:
+            self.action_guard(who.lower())
+        if getattr(self.engine, 'arena', False):
+            return await self._arena_act(who.lower(), action, now)
         seq = self.store.next_seq(self.room_id)
         result = self.engine.act(who.lower(), action, now)
         self.store.append_action(self.room_id, seq, who.lower(), action, result.ok)
@@ -336,6 +366,27 @@ class RoomRuntime:
             await self.finish(now)
         return {"ok": result.ok, "error": result.error, "finished": result.finished}
 
+    def _checkpoint_arena(self, now):
+        if not self.round_id:
+            return
+        self.store.checkpoint_arena(self.room_id,self.round_id,self.engine.snapshot(),self._arena_actions)
+        self._arena_actions.clear()
+        self._arena_checkpoint_at=now
+
+    async def _arena_act(self, who, action, now):
+        result=self.engine.act(who,action,now)
+        if not result.ok:
+            return {'ok':False,'error':result.error,'finished':result.finished}
+        if self._arena_seq is None:self._arena_seq=self.store.next_seq(self.room_id)-1
+        self._arena_seq+=1
+        self._arena_actions.append({'seq':self._arena_seq,'who':who,'action':action,'at':round(now,3)})
+        # Inputs are durable in batches, never one SQLite transaction per render frame.
+        # Combat/character changes and settlement flush immediately.
+        if action.get('kind') not in {'move','block','equip'} or now-self._arena_checkpoint_at>=1:
+            self._checkpoint_arena(now)
+        if result.finished:await self.finish(now)
+        return {'ok':True,'error':None,'finished':result.finished}
+
     # ------------------------------------------------------------------ clock
 
     async def tick(self, now: float) -> bool:
@@ -348,6 +399,17 @@ class RoomRuntime:
         if now - self._last_hint_tick >= 1:
             self.community.deliver_hints(self.room_id, getattr(self.engine, "started_at", 0), now)
             self._last_hint_tick = now
+        if getattr(self.engine, 'arena', False):
+            if now-self._arena_checkpoint_at>=1 or self.engine.finished:
+                self._checkpoint_arena(now)
+            if now-self._arena_broadcast_at>=.1 or self.engine.finished:
+                await self.hub.broadcast(self.room_id, {'v':PROTOCOL_VERSION,'type':'game.patch','roundId':self.round_id,'payload':self.engine.public_state()})
+                self._arena_broadcast_at=now
+            if self.engine.finished or (self._deadline is not None and now>=self._deadline):
+                if not self.engine.finished:self.engine._finish()
+                await self.finish(now)
+                return True
+            return False
         if result is not None and self.round_id and (self.config.template_id != "token-catch" or result.finished):
             self.store.save_snapshot(self.round_id, self.engine.snapshot())
         if result is not None and result.patch:
@@ -368,11 +430,16 @@ class RoomRuntime:
             raise ValueError("NO_ROUND")
         if self.finished_at is not None:
             return {"roundId": self.round_id, "alreadyFinished": True}
+        if getattr(self.engine, 'arena', False):
+            if not self.engine.finished:self.engine._finish()
+            self._checkpoint_arena(now)
         self.engine.finished = True
         self.finished_at = now
         self._set_status(lc.RESULT_PENDING)
 
         actions = [{"who": a["who"], "action": a["action"], "at": a["at"]} for a in self.actions_seen]
+        if getattr(self.engine, 'arena', False):
+            actions=[{'who':a['who'],'action':json.loads(a['payload']),'at':a['at']} for a in self.store.actions_since(self.room_id,0) if a['accepted']]
         transcript = st.transcript_hash(self.round_id or "", actions)
         config_hash = self.store.get_room(self.room_id)["config_hash"]
 
@@ -537,8 +604,9 @@ class Scheduler:
                         await rt.finish(now)
                 self._enforce_schedules(now)
                 self._reap_closed(now)
+            arenas = any(getattr(rt.engine, 'arena', False) and rt.status == lc.RUNNING for rt in self.runtimes.values())
             catching = any(rt.config.template_id == "token-catch" and rt.status == lc.RUNNING for rt in self.runtimes.values())
-            await asyncio.sleep(min(self.interval, 0.05) if catching else self.interval)
+            await asyncio.sleep(min(self.interval, 1/30 if arenas else .05) if arenas or catching else self.interval)
 
     def _enforce_schedules(self, now: float) -> None:
         """Open scheduled rooms at their open_at time; close rooms whose close_at
@@ -586,4 +654,13 @@ class Scheduler:
     async def stop(self) -> None:
         if self._task:
             self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
             self._task = None
+        # Movement is batched during play; commit the final accepted batch before
+        # a graceful restart closes the database.
+        for rt in list(self.runtimes.values()):
+            if getattr(rt.engine, 'arena', False) and rt.round_id:
+                rt._checkpoint_arena(time.time())

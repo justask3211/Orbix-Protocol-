@@ -45,3 +45,45 @@
   .ct-app select:not([multiple]) { appearance: auto; background-image: none; border-color: CanvasText; color: CanvasText; background-color: Canvas; }
   .ct-app select option, .ct-app select optgroup { color: CanvasText; background: Canvas; }
 }
+
+/* Arcade rule cards: the illustration, copy and selection mark form one native radio. */
+.ct-create .ct-choice-field{padding:0;margin:0;border:0;min-width:0;grid-column:1/-1}
+.ct-create .ct-choice-field>legend{float:none;font-size:13px;font-weight:750;color:#edf1fb;margin:0 0 11px;padding:0}
+.ct-choice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.ct-create .ct-choice-grid .ct-choice-card,.ct-create .ct-toggle-card{position:relative;display:flex;align-items:center;gap:12px;min-height:84px;padding:15px;border:1px solid #62718f;background:linear-gradient(145deg,#333d58,#272f49);border-radius:16px;cursor:pointer;color:#edf1fb;transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease;overflow:hidden;isolation:isolate}
+.ct-create .ct-choice-grid .ct-choice-card:hover,.ct-create .ct-toggle-card:hover{transform:translateY(-3px);border-color:#ccd89b;box-shadow:0 8px 20px #0e142630}
+.ct-create .ct-choice-card.is-selected,.ct-create .ct-toggle-card.is-selected{background:linear-gradient(145deg,#44573d,#344434);border-color:#d8ee96;box-shadow:inset 0 0 0 1px #d8ee96,0 4px 15px #17241426}
+.ct-create .ct-choice-card input[type=radio],.ct-create .ct-toggle-card input[type=checkbox]{position:absolute!important;left:10px;top:10px;opacity:0;width:1px!important;height:1px;min-height:1px;padding:0;pointer-events:none}
+.ct-create .ct-choice-card:has(input:focus-visible),.ct-create .ct-toggle-card:has(input:focus-visible){outline:3px solid #f2d69a;outline-offset:4px}
+.ct-choice-art{position:relative;display:grid;place-items:center;width:46px;height:46px;flex:none;color:#273f40;background:#95e7ef;border-radius:13px;box-shadow:inset 0 2px 0 #ffffff60;transform:rotate(-5deg);transition:transform .2s ease}
+.ct-choice-art-1{background:#c4b2ff;color:#46306d;transform:rotate(5deg)}
+.ct-choice-art-2{background:#ffc091;color:#6d3628}
+.ct-choice-art>i{position:absolute;width:8px;height:8px;background:#f3f5cf;border-radius:3px;right:-3px;top:-3px;transform:rotate(28deg);border:1px solid #ffffff70}
+.ct-choice-card.is-selected .ct-choice-art,.ct-toggle-card.is-selected .ct-choice-art{transform:rotate(0deg) scale(1.06)}
+.ct-choice-copy{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.ct-create .ct-choice-copy>strong{font-size:12px;font-weight:800;color:inherit;line-height:1.45}
+.ct-create .ct-choice-copy>small{font-size:10px;line-height:1.55;color:#c8d2e4;font-weight:500}
+.ct-create .is-selected .ct-choice-copy>small{color:#d2e2c6}
+.ct-choice-check{display:grid;place-items:center;width:19px;height:19px;flex:none;border:1px solid #8d9bb6;border-radius:50%;color:#22331c;background:#26344a}
+.is-selected .ct-choice-check{background:#d8ee96;border-color:#d8ee96}
+.ct-create .ct-field-help{display:block;font-size:11px;color:#bcc8db;line-height:1.6;margin-top:8px}
+.ct-toggle-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:11px;margin:16px 0}
+.ct-toggle-switch{width:35px;height:21px;border-radius:20px;background:#19283e;border:1px solid #8794ad;display:flex;align-items:center;padding:3px;flex:none}
+.ct-toggle-switch>i{width:13px;height:13px;border-radius:50%;background:#a9b4c9;transition:transform .18s ease,background .18s ease}
+.is-selected .ct-toggle-switch{background:#d8ee96;border-color:#d8ee96}.is-selected .ct-toggle-switch>i{background:#364a29;transform:translateX(13px)}
+.ct-create .ct-number-field{min-width:0}
+.ct-number-control{position:relative;width:100%;max-width:290px}
+.ct-create .ct-number-control input[type=number]{width:100%;max-width:none;height:56px;padding-right:52px;font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;border:1px solid #697b9a;background:linear-gradient(110deg,#202c45,#26394a)}
+.ct-number-emblem{position:absolute;right:30px;top:16px;color:#94d6dd;pointer-events:none}
+.ct-create .ct-number-field.is-invalid input,.ct-create input[aria-invalid=true]{border-color:#ffad94;background:#3c2b36}
+.ct-create .ct-field-error{display:block;font-size:11px;line-height:1.6;color:#ffc1aa!important;font-weight:650}
+.ct-create .ct-validation-summary{padding:12px 16px;border:1px solid #c58570;background:#463640;border-radius:12px;margin:12px 0}
+.ct-create .ct-format:disabled{opacity:.7;cursor:not-allowed;filter:saturate(.4)}
+.ct-create .ct-format .ct-game-status-tag{color:#ffdaad;background:#5a4437;border:1px solid #b79468;padding:6px 9px;border-radius:7px;font-size:10px;font-weight:800;align-self:flex-start}
+.ct-create .ct-community-options{border:1px solid #697393;background:#2b3550;padding:20px;border-radius:20px;margin-bottom:25px}
+.ct-create .ct-community-options>legend{font-size:15px;font-weight:800;color:#e1d1ff;padding:0 9px}
+.ct-create .ct-community-options>h3{color:#edf1fb;font-size:15px;margin:20px 0 8px}
+.ct-create .ct-community-options>p{font-size:12px;line-height:1.7}
+@media(max-width:600px){.ct-choice-grid{grid-template-columns:1fr}.ct-toggle-grid{grid-template-columns:1fr}.ct-create .ct-choice-grid .ct-choice-card,.ct-create .ct-toggle-card{min-height:76px;padding:13px}.ct-number-control{max-width:none}.ct-create .ct-community-options{padding:17px 13px}}
+@media(prefers-reduced-motion:reduce){.ct-choice-card,.ct-toggle-card,.ct-choice-art,.ct-toggle-switch>i{transition:none!important}.ct-create .ct-choice-grid .ct-choice-card:hover,.ct-create .ct-toggle-card:hover{transform:none}}
+@media(forced-colors:active){.ct-create .ct-choice-card.is-selected,.ct-create .ct-toggle-card.is-selected{border:3px solid Highlight}.ct-choice-art{color:CanvasText;background:Canvas}.ct-choice-check,.ct-toggle-switch{border-color:CanvasText}.ct-create .ct-field-error{color:CanvasText!important}}

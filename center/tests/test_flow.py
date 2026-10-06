@@ -186,7 +186,7 @@ def test_health_and_catalog(tmp_path):
     with TestClient(make_app(tmp_path)) as client:
         assert client.get(f"{API_PREFIX}/health/live").json()["ok"] is True
         t = client.get(f"{API_PREFIX}/templates").json()
-        assert t["count"] == 19, "the full catalog (release-one + G09-G20)"
+        assert t["count"] == 20, "the full catalog including Arena Duel"
         from center.schema import TEMPLATE_RULES
         ids = {x["templateId"] for x in t["templates"]}
         assert ids == set(TEMPLATE_RULES), "the catalog must list every registered template"
@@ -421,7 +421,7 @@ def test_settlement_is_replayed_to_a_late_joiner(tmp_path):
 
         import asyncio as _asyncio
         rt = app.state.runtimes[room_id]
-        _asyncio.get_event_loop().run_until_complete(rt.finish())  # settle with zero clients
+        client.portal.call(rt.finish)  # settle with zero clients on the app event loop
 
         # A brand-new socket after settlement must receive the replayed settlement frame.
         with client.websocket_connect(f"{API_PREFIX}/ws/rooms/{room_id}") as ws2:

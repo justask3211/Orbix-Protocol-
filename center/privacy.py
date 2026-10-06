@@ -6,6 +6,8 @@ import re
 
 
 def visible_state(value, settings: dict, viewer: str | None = None, owner: str | None = None):
+    if not settings.get('hidePlayers') and not settings.get('hideGuesses'):
+        return value
     if viewer and viewer == owner:
         return value
     if isinstance(value, dict):

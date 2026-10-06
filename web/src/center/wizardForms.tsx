@@ -51,22 +51,29 @@ export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
   'token-catch': {
     label: 'Token Catch',
     fields: [
-      { kind: 'number', key: 'lanes', label: 'Lanes', min: 2, max: 5, half: true, help: 'Mobile players tap a lane to move.' },
+      { kind: 'number', key: 'lanes', label: 'Lanes', min: 3, max: 5, half: true, help: 'Mobile players tap a lane to move.' },
       { kind: 'number', key: 'spawn_per_second', label: 'Falling objects per second', min: 1, max: 8, step: 1, half: true },
       { kind: 'select', key: 'fall_speed', label: 'Fall speed', half: true, options: [{ value: 'slow', label: 'Slow' }, { value: 'normal', label: 'Normal' }, { value: 'fast', label: 'Fast' }] },
-      { kind: 'number', key: 'hazard_chance_pct', label: 'Hazard chance (%)', min: 0, max: 50, half: true, help: 'Hazards cost points — 0 for a friendly room.' },
-      { kind: 'number', key: 'win_threshold', label: 'Instant-win score', min: 5, max: 200, half: true, help: 'The round ends when someone reaches it.' },
-      { kind: 'number', key: 'combo_cap', label: 'Combo multiplier cap', min: 1, max: 10, half: true },
+      { kind: 'number', key: 'hazard_chance_pct', label: 'Bomb drop chance (%)', min: 0, max: 20, half: true, help: 'Bombs scatter half your collected points. Other players can pick up the spill.' },
+      { kind: 'number', key: 'win_threshold', label: 'Minimum qualifying score', min: 1, max: 500, half: true, help: 'Reach this score to qualify. The timed arena continues until the round clock ends.' },
+      { kind: 'number', key: 'combo_cap', label: 'Combo multiplier cap', min: 1, max: 5, half: true },
       { kind: 'number', key: 'top_n', label: 'Paid slots', min: 1, max: 10, half: true },
     ],
   },
   'reaction-duel': {
-    label: 'Reaction Duel',
+    label: 'Rock Paper Scissors Duel',
     fields: [
       { kind: 'select', key: 'rounds', label: 'Best of', half: true, options: [{ value: '3', label: '3 rounds' }, { value: '5', label: '5 rounds' }, { value: '7', label: '7 rounds' }] },
       { kind: 'select', key: 'choice_set', label: 'Move set', half: true, options: [{ value: 'classic', label: 'Rock / paper / scissors' }, { value: 'extended', label: 'Extended (5 moves)' }] },
-      { kind: 'number', key: 'choice_window_seconds', label: 'Commit window (s)', min: 5, max: 30, half: true },
-      { kind: 'number', key: 'reveal_window_seconds', label: 'Reveal window (s)', min: 3, max: 15, half: true },
+      { kind: 'number', key: 'choice_window_seconds', label: 'Commit window (s)', min: 5, max: 20, half: true },
+      { kind: 'number', key: 'reveal_window_seconds', label: 'Reveal window (s)', min: 3, max: 10, half: true },
+    ],
+  },
+  'combat-duel': {
+    label: 'Combat Duel',
+    fields: [
+      {kind:'number',key:'starting_health',label:'Fighter starting health',min:50,max:300,help:'Both fighters start with the same health.'},
+      {kind:'number',key:'attack_cooldown_ms',label:'Attack cooldown (ms)',min:300,max:1000,step:100,help:'Server limits each attack. Move and use shields between strikes.'},
     ],
   },
   'puzzle-sprint': {
@@ -87,12 +94,13 @@ export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
     ],
   },
   'boss-raid': {
-    label: 'Co-op Boss Raid',
+    label: 'Boss Raid Arena',
     fields: [
+      {kind:'select',key:'team_size',label:'Players per crew',options:[{value:'2',label:'Duo · 2'},{value:'3',label:'Trio · 3'},{value:'4',label:'Squad · 4'},{value:'5',label:'Crew · 5'}],help:'Pick a team in the lobby; unassigned players are automatically placed at start.'},
       { kind: 'number', key: 'boss_health', label: 'Boss health', min: 1000, max: 100000, step: 500, half: true },
       { kind: 'select', key: 'reward_rule', label: 'Split the haul by', half: true, options: [{ value: 'proportional', label: 'Contribution share' }, { value: 'top-n', label: 'Top contributors' }, { value: 'milestone', label: 'Equal among finishers' }] },
       { kind: 'number', key: 'action_cooldown_ms', label: 'Hit cooldown (ms)', min: 300, max: 2000, step: 100, half: true },
-      { kind: 'number', key: 'contribution_cap', label: 'Max contribution per player', min: 100, max: 10000, half: true, help: 'Stops one whale soloing the raid.' },
+      { kind: 'number', key: 'contribution_cap', label: 'Max contribution per player', min: 100, max: 10000, half: true, help: 'Each player has a maximum contribution budget.' },
       { kind: 'number', key: 'min_contribution', label: 'Min contribution to earn', min: 0, max: 1000, half: true },
       { kind: 'number', key: 'top_n', label: 'Paid slots', min: 1, max: 10, half: true },
     ],

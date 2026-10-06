@@ -25,6 +25,7 @@ from center.games.runner_detective_mev import (
     MevRushEngine,
 )
 from center.games.rps_duel import RpsDuelEngine
+from center.games.arena import BossArenaEngine, CatchArenaEngine, CombatDuelEngine
 
 ENGINES: dict[str, type[Engine]] = {
     "number-hunt": NumberHuntEngine,
@@ -32,6 +33,7 @@ ENGINES: dict[str, type[Engine]] = {
     "memory-match": MemoryEngine,
     "token-catch": CatchEngine,
     "reaction-duel": DuelEngine,
+    "combat-duel": CombatDuelEngine,
     "puzzle-sprint": PuzzleEngine,
     "hash-hunt": HashHuntEngine,
     "boss-raid": BossEngine,
@@ -48,6 +50,12 @@ ENGINES: dict[str, type[Engine]] = {
     "idle-rig": IdleRigEngine,
     "airdrop-quest": AirdropQuestEngine,
 }
+
+
+def engine_for(config):
+    if getattr(config.rules, 'arena_mode', False):
+        return {'token-catch': CatchArenaEngine, 'boss-raid': BossArenaEngine}[config.template_id]
+    return ENGINES[config.template_id]
 
 __all__ = [
     "ENGINES",

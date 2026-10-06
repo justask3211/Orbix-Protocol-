@@ -33,6 +33,8 @@ from center.store import Store
 from center.community import CommunityService, CommunityError
 from center.privacy import visible_state
 from center.entry_gate import EntryGateVerifier, EntryGateError, DEPLOYED_GATE
+from center.admin_games import mount_admin_games, game_availability, room_archived
+from center.practice import mount_practice
 from center.vault import InsufficientBalance, OnchainVault, VaultError, VaultService, publication_intent
 from center.vault import JsonRpc
 
@@ -177,7 +179,14 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
     store = Store(db_path)
     community = CommunityService(store)
-    app_community_filter = lambda rt, value, viewer=None: visible_state(value, community.public_settings(rt.room_id), viewer, rt.owner)
+    def app_community_filter(rt, value, viewer=None):
+        if viewer == admin:return value
+        cached=getattr(rt,'_community_cache',None)
+        now=time.monotonic()
+        if not cached or now-cached[0]>.5:
+            cached=(now,community.public_settings(rt.room_id))
+            rt._community_cache=cached
+        return visible_state(value,cached[1],viewer,rt.owner)
     if onchain is None and flags.real_burn and flags.vault_token and flags.vault_address:
         # Funded mode: build the on-chain adapter from environment configuration.
         # The signer key never leaves the process; only the deposit path is signed.
@@ -222,7 +231,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         CORSMiddleware,
         allow_origins=origins or ["http://localhost:5173", "http://127.0.0.1:5173"],
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["content-type", "authorization"],
+        allow_headers=["content-type", "authorization", "X-Admin-Proof", "X-Practice-Token"],
     )
 
     # ------------------------------------------------------------------ helpers
@@ -261,7 +270,21 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             runtimes[room_id] = rt
         if rt.config.entry.kind == "erc20":
             rt.entry_verifier = lambda player: app.state.entry_gate.require(rt.room_id, player, rt.owner, rt.config.entry.token, rt.config.entry.amount, payout_mode=rt.config.access.payout_mode, payout_address=rt.config.access.payout_address)
+        operations=getattr(app.state,'admin_games',None)
+        if operations:
+            rt.action_guard=lambda who:operations.assert_can_act(room_id,who,rt.round_id)
+            if rt.engine and getattr(rt.engine,'arena',False):
+                rt.engine.suspended.update(p for rid,p,rnd in operations.suspensions if rid==room_id and rnd==rt.round_id)
         return rt
+
+    def require_game_live(template_id):
+        availability=game_availability(store,template_id)
+        if availability['status']!='live':
+            raise HTTPException(409,detail={'code':'GAME_UNAVAILABLE','message':availability.get('message') or 'This game is under maintenance or offline.'})
+
+    def require_room_active(room_id):
+        if room_archived(store,room_id):
+            raise HTTPException(410,detail={'code':'ROOM_ARCHIVED','message':'This room has been removed from active play.'})
 
     def validate_config(raw: dict) -> RoomConfig:
         try:
@@ -329,6 +352,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                 "modes": meta["modes"],
                 "multiplayer": meta["multiplayer"],
                 "availability": "preview",  # honest: nothing here is a live funded game yet
+                "playStatus": game_availability(store,tid)['status'],
+                "maintenanceMessage": game_availability(store,tid).get('message',''),
             })
         return {"templates": out, "count": len(out)}
 
@@ -428,9 +453,13 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
     # ------------------------------------------------------------------ drafts
 
+    mount_admin_games(app,API_PREFIX,store,community,require_admin,runtime_for,hub,admin)
+    mount_practice(app,API_PREFIX)
+
     @app.post(f"{API_PREFIX}/drafts")
     def create_draft(body: CreateDraft, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        require_game_live(config.template_id)
         draft_id = secrets.token_hex(8)
         drafts[draft_id] = {"id": draft_id, "owner": who, "config": config.model_dump(mode="json", by_alias=True)}
         return {"draftId": draft_id, "config": drafts[draft_id]["config"]}
@@ -453,6 +482,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms")
     def publish_room(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        require_game_live(config.template_id)
         config_hash = "0x" + hashlib.sha256(config.config_hash_input().encode()).hexdigest()
         unit = vault.unit_for(config.access.vault_mode, config.access.token)
         amount = int(config.access.required_amount or 0)
@@ -510,6 +540,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.get(f"{API_PREFIX}/rooms")
     def list_rooms(limit: int = Query(default=50, le=100)) -> dict:
         rows = store.list_rooms(visibility="public", limit=limit)
+        rows=[r for r in rows if not room_archived(store,r['id'])]
         return {
             "rooms": [
                 {
@@ -530,6 +561,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         """Rooms created by the connected wallet, with live status and timing."""
         mine = []
         for row in store.list_rooms(limit=200):
+            if room_archived(store,row['id']):continue
             if row["owner"].lower() != who.lower():
                 continue
             cfg = row["config"]
@@ -561,9 +593,10 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "no such room"})
         # Unlisted rooms are readable by URL but never listed; private rooms hide their rules.
         members = store.participants(room_id)
-        admitted = who == row["owner"] or any(p["who"] == who for p in members)
+        admitted = who == admin or who == row["owner"] or any(p["who"] == who for p in members)
         config = RoomConfig(**row["config"]).public_dict() if row["visibility"] != "private" or admitted else {"name": row["config"]["name"]}
         settings = community.public_settings(room_id)
+        presentation_owner=who if who==admin else row['owner']
         rt = runtime_for(room_id)
         timing = row["config"].get("timing", {}) if isinstance(row["config"], dict) else {}
         return {
@@ -571,14 +604,18 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             "mode": row["mode"], "owner": row["owner"], "config": config,
             "timing": timing,
             "communitySettings": settings,
+            "gameStatus": game_availability(store,row['template_id'])['status'],
+            "maintenanceMessage": game_availability(store,row['template_id']).get('message',''),
+            "archived": room_archived(store,room_id),
+            "characters": visible_state((store.get_setting(f'characters:{room_id}') or {}).get('characters',{}),settings,who,presentation_owner),
             "publicState": app_community_filter(rt, rt.engine.public_state(), who) if rt.engine and (row["visibility"] != "private" or admitted) else None,
             "roundId": rt.round_id, "deadline": rt.deadline(), "serverTimeMs": int(time.time() * 1000),
-            "teams": visible_state((store.get_setting(f"teams:{room_id}") or {}).get("teams", {}), settings, who, row["owner"]),
+            "teams": visible_state((store.get_setting(f"teams:{room_id}") or {}).get("teams", {}), settings, who, presentation_owner),
             "pricingSnapshot": FeeSchedule.from_dict(store.get_setting(f"pricing:{room_id}")).as_dict(),
             "participants": visible_state([
                 {"who": p["who"], "role": p["role"], "ready": bool(p["ready"])}
                 for p in members
-            ] if row["visibility"] != "private" or admitted else [], settings, who, row["owner"]),
+            ] if row["visibility"] != "private" or admitted else [], settings, who, presentation_owner),
         }
 
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/close")
@@ -601,18 +638,38 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         if not any(p["who"] == who and p["role"] == "player" for p in store.participants(room_id)):
             raise HTTPException(403, detail={"code": "NOT_ADMITTED"})
         team = body.get("team")
-        if team not in {"a", "b"}:
+        arena=getattr(rt.config.rules,'arena_mode',False)
+        size=rt.config.rules.team_size if arena else 3
+        team_count=max(2,(rt.config.admission.player_cap+size-1)//size)
+        choices={f'team-{i+1}' for i in range(team_count)} if arena else {'a','b'}
+        if team not in choices:
             raise HTTPException(422, detail={"code": "BAD_TEAM"})
         # One synchronous transaction section in the single-authority process.
         teams = (store.get_setting(f"teams:{room_id}") or {}).get("teams", {})
         active = {p["who"] for p in store.participants(room_id) if p["role"] == "player"}
         teams = {p: t for p, t in teams.items() if p in active}
-        if sum(p != who and t == team for p, t in teams.items()) >= 3:
+        if sum(p != who and t == team for p, t in teams.items()) >= size:
             raise HTTPException(409, detail={"code": "TEAM_FULL"})
         teams[who] = team
         store.set_setting(f"teams:{room_id}", {"teams": teams})
         store.set_ready(room_id, who, False)
         return {"teams": teams}
+
+    @app.post(f'{API_PREFIX}/rooms/{{room_id}}/character')
+    def choose_character(room_id:str,body:dict,who:str=Depends(require_wallet)):
+        from center.games.arena import CHARACTERS
+        rt=runtime_for(room_id)
+        require_room_active(room_id)
+        if rt.status not in lc.JOINABLE:
+            raise HTTPException(409,detail={'code':'CHARACTERS_FROZEN','message':'Choose your character before the match starts.'})
+        if not any(p['who']==who and p['role']=='player' for p in store.participants(room_id)):
+            raise HTTPException(403,detail={'code':'NOT_ADMITTED'})
+        character=body.get('character')
+        if character not in CHARACTERS:raise HTTPException(422,detail={'code':'UNKNOWN_CHARACTER'})
+        mapping=(store.get_setting(f'characters:{room_id}') or {}).get('characters',{})
+        mapping[who]=character
+        store.set_setting(f'characters:{room_id}',{'characters':mapping})
+        return {'characters':mapping}
 
     @app.get(f"{API_PREFIX}/rooms/{{room_id}}/community")
     def community_snapshot(room_id: str, after: int = 0, who: str = Depends(require_wallet)):
@@ -620,7 +677,9 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
     @app.patch(f"{API_PREFIX}/rooms/{{room_id}}/community/settings")
     def community_settings(room_id: str, body: dict, who: str = Depends(require_wallet)):
-        return community.update_settings(room_id, who, body)
+        result=community.update_settings(room_id, who, body)
+        runtime_for(room_id)._community_cache=None
+        return result
 
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/community/messages")
     def community_post(room_id: str, body: dict, who: str = Depends(require_wallet)):
@@ -664,6 +723,10 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/join")
     def join_room(room_id: str, body: JoinBody, who: str = Depends(require_wallet)) -> dict:
         rt = runtime_for(room_id)
+        require_room_active(room_id)
+        if rt.status != lc.RUNNING or not any(p['who']==who for p in store.participants(room_id)):
+            require_game_live(rt.config.template_id)
+        app.state.admin_games.assert_can_act(room_id,who,rt.round_id)
         community.assert_can_join(room_id, who)
         try:
             result = rt.join(who, role=body.role, invite=body.invite)
@@ -688,6 +751,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/start")
     async def start(room_id: str, who: str = Depends(require_wallet)) -> dict:
         rt = runtime_for(room_id)
+        require_room_active(room_id)
+        require_game_live(rt.config.template_id)
         if rt.owner != who:
             raise HTTPException(403, detail={"code": "FORBIDDEN", "message": "only the host may start"})
         try:
