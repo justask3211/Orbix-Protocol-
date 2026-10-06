@@ -1,106 +1,135 @@
-// Admin panel: configure the platform fee schedule the server enforces.
-// Admin identity = the exact admin wallet + a single-use signed proof
-// (server checks both; a lookalike page or address suffix proves nothing).
-
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { Eye, Gamepad2, ShieldCheck, Sparkles, Users, Wrench, Archive, RefreshCw, Radio, Search, MessageSquare } from 'lucide-react'
 import { center, explainError } from './api'
-import type { SessionState } from './session'
+import { FEATURED_GAMES } from './featuredGames'
+import { GameArt } from './gameArt'
+import { shortAddress, type SessionState } from './session'
+import './adminGames.css'
 
-type Pricing = { pricing: { creatorFee: number; joinerFee: number }; caps?: Record<string, number>; admin?: string; chainId?: number }
+type Pricing = Awaited<ReturnType<typeof center.adminPricing>>
+type AdminRoom = Awaited<ReturnType<typeof center.adminRooms>>['rooms'][number]
+type Observer = Awaited<ReturnType<typeof center.adminRoomObserve>>
+type Availability = Awaited<ReturnType<typeof center.adminGames>>['games'][number]
 
-async function adminProof(session: SessionState, nonce: string): Promise<string> {
-  // generated wallet: sign locally. injected: window.ethereum personal_sign.
+/** Each destructive/control change obtains a distinct, single-use admin proof. */
+async function signedProof(session: SessionState): Promise<string> {
+  if (!session.token || !session.address) throw new Error('Connect the administrator wallet first.')
+  const { nonce, message } = await center.adminNonce(session.token, session.address)
+  let signature: string
   if (session.kind === 'generated') {
     const { loadGeneratedAccount } = await import('./session')
-    const acct = loadGeneratedAccount()
-    if (!acct) throw new Error('no saved wallet')
-    return acct.signMessage({ message: `Orbix Center admin action\nnonce: ${nonce}` })
+    const account = loadGeneratedAccount()
+    if (!account || account.address.toLowerCase() !== session.address.toLowerCase()) throw new Error('Saved wallet does not match the connected administrator.')
+    signature = await account.signMessage({ message })
+  } else {
+    const eth = (window as any).ethereum
+    if (!eth) throw new Error('Open your wallet to sign this change.')
+    signature = await eth.request({ method: 'personal_sign', params: [message, session.address] })
   }
-  const eth = (window as any).ethereum
-  if (!eth) throw new Error('no wallet to sign with')
-  return eth.request({ method: 'personal_sign', params: [`Orbix Center admin action\nnonce: ${nonce}`, session.address] })
+  return `${nonce}:${signature}`
+}
+
+function useAdminAction(session: SessionState) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const run = async (job: (proof: string) => Promise<unknown>, success: string, after?: () => void) => {
+    if (!session.token || busy) return
+    setBusy(true); setError(''); setMessage('')
+    try { await job(await signedProof(session)); setMessage(success); after?.() }
+    catch (e) { setError(explainError(e)) }
+    finally { setBusy(false) }
+  }
+  return { busy, error, message, run }
+}
+
+export function AdminRoomTools({ roomId, session, roomStatus, onChanged, onChange }: {
+  roomId: string; session: SessionState; roomStatus?: string; onChanged?: () => void; onChange?: () => void
+}) {
+  const [data, setData] = useState<Observer | null>(null)
+  const [loadError, setLoadError] = useState('')
+  const [hint, setHint] = useState('')
+  const action = useAdminAction(session)
+  const refresh = useCallback(async () => {
+    if (!session.token) return
+    try { setData(await center.adminRoomObserve(roomId, session.token)); setLoadError('') }
+    catch (e) { setLoadError(explainError(e)) }
+  }, [roomId, session.token])
+  useEffect(() => {
+    let active = true, inFlight = false
+    const poll = async () => { if (!active || inFlight || document.hidden) return; inFlight = true; try { await refresh() } finally { inFlight = false } }
+    void poll(); const timer = setInterval(poll, 2500)
+    return () => { active = false; clearInterval(timer) }
+  }, [refresh])
+  const mutate = (body: Record<string, unknown>, success: string) => action.run(
+    (proof) => center.adminRoomAction(roomId, session.token!, proof, body), success,
+    () => { void refresh(); onChanged?.(); onChange?.() },
+  )
+  const status = data?.status ?? roomStatus
+  const open = status === 'registration' || status === 'ready' || status === 'running'
+  return <section className="ag-room-tools" aria-label="Administrator room controls">
+    <div className="ag-tools-head"><span className="ag-icon"><ShieldCheck size={23}/></span><div><h2>Mission control</h2><p>Hidden observation · no player slot or entry charge</p></div><span className="ag-badge"><Eye size={14}/> Observer</span></div>
+    {loadError && <p className="ag-error" role="alert">{loadError}</p>}
+    {data && <>
+      <div className="ag-control-row">{(['muteChat', 'hidePlayers', 'hideGuesses'] as const).map(key => <button key={key} className={`ag-switch ${data.community.settings[key] ? 'is-on' : ''}`} aria-pressed={data.community.settings[key]} disabled={action.busy} onClick={() => void mutate({ operation: 'settings', settings: { [key]: !data.community.settings[key] } }, 'Room controls updated.')}><span className="ag-toggle"/>{key === 'muteChat' ? 'Mute chat' : key === 'hidePlayers' ? 'Hide player names' : 'Hide guesses'}</button>)}</div>
+      <form className="ag-hint-form" onSubmit={e => { e.preventDefault(); if (hint.trim()) void mutate({ operation: 'hint', text: hint }, 'Clue published to the room.') }}><label htmlFor="admin-room-clue">Publish an administrator clue</label><div><input id="admin-room-clue" maxLength={500} value={hint} onChange={e => setHint(e.target.value)} placeholder="Give the players a helpful clue…" disabled={!open}/><button className="ag-primary" disabled={action.busy || !open || !hint.trim()}><Sparkles size={17}/> Send clue</button></div></form>
+      <p className="ag-note">Live kick suspends controls for this round. Recorded scores and reward records remain intact. Bans also block re-entry.</p>
+      <div className="ag-player-list">{data.roster.players.map(player => <div className="ag-player" key={player.wallet}><span className="ag-player-avatar">{player.name.slice(0, 1).toUpperCase()}</span><div><strong>{player.name}</strong><code title={player.wallet}>{player.wallet}</code></div><span className="ag-badge">{player.role}</span>{player.wallet.toLowerCase() !== data.owner.toLowerCase() && player.wallet.toLowerCase() !== session.address?.toLowerCase() && open && <div className="ag-player-actions"><button disabled={action.busy} onClick={() => void mutate({ operation: 'kick', wallet: player.wallet }, 'Player controls suspended or lobby player removed.')}>Kick</button><button className="ag-danger" disabled={action.busy} onClick={() => void mutate({ operation: 'ban', wallet: player.wallet }, 'Wallet banned from this room.')}>Ban</button></div>}</div>)}</div>
+      {data.roster.banned.length > 0 && <details><summary>Banned wallets ({data.roster.banned.length})</summary>{data.roster.banned.map(player => <div className="ag-player" key={player.wallet}><div><strong>{player.name}</strong><code>{player.wallet}</code></div><button disabled={action.busy} onClick={() => void mutate({ operation: 'unban', wallet: player.wallet }, 'Ban removed.')}>Unban</button></div>)}</details>}
+      <details className="ag-messages"><summary><MessageSquare size={16}/> Moderate room messages</summary>{data.community.messages.filter(m => !m.deleted).map(m => <div className="ag-message" key={m.id}><div><strong>{m.name} · {m.kind}</strong><p>{m.text}</p></div><button disabled={action.busy} onClick={() => void mutate({ operation: 'delete-message', messageId: m.id }, 'Message removed from the conversation.')}>Delete</button></div>)}</details>
+      <button className="ag-secondary" disabled={action.busy || (!data.archived && status === 'running')} onClick={() => void mutate({ operation: 'archive', archived: !data.archived }, data.archived ? 'Room restored.' : 'Room removed from active discovery; financial records retained.')}><Archive size={16}/>{data.archived ? 'Restore room' : 'Remove room from active play'}</button>
+    </>}
+    {action.busy && <p className="ag-note" role="status">Approve the fresh signature in your wallet…</p>}
+    {action.error && <p className="ag-error" role="alert">{action.error}</p>}
+    {action.message && <p className="ag-success" role="status">{action.message}</p>}
+  </section>
 }
 
 export function AdminPanel({ session }: { session: SessionState }) {
-  const [data, setData] = useState<Pricing | null>(null)
-  const [creatorFee, setCreatorFee] = useState('')
-  const [joinerFee, setJoinerFee] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState<string | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-
-  useEffect(() => {
+  const [pricing, setPricing] = useState<Pricing | null>(null)
+  const [games, setGames] = useState<Availability[]>([])
+  const [rooms, setRooms] = useState<AdminRoom[]>([])
+  const [total, setTotal] = useState(0)
+  const [offset, setOffset] = useState(0)
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('active')
+  const [creatorFee, setCreatorFee] = useState('0')
+  const [joinerFee, setJoinerFee] = useState('0')
+  const [loadError, setLoadError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const action = useAdminAction(session)
+  const refresh = useCallback(async () => {
     if (!session.token) return
-    center.adminPricing(session.token).then((d) => {
-      const p = d as Pricing
-      setData(p)
-      setCreatorFee(String(p.pricing?.creatorFee ?? 0))
-      setJoinerFee(String(p.pricing?.joinerFee ?? 0))
-    }).catch((e) => setErr(explainError(e)))
-  }, [session.token])
-
-  const save = async () => {
-    if (!session.token) return
-    setBusy(true); setMsg(null); setErr(null)
+    setLoading(true)
     try {
-      const { nonce } = await center.adminNonce(session.token)
-      const signature = await adminProof(session, nonce)
-      const d = await center.adminUpdatePricing(session.token, signature, {
-        creatorFee: Number(creatorFee) || 0,
-        joinerFee: Number(joinerFee) || 0,
-      })
-      setData(d as Pricing)
-      setMsg('Saved. Rooms published from now on use these limits; open rooms keep their frozen snapshot. The change is in the audit hash chain.')
-    } catch (e) {
-      setErr(explainError(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const isAdmin = Boolean(session.address && data?.admin && session.address.toLowerCase() === data.admin.toLowerCase())
-
-  return (
-    <div className="ct-page">
-      <header className="ct-head">
-        <div>
-          <h1>Admin</h1>
-          <p className="sub">Platform-wide fee schedule. Changes apply to rooms published after the save; open rooms keep their frozen snapshot. Every mutation is signed by you and written to the tamper-evident audit chain.</p>
-        </div>
-      </header>
-
-      {!session.token && <p className="muted">Sign in with the admin wallet to configure anything.</p>}
-
-      {session.token && !isAdmin && data && (
-        <p className="err">Connected wallet is not the pricing authority. The server checks the exact admin address and a fresh single-use signature — a lookalike page or address suffix proves nothing.</p>
-      )}
-
-      {session.token && data && (
-        <>
-          <div className="ad-grid">
-            <div className="ad-card">
-              <h4>Room creation fee (ORBIX)</h4>
-              <p className="sub">Deducted from the creator's vault when a room is published. Set 0 for free creation during onboarding.</p>
-              <input type="number" min={0} max={data.caps?.creatorFeeCap ?? 100000} value={creatorFee} onChange={(e) => setCreatorFee(e.target.value)} aria-label="Room creation fee" />
-            </div>
-            <div className="ad-card">
-              <h4>Joiner fee (ORBIX)</h4>
-              <p className="sub">Per-player fee for every join unless the creator absorbs it. Capped against abuse.</p>
-              <input type="number" min={0} max={data.caps?.joinerFeeCap ?? 100000} value={joinerFee} onChange={(e) => setJoinerFee(e.target.value)} aria-label="Joiner fee" />
-            </div>
-          </div>
-
-          <div className="ct-actions" style={{ marginTop: 16 }}>
-            <button className="btn-primary" onClick={save} disabled={busy || !isAdmin}>
-              {busy ? 'Signing & saving…' : 'Sign & save limits'}
-            </button>
-            {data.chainId && <span className="ad-pill warn">chain {data.chainId} · hash-chained audit</span>}
-            {isAdmin && <span className="ad-pill ok">admin wallet verified</span>}
-          </div>
-          {msg && <p className="wz-why">{msg}</p>}
-          {err && <p className="err">{err}</p>}
-        </>
-      )}
-    </div>
-  )
+      const [p, g, r] = await Promise.all([center.adminPricing(session.token), center.adminGames(session.token), center.adminRooms(session.token, offset)])
+      setPricing(p); setCreatorFee(String(p.pricing.creatorFee)); setJoinerFee(String(p.pricing.joinerFee)); setGames(g.games); setRooms(r.rooms); setTotal(r.total); setLoadError('')
+    } catch (e) { setLoadError(explainError(e)) }
+    finally { setLoading(false) }
+  }, [session.token, offset])
+  useEffect(() => { void refresh() }, [refresh])
+  const verified = Boolean(session.address && pricing?.admin.toLowerCase() === session.address.toLowerCase())
+  const visible = rooms.filter(r => (filter === 'all' || filter === 'active' && !r.archived && ['registration', 'ready', 'running'].includes(r.status) || filter === 'archived' && r.archived) && `${r.name} ${r.roomId} ${r.owner} ${r.templateId}`.toLowerCase().includes(search.toLowerCase()))
+  return <div className="ct-page ag-page">
+    <header className="ag-hero"><div className="ag-hero-orbit" aria-hidden="true"/><span className="ag-eyebrow"><ShieldCheck size={15}/> Orbix operations</span><h1>Your games.<br/><em>Your control room.</em></h1><p>Observe matches, guide players, and keep the arcade running smoothly.</p><div className="ag-hero-status"><span className="ag-badge"><Radio size={14}/>{verified ? 'Administrator verified' : 'Administrator wallet required'}</span><span className="ag-badge">{total} rooms</span><span className="ag-badge">Signed changes · audit trail</span></div></header>
+    {!session.token && <div className="ag-empty"><ShieldCheck size={32}/><h2>Connect the administrator wallet</h2><p>Use Connect Wallet in the header to open game operations.</p></div>}
+    {loadError && <div className="ag-error" role="alert">{loadError}<button onClick={() => void refresh()} disabled={loading}>Retry</button></div>}
+    {session.token && verified && <>
+      <div className="ag-section-head"><div><span className="ag-eyebrow">The arcade</span><h2>Game availability</h2></div><button className="ag-secondary" disabled={loading} onClick={() => void refresh()}><RefreshCw size={16}/>{loading ? 'Refreshing…' : 'Refresh'}</button></div>
+      <div className="ag-game-grid">{FEATURED_GAMES.map(game => {
+        const availability = games.find(g => g.templateId === game.id)
+        const current = availability?.status ?? 'live'
+        return <article className="ag-game-card" key={game.id}><div className="ag-game-art"><GameArt templateId={game.id}/></div><div className="ag-game-body"><span className={`ag-state ag-state-${current}`}>{current === 'live' ? <Radio size={13}/> : <Wrench size={13}/>} {current}</span><h3>{game.name}</h3><p>{game.description}</p><div className="ag-availability" role="group" aria-label={`${game.name} availability`}>{(['live', 'maintenance', 'offline'] as const).map(status => <button aria-pressed={current === status} className={current === status ? 'selected' : ''} key={status} disabled={action.busy} onClick={() => void action.run(proof => center.adminGameUpdate(game.id, session.token!, proof, { status, message: status === 'maintenance' ? 'A quick tune-up. Check back soon.' : '' }), `${game.name} is now ${status}.`, () => void refresh())}>{status === 'live' ? 'Live' : status === 'maintenance' ? 'Tune-up' : 'Offline'}</button>)}</div><a className="ag-trial" href={`/center/practice/${game.id}`}><Gamepad2 size={17}/> Trial play <span>No room or wallet</span></a></div></article>
+      })}</div>
+      <div className="ag-section-head"><div><span className="ag-eyebrow">Live oversight</span><h2>Every room, one view</h2></div><button className="ag-secondary" disabled={action.busy} onClick={() => void action.run(proof => center.adminArchiveUnused(session.token!, proof), 'Unused empty rooms older than 24 hours archived.', () => void refresh())}><Archive size={16}/> Clean unused rooms</button></div>
+      <p className="ag-note">Private rooms are included. Hidden observation uses no player slot. Removing a room archives it; claims, entry payments, and audit records are retained.</p>
+      <div className="ag-room-filters"><label><Search size={17}/><input aria-label="Search administrator rooms" placeholder="Search room, game, or wallet…" value={search} onChange={e => setSearch(e.target.value)}/></label><div role="group" aria-label="Room status filter">{['active', 'all', 'archived'].map(value => <button key={value} className={filter === value ? 'selected' : ''} onClick={() => setFilter(value)}>{value}</button>)}</div></div>
+      <div className="ag-room-list">{visible.map(room => <article className="ag-room-card" key={room.roomId}><div className="ag-room-icon"><Gamepad2 size={23}/></div><div className="ag-room-copy"><h3>{room.name}</h3><p>{room.templateId} · {room.visibility} · {shortAddress(room.owner)}</p><code>{room.roomId}</code></div><span className="ag-badge"><Users size={14}/>{room.players}</span><span className={`ag-state ag-state-${room.status === 'running' ? 'live' : 'maintenance'}`}>{room.archived ? 'Archived' : room.status}</span><a className="ag-primary" href={`/center/rooms/${room.roomId}?observe=1`}><Eye size={16}/> Observe</a><button className="ag-secondary" disabled={action.busy || !room.archived && room.status === 'running'} title={room.status === 'running' ? 'Finish the match before archiving.' : 'Retains all payment and settlement records.'} onClick={() => void action.run(proof => center.adminRoomAction(room.roomId, session.token!, proof, { operation: 'archive', archived: !room.archived }), room.archived ? 'Room restored.' : 'Room archived.', () => void refresh())}>{room.archived ? 'Restore' : 'Remove'}</button></article>)}{!visible.length && <div className="ag-empty"><Search size={28}/><h3>No rooms in this view</h3><p>Try another filter or search.</p></div>}</div>
+      <div className="ag-pagination"><button disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - 100))}>Previous</button><span>{offset + 1}–{Math.min(offset + 100, total)} of {total}</span><button disabled={offset + 100 >= total || loading} onClick={() => setOffset(offset + 100)}>Next</button></div>
+      <details className="ag-fees"><summary><ShieldCheck size={18}/> Platform fees</summary><p>Fee changes apply to newly published rooms. Existing rooms keep their saved schedule.</p><div className="ag-fee-grid"><label>Room creation fee (ORBIX)<input type="number" min={0} max={pricing?.caps.creatorFeeCap ?? 100000} value={creatorFee} onChange={e => setCreatorFee(e.target.value)}/></label><label>Joiner fee (ORBIX)<input type="number" min={0} max={pricing?.caps.joinerFeeCap ?? 100000} value={joinerFee} onChange={e => setJoinerFee(e.target.value)}/></label></div><button className="ag-primary" disabled={action.busy || !creatorFee || !joinerFee || !Number.isInteger(Number(creatorFee)) || !Number.isInteger(Number(joinerFee)) || Number(creatorFee) < 0 || Number(joinerFee) < 0} onClick={() => void action.run(proof => center.adminUpdatePricing(session.token!, proof, { creatorFee: Number(creatorFee), joinerFee: Number(joinerFee) }), 'Fee schedule saved.', () => void refresh())}>Sign & save fees</button></details>
+    </>}
+    {action.busy && <p className="ag-note" role="status">Approve the fresh signature in your wallet…</p>}
+    {action.error && <p className="ag-error" role="alert">{action.error}</p>}
+    {action.message && <p className="ag-success" role="status">{action.message}</p>}
+  </div>
 }

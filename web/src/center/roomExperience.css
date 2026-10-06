@@ -116,3 +116,28 @@
   .ct-game-room .ct-team-picker > button { margin: 4px 6px 0 0; }
 }
 @media (prefers-reduced-motion: reduce) { .ct-game-room .share-copy { transition: none; } }
+
+.ct-game-room [hidden]{display:none!important}
+.ct-play-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:12px}
+.ct-play-panel-heading>h2{margin:0;font-size:17px;color:#f2f3e8}
+.ct-play-panel-heading>.btn-ghost{min-height:40px;font-size:11px;padding:9px 13px}
+.ct-game-room .ct-team-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px}
+.ct-game-room .ct-team-grid button{min-height:45px;border-radius:12px;padding:10px;font-size:12px;font-weight:750}
+.ct-game-room .ct-team-grid button:nth-child(3n+1){border-color:#bea7ee;color:#e1d2ff}
+.ct-game-room .ct-team-grid button:nth-child(3n+2){border-color:#9acdbb;color:#caf5de}
+.ct-game-room .ct-team-grid button:nth-child(3n){border-color:#dfb28c;color:#ffe0b8}
+.ct-game-room .ct-team-grid .btn-primary{color:#22312e!important;border-color:#d4ed98!important}
+.ct-observer-note{padding:13px 17px;border:1px solid #bda6e8;background:#39364f;color:#e4d4ff;border-radius:12px;font-size:12px;line-height:1.6}
+.ct-app:has(.ct-play-expanded)>.ct-topbar,.ct-app:has(.ct-play-expanded)>.ct-footer{display:none}
+.ct-game-room.ct-play-expanded{position:fixed;inset:0;z-index:80;overflow:auto;overscroll-behavior:contain;width:100%;max-width:none;background:#182139;margin:0;padding:0 22px 30px;gap:17px;display:flex;flex-direction:column}
+.ct-game-room.ct-play-expanded>.ct-head{display:none}
+.ct-immersive-toolbar{display:flex;align-items:center;justify-content:space-between;gap:15px;position:sticky;top:0;z-index:5;padding:12px 0;background:#182139;min-height:64px;flex:none}
+.ct-immersive-toolbar>div{display:flex;align-items:center;gap:10px;min-width:0;color:#ddebab}
+.ct-immersive-toolbar strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48vw}
+.ct-immersive-toolbar>.btn-ghost{min-height:40px;padding:9px 14px;font-size:12px;border-radius:12px;flex:none}
+.ct-game-room.ct-play-expanded>.ct-room-play{padding:0;margin:0;border:0;background:transparent;border-radius:0;flex:none}
+.ct-play-expanded .ct-room-play>.gp{border-radius:20px}
+.ct-play-expanded .gp-scene{height:auto;min-height:clamp(320px,55dvh,660px)}
+.ct-play-expanded .ow-canvas-wrap,.ct-play-expanded .gp-arena .ar-scene .ow-canvas-wrap{height:clamp(350px,60dvh,690px)}
+.ct-play-expanded .room-community{margin-top:0;flex:none}
+@media(max-width:720px){.ct-game-room.ct-play-expanded{padding:0 10px 24px;gap:12px}.ct-immersive-toolbar{gap:8px;min-height:60px}.ct-immersive-toolbar strong{font-size:12px;max-width:44vw}.ct-immersive-toolbar .sock{display:none}.ct-immersive-toolbar>.btn-ghost{padding:9px 10px;font-size:11px}.ct-play-expanded .gp-scene{height:auto;min-height:clamp(290px,47dvh,500px)}.ct-play-expanded .ow-canvas-wrap,.ct-play-expanded .gp-arena .ar-scene .ow-canvas-wrap{height:clamp(310px,50dvh,540px)}}

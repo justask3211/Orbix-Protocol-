@@ -196,7 +196,20 @@ function QuestScene({ hue, seed }: SceneProps) {
   )
 }
 
+function CombatScene() {
+  return <svg className="gcard-art" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <rect width={W} height={H} fill="#514694"/><ellipse cx={W/2} cy={H*.8} rx={W*.43} ry={H*.28} fill="#9b8bd7"/>
+    {[{x:W*.3,c:'#9be5e9',flip:1},{x:W*.7,c:'#ffae96',flip:-1}].map(({x,c,flip})=><g key={x} transform={`translate(${x},${H*.52}) scale(${flip},1)`}>
+      <ellipse cy={H*.23} rx="31" ry="9" fill="#3b2d77" opacity=".35"/><rect x="-18" y="6" width="36" height="32" rx="13" fill={c}/><circle cy="-10" r="23" fill={c}/>
+      <path d="M-19-20L-18-40L-4-28M7-27L19-40L21-17" fill={c}/><circle cx="8" cy="-12" r="3" fill="#243047"/><circle cx="-7" cy="-12" r="3" fill="#243047"/>
+      <path d="M16 17L47-10" stroke="#e9eeff" strokeWidth="9" strokeLinecap="round"/><path d="M28 14L40 26" stroke="#e7c467" strokeWidth="6"/>
+      <rect x="-15" y="35" width="12" height="20" rx="5" fill="#354562"/><rect x="5" y="35" width="12" height="20" rx="5" fill="#354562"/>
+    </g>)}<text x={W/2} y="29" textAnchor="middle" fontSize="18" fontWeight="800" fill="#f0eaff">MEET IN THE ARENA</text>
+  </svg>
+}
+
 const SCENES: Record<string, (p: SceneProps) => ReactElement> = {
+  'combat-duel': CombatScene,
   'number-hunt': TargetScene,
   'live-quiz': TargetScene,
   'memory-match': GridScene,

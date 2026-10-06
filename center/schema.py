@@ -34,7 +34,7 @@ class NumberHuntRules(Strict):
     min: int
     max: int
     guess_budget: int = Field(ge=1, le=50)
-    duration_seconds: int = Field(ge=15, le=300)
+    duration_seconds: int = Field(ge=15, le=600)
     hints: Literal["off", "on"] = "off"
     hint_visibility: Literal["private", "public"] = "public"
     target_count: int = Field(default=1, ge=1, le=20)
@@ -103,7 +103,8 @@ class MemoryRules(Strict):
 
 class CatchRules(Strict):
     template_id: Literal["token-catch"] = Field(default="token-catch", alias="templateId")
-    duration_seconds: int = Field(ge=15, le=120)
+    duration_seconds: int = Field(ge=15, le=600)
+    arena_mode: bool = False
     spawn_per_second: int = Field(ge=1, le=8)
     lanes: int = Field(ge=3, le=5)
     fall_speed: Literal["slow", "normal", "fast"] = "normal"
@@ -122,6 +123,15 @@ class DuelRules(Strict):
     choice_window_seconds: int = Field(default=10, ge=5, le=20)
     reveal_window_seconds: int = Field(default=5, ge=3, le=10)
     choice_set: Literal["classic", "extended"] = "classic"
+
+
+class CombatRules(Strict):
+    template_id: Literal["combat-duel"] = Field(default="combat-duel", alias="templateId")
+    duration_seconds: int = Field(default=180, ge=15, le=600)
+    min_players: int = Field(default=2, ge=2, le=2)
+    max_players: int = Field(default=2, ge=2, le=2)
+    starting_health: int = Field(default=100, ge=50, le=300)
+    attack_cooldown_ms: int = Field(default=500, ge=300, le=1000)
 
 
 class PuzzleRules(Strict):
@@ -151,7 +161,9 @@ class BossRules(Strict):
     template_id: Literal["boss-raid"] = Field(default="boss-raid", alias="templateId")
     min_players: int = Field(default=2, ge=2, le=100)
     max_players: int = Field(ge=2, le=100)
-    duration_seconds: int = Field(ge=60, le=180)
+    duration_seconds: int = Field(ge=60, le=600)
+    arena_mode: bool = False
+    team_size: int = Field(default=3, ge=2, le=5)
     boss_health: int = Field(default=10000, ge=100, le=10_000_000)
     action_cooldown_ms: int = Field(default=500, ge=300, le=2000)
     contribution_cap: int = Field(default=1000, ge=10, le=1_000_000)
@@ -169,6 +181,7 @@ TEMPLATE_RULES: dict[str, type[BaseModel]] = {
     "memory-match": MemoryRules,
     "token-catch": CatchRules,
     "reaction-duel": DuelRules,
+    "combat-duel": CombatRules,
     "puzzle-sprint": PuzzleRules,
     "hash-hunt": HashHuntRules,
     "boss-raid": BossRules,
@@ -214,7 +227,7 @@ TEMPLATE_RULES.update({
 RulesUnion = Annotated[
     Union[
         NumberHuntRules, QuizRules, MemoryRules, CatchRules, DuelRules, PuzzleRules,
-        HashHuntRules, BossRules,
+        HashHuntRules, BossRules, CombatRules,
         RpsDuelRules, RewardGridRules, LogoBingoRules, PatternRecallRules, TypingSprintRules,
         MazeRaceRules, LevelRunnerRules, ContractDetectiveRules, MevRushRules, IdleRigRules,
         AirdropQuestRules,
@@ -228,7 +241,8 @@ TEMPLATE_META: dict[str, dict] = {
     "live-quiz": {"label": "Live Quiz", "blurb": "Timed questions, live leaderboard.", "modes": "accuracy / +speed", "multiplayer": True},
     "memory-match": {"label": "Memory Match", "blurb": "Flip and match every pair.", "modes": "moves / time", "multiplayer": False},
     "token-catch": {"label": "Token Catch", "blurb": "Catch the falling tokens, dodge the hazards.", "modes": "3-5 lanes", "multiplayer": True},
-    "reaction-duel": {"label": "Reaction Duel", "blurb": "Head-to-head reaction rounds, best of 3/5/7.", "modes": "commits", "multiplayer": True},
+    "reaction-duel": {"label": "Rock Paper Scissors Duel", "blurb": "Seal your choice, then reveal. Best of 3/5/7.", "modes": "commits", "multiplayer": True},
+    "combat-duel": {"label": "Arena Duel", "blurb": "Move, block and battle with fists, swords and spears.", "modes": "1 vs 1 arena", "multiplayer": True},
     "puzzle-sprint": {"label": "Puzzle Sprint", "blurb": "Solve the sliding puzzle against the clock.", "modes": "3x3 / 4x4", "multiplayer": False},
     "hash-hunt": {"label": "Hash Hunt", "blurb": "Proof-of-work race. Bots and agents welcome.", "modes": "first-valid / best-effort", "multiplayer": True},
     "boss-raid": {"label": "Co-op Boss Raid", "blurb": "Everyone hits the same boss. Contribution decides the split.", "modes": "2-100 players", "multiplayer": True},
@@ -401,7 +415,9 @@ class RoomConfig(Strict):
             raise ValueError(f"{self.template_id} is single-player; player_cap must be 1")
         if self.admission.min_ready_to_start > self.admission.player_cap:
             raise ValueError("min_ready_to_start cannot exceed player_cap")
-        if isinstance(self.rules, BossRules) and self.rules.team_mode == "teams":
+        if getattr(self.rules, "arena_mode", False) and self.admission.player_cap > 50:
+            raise ValueError("movement arenas support at most 50 players")
+        if isinstance(self.rules, BossRules) and self.rules.team_mode == "teams" and not self.rules.arena_mode:
             if self.admission.player_cap != 6 or self.admission.min_ready_to_start != 6:
                 raise ValueError("team raids require six players, with all six ready")
         return self

@@ -1,7 +1,8 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from 'react'
 import './worlds.css'
+import type { ArenaInputRef } from '../ArenaControls'
 
-export type WorldGame = 'number-hunt' | 'boss-raid' | 'token-catch' | 'reaction-duel'
+export type WorldGame = 'number-hunt' | 'boss-raid' | 'token-catch' | 'reaction-duel' | 'combat-duel'
 export type GameWorldProps = {
   game: WorldGame
   state: Record<string, any>
@@ -11,14 +12,17 @@ export type GameWorldProps = {
   onLane?: (lane: number) => void
   onAttack?: () => void
   onCatch?: (spawnIndex: number) => void
+  inputRef?: ArenaInputRef
+  onAim?: (yaw: number) => void
 }
 
 const Scene = lazy(() => import('./WorldScene'))
 const WORLDS: Record<WorldGame, { title: string; note: string }> = {
   'number-hunt': { title: 'Whisperleaf Islands', note: 'Explore the mystery. Every guess is checked by the game server.' },
   'boss-raid': { title: 'Crystalheart Arena', note: 'Rally your crew. The crystal guardian reacts to confirmed damage.' },
-  'token-catch': { title: 'Sunshine Runway', note: 'Choose a lane, then catch a visible token. Watch out for hazards.' },
+  'token-catch': { title: 'Sunnydrop Park', note: 'Roam the park, collect falling coins and dodge bombs. Server-confirmed pickups count.' },
   'reaction-duel': { title: 'Twinlight Coliseum', note: 'Choose, seal, reveal. Your opponent’s move stays hidden until resolution.' },
+  'combat-duel': { title: 'Twinlight Arena', note: 'Move, guard and strike. The server checks distance, damage and the final knockout.' },
 }
 
 class WorldBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
@@ -33,7 +37,9 @@ export default function GameWorld(props: GameWorldProps) {
   const [motionPreference, setMotionPreference] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const [contextLost, setContextLost] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  const [sceneReady, setSceneReady] = useState(false)
   const handleContextLost = useCallback(() => setContextLost(true), [])
+  const handleReady = useCallback(() => setSceneReady(true), [])
   const world = WORLDS[props.game]
   const reducedMotion = props.reducedMotion ?? motionPreference
 
@@ -54,7 +60,7 @@ export default function GameWorld(props: GameWorldProps) {
       <span className="ow-fallback-orb" aria-hidden="true" />
       <strong>{world.title}</strong>
       <p>The 3D view is unavailable. You can keep playing with the controls below.</p>
-      <button className="btn-ghost" onClick={() => { setContextLost(false); setAttempt(value => value + 1) }}>Retry 3D view</button>
+      <button className="btn-ghost" onClick={() => { setContextLost(false); setSceneReady(false); setAttempt(value => value + 1) }}>Retry 3D view</button>
     </div>
   )
 
@@ -63,11 +69,11 @@ export default function GameWorld(props: GameWorldProps) {
       <div className="ow-world-title"><span className="ow-world-dot" aria-hidden="true" /><span>{world.title}</span><small>3D WORLD</small></div>
       <div className="ow-canvas-wrap">
         <WorldBoundary key={`${props.game}:${attempt}`} fallback={fallback}>
-          <Suspense fallback={<div className="ow-loading" role="status"><span className="spinner" aria-hidden="true" />Opening {world.title}…</div>}>
-            {contextLost ? fallback : <Scene {...props} reducedMotion={reducedMotion} active={visible} onContextLost={handleContextLost} fallback={fallback} />}
+          <Suspense fallback={<div className="ow-loading ow-loading-world" role="status"><span className="ow-loading-mascot" aria-hidden="true">✦</span><strong>Opening {world.title}…</strong><span>Loading the shared 3D renderer</span></div>}>
+            {contextLost ? fallback : <Scene {...props} reducedMotion={reducedMotion} active={visible} onContextLost={handleContextLost} onReady={handleReady} fallback={fallback} />}
           </Suspense>
         </WorldBoundary>
-        <div className="ow-scene-caption" aria-hidden="true"><span>{props.state.finished ? 'ROUND COMPLETE' : 'PUBLIC GAME STATE'}</span>{props.game === 'token-catch' && <span>TAP A LANE TO MOVE</span>}{props.game === 'reaction-duel' && props.state.history?.length > 0 && <span>RELICS SHOW REVEALED ROUNDS</span>}</div>
+        {sceneReady && <div className="ow-scene-caption" aria-hidden="true"><span>{props.state.finished ? 'ROUND COMPLETE' : 'SERVER-VERIFIED WORLD'}</span>{props.state.arena ? <span>WASD / ARROWS · MOVE</span> : props.game === 'token-catch' && <span>TAP A LANE TO MOVE</span>}{props.game === 'reaction-duel' && props.state.history?.length > 0 && <span>RELICS SHOW REVEALED ROUNDS</span>}</div>}
       </div>
       <p className="ow-world-note">{world.note}</p>
     </section>

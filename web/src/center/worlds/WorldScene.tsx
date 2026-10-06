@@ -1,9 +1,10 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { CanvasTexture, Group, MathUtils, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three'
+import { CanvasTexture, Group, MathUtils, Mesh, MeshBasicMaterial, OrthographicCamera, SRGBColorSpace } from 'three'
 import type { GameWorldProps } from './GameWorld'
+import ArenaWorld from './ArenaWorld'
 
-type SceneProps = GameWorldProps & { active: boolean; onContextLost: () => void; fallback: ReactNode }
+type SceneProps = GameWorldProps & { active: boolean; onContextLost: () => void; onReady: () => void; fallback: ReactNode }
 type Vec3 = [number, number, number]
 type WorldProps = GameWorldProps & { reducedMotion: boolean }
 const COLORS = ['#fb936d', '#b899f4', '#61cfcd', '#f4c766', '#87d780', '#8dbaf5']
@@ -348,15 +349,22 @@ function DuelWorld({ state, players, me, reducedMotion }: WorldProps) {
   </>
 }
 
-function CameraRig() {
+function CameraRig({ arena = false, width = 20, depth = 16 }: { arena?: boolean; width?: number; depth?: number }) {
   const { camera, size } = useThree()
   useEffect(() => {
+    if (arena && camera instanceof OrthographicCamera) {
+      camera.position.set(0, 20, 22)
+      camera.lookAt(0, .5, 0)
+      camera.zoom = Math.min(size.width / (width + 4), size.height / (depth * .75 + 5))
+      camera.updateProjectionMatrix()
+      return
+    }
     const aspect = size.width / Math.max(1, size.height)
-    const z = Math.max(14.5, 12.7 / Math.max(.7, aspect))
-    camera.position.set(0, z * .59, z)
+    const z = arena ? Math.max(depth * 1.75, width * 1.22 / Math.max(.55, aspect)) : Math.max(14.5, 12.7 / Math.max(.7, aspect))
+    camera.position.set(0, z * (arena ? .90 : .59), z)
     camera.lookAt(0, .55, -.1)
     camera.updateProjectionMatrix()
-  }, [camera, size.width, size.height])
+  }, [camera, size.width, size.height, arena, width, depth])
   return null
 }
 
@@ -371,27 +379,28 @@ function RendererLifecycle({ onContextLost }: { onContextLost: () => void }) {
   return null
 }
 
-export default function WorldScene({ active, fallback, onContextLost, ...props }: SceneProps) {
+export default function WorldScene({ active, fallback, onContextLost, onReady, ...props }: SceneProps) {
   const background = props.game === 'boss-raid' ? '#c5b9e0' : props.game === 'reaction-duel' ? '#f2d6ce' : props.game === 'token-catch' ? '#b5e9e5' : '#c0e6df'
-  const scenes = { 'number-hunt': NumberWorld, 'boss-raid': BossWorld, 'token-catch': CatchWorld, 'reaction-duel': DuelWorld }
+  const scenes = { 'number-hunt': NumberWorld, 'boss-raid': BossWorld, 'token-catch': CatchWorld, 'reaction-duel': DuelWorld, 'combat-duel': ArenaWorld }
   const GameScene = scenes[props.game]
   return <Canvas
     aria-hidden="true"
     dpr={[1, 1.5]}
     camera={{ position: [0, 9, 15], fov: 39, near: .1, far: 70 }}
-    frameloop={active ? props.reducedMotion ? 'demand' : 'always' : 'never'}
+    orthographic={Boolean(props.state.arena)}
+    frameloop={active ? props.reducedMotion && !props.state.arena ? 'demand' : 'always' : 'never'}
     gl={{ antialias: true, alpha: false, powerPreference: 'default' }}
     fallback={fallback}
     shadows={false}
-    onCreated={({ camera }) => camera.lookAt(0, .55, 0)}
+    onCreated={({ camera }) => { camera.lookAt(0, .55, 0); onReady() }}
   >
     <color attach="background" args={[background]} />
-    <fog attach="fog" args={[background, 25, 48]} />
+    <fog attach="fog" args={[background, props.state.arena ? 65 : 25, props.state.arena ? 100 : 48]} />
     <ambientLight intensity={1.25} />
     <hemisphereLight args={['#fff8e8', '#7988b3', 1.5]} />
     <directionalLight position={[-4, 9, 6]} intensity={2.1} color="#fff2df" />
     <directionalLight position={[6, 5, -4]} intensity={1.3} color="#dedaff" />
-    <CameraRig /><RendererLifecycle onContextLost={onContextLost} />
-    <GameScene {...props} reducedMotion={props.reducedMotion ?? false} />
+    <CameraRig arena={Boolean(props.state.arena)} width={Number(props.state.bounds?.width) || 20} depth={Number(props.state.bounds?.depth) || 16} /><RendererLifecycle onContextLost={onContextLost} />
+    {props.state.arena ? <ArenaWorld {...props} /> : <GameScene {...props} reducedMotion={props.reducedMotion ?? false} />}
   </Canvas>
 }

@@ -462,6 +462,15 @@ class Store:
                 (room_id, seq, who, json.dumps(payload), 1 if accepted else 0, time.time()),
             )
 
+    def checkpoint_arena(self, room_id: str, round_id: str, snapshot: dict, actions: list[dict]) -> None:
+        """Commit simulation recovery and its accepted input batch atomically."""
+        with self.tx() as c:
+            c.executemany(
+                "INSERT INTO actions (room_id,seq,who,payload,accepted,at) VALUES (?,?,?,?,?,?)",
+                [(room_id,a['seq'],a['who'],json.dumps(a['action']),1,a['at']) for a in actions],
+            )
+            c.execute("UPDATE rounds SET snapshot_json=? WHERE round_id=?", (json.dumps(snapshot), round_id))
+
     def actions_since(self, room_id: str, seq: int) -> list[dict]:
         with self.tx() as c:
             rows = c.execute("SELECT * FROM actions WHERE room_id=? AND seq>? ORDER BY seq", (room_id, seq)).fetchall()

@@ -1,0 +1,84 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowLeft, RefreshCw, Sparkles } from 'lucide-react'
+import { FOUR_STAGE_VIEWS } from './GamePlayStages'
+import { FEATURED_GAMES } from './featuredGames'
+import './practice.css'
+
+type Practice = {practiceId:string;accessToken:string;me:string;players:string[];state:Record<string,any>;serverTimeMs:number;deadline:number}
+const base = '/api/center/v1/practice'
+async function request(path:string,init?:RequestInit) {
+  const res = await fetch(path,{...init,headers:{'Content-Type':'application/json',...init?.headers}})
+  const data = await res.json()
+  if(!res.ok) throw new Error(data.detail?.message ?? data.detail?.code ?? 'Practice could not load.')
+  return data
+}
+
+export function PracticeArena({templateId,navigate}:{templateId:string;navigate:(path:string)=>void}) {
+  const [practice,setPractice] = useState<Practice|null>(null)
+  const [error,setError] = useState<string|null>(null)
+  const [retry,setRetry] = useState(0)
+  const latest = useRef<Practice|null>(null)
+  const pending = useRef(false)
+  const generation = useRef(0)
+  const actionError = useRef<string|null>(null)
+  const queue=useRef<Record<string,unknown>[]>([])
+  const pump=useRef<()=>void>(()=>{})
+  const title = FEATURED_GAMES.find(g=>g.id===templateId)?.name ?? templateId
+  const Stage = FOUR_STAGE_VIEWS[templateId]
+  useEffect(()=> {
+    let active=true;let polling=false
+    const current=++generation.current
+    queue.current=[];pending.current=false
+    setPractice(null);latest.current=null;setError(null)
+    request(base,{method:'POST',body:JSON.stringify({templateId})}).then(data=> {
+      if(active){latest.current=data;setPractice(data)}
+      else void request(`${base}/${data.practiceId}`,{method:'DELETE',headers:{'X-Practice-Token':data.accessToken}}).catch(()=>{})
+    }).catch(err=>{if(active)setError(err.message)})
+    const timer=window.setInterval(async()=> {
+      const match=latest.current
+      if(!active || !match || polling || pending.current || document.hidden || match.state.finished)return
+      polling=true
+      try {
+        const data=await request(`${base}/${match.practiceId}`,{headers:{'X-Practice-Token':match.accessToken}})
+        if(active && current===generation.current && data.serverTimeMs>=(latest.current?.serverTimeMs??0)){const next={...match,...data};latest.current=next;setPractice(next)}
+      } catch(err){if(active)setError(err instanceof Error?err.message:'Practice connection interrupted.')}
+      finally{polling=false}
+    },100)
+    return()=> {
+      active=false;window.clearInterval(timer)
+      const match=latest.current
+      if(match)void request(`${base}/${match.practiceId}`,{method:'DELETE',headers:{'X-Practice-Token':match.accessToken}}).catch(()=>{})
+      latest.current=null
+      queue.current=[]
+      generation.current++
+    }
+  },[templateId,retry])
+  pump.current=()=> {
+    const match=latest.current
+    if(!match || pending.current)return
+    const action=queue.current.shift()
+    if(!action)return
+    const current=generation.current
+    pending.current=true
+    void request(`${base}/${match.practiceId}/actions`,{method:'POST',body:JSON.stringify({token:match.accessToken,action})})
+      .then(data=> {
+        if(current!==generation.current)return
+        actionError.current=data.ok?null:data.error
+        if(data.serverTimeMs>=(latest.current?.serverTimeMs??0)){const next={...match,...data};latest.current=next;setPractice(next)}
+      }).catch(err=>{if(current===generation.current)setError(err.message)})
+      .finally(()=>{if(current===generation.current){pending.current=false;pump.current()}})
+  }
+  const act=useCallback((action:Record<string,unknown>)=> {
+    if(action.kind==='move')queue.current=queue.current.filter(item=>item.kind!=='move')
+    if(queue.current.length<20)queue.current.push(action)
+    pump.current()
+  },[])
+  return <main className="ct-practice">
+    <header className="ct-practice-header"><button className="btn-ghost" onClick={()=>navigate('/center')}><ArrowLeft size={18}/> Game center</button><div><span><Sparkles size={15}/> Try the playground</span><h1>{title}</h1></div><button className="btn-primary" onClick={()=>setRetry(v=>v+1)}><RefreshCw size={16}/> Restart practice</button></header>
+    <p className="ct-practice-note">Practice with bots. No room, wallet, entry fee or rewards. Collected tokens are game score.</p>
+    {error && <p role="alert" className="ct-error">{error}</p>}
+    {!practice && !error && <section className="ct-practice-loader" role="status"><span aria-hidden="true">✦</span><h2>Preparing your playground</h2><p>Loading a small world and its controls…</p></section>}
+    {practice && Stage && <Stage state={{...practice.state,_practice:true,roundId:practice.practiceId,_roomId:practice.practiceId,_roundId:practice.practiceId,__deadline:practice.deadline,_serverOffsetMs:practice.serverTimeMs-Date.now(),_canAct:!practice.state.finished,_connection:'open',_actionError:actionError.current}} act={act} me={practice.me} players={practice.players} finished={Boolean(practice.state.finished)}/>}
+    {practice?.state.finished && <aside className="ct-practice-result"><strong>Practice complete</strong><p>Try another character, restart, or create a multiplayer room from the game center.</p></aside>}
+  </main>
+}

@@ -11,6 +11,8 @@ export type TemplateMeta = {
   modes: string
   multiplayer: boolean
   availability: 'preview' | 'live'
+  playStatus?: 'live' | 'maintenance' | 'offline'
+  maintenanceMessage?: string
 }
 
 export type TemplateList = { templates: TemplateMeta[]; count: number }
@@ -42,7 +44,11 @@ export type RoomDetail = {
   joinerFee?: string
   ticket?: string
   timing?: { open_at?: number; close_at?: number }
-  teams?: Record<string, 'a' | 'b'>
+  teams?: Record<string, string>
+  characters?: Record<string,string>
+  gameStatus?: 'live'|'maintenance'|'offline'
+  maintenanceMessage?: string
+  archived?: boolean
   publicState?: Record<string, unknown> | null
   roundId?: string
   deadline?: number
@@ -128,6 +134,7 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string |
 }
 
 export const center = {
+  chooseCharacter:(roomId:string,token:string,character:string)=>request<{characters:Record<string,string>}>(`/rooms/${roomId}/character`,{method:'POST',body:JSON.stringify({character})},token),
   health: () => request<{ ok: boolean; preview: boolean }>('/health/live'),
   templates: () => request<TemplateList>('/templates'),
   templateRules: (templateId: string) =>
@@ -152,13 +159,26 @@ export const center = {
   adminPricing: (token: string) =>
     request<{ pricing: { creatorFee: number; joinerFee: number }; caps: Record<string, number>; admin: string; chainId: number }>(
       '/admin/pricing', {}, token),
-  adminNonce: (token: string) =>
-    request<{ nonce: string; message: string }>('/auth/nonce', { method: 'POST', body: JSON.stringify({ purpose: 'admin' }) }, token),
+  adminNonce: (token: string, address: string) =>
+    request<{ nonce: string; message: string }>('/auth/nonce', { method: 'POST', body: JSON.stringify({ address, purpose: 'admin' }) }, token),
   adminUpdatePricing: (token: string, signature: string, body: { creatorFee: number; joinerFee: number }) =>
     request<{ pricing: { creatorFee: number; joinerFee: number }; caps: Record<string, number>; chainId: number }>(
       '/admin/pricing',
       { method: 'PATCH', body: JSON.stringify(body), headers: { 'X-Admin-Proof': signature } },
       token),
+  adminGames: (token: string) => request<{ games: { templateId: string; status: 'live' | 'maintenance' | 'offline'; message: string }[] }>('/admin/games', {}, token),
+  adminGameUpdate: (templateId: string, token: string, proof: string, body: { status: string; message?: string }) =>
+    request(`/admin/games/${encodeURIComponent(templateId)}`, { method: 'PATCH', body: JSON.stringify(body), headers: { 'X-Admin-Proof': proof } }, token),
+  adminRooms: (token: string, offset = 0) => request<{ rooms: { roomId: string; name: string; templateId: string; owner: string; status: string; visibility: string; mode: string; players: number; archived: boolean; createdAt: number; rewardKind: string }[]; total: number }>(`/admin/rooms?offset=${offset}`, {}, token),
+  adminRoomObserve: (roomId: string, token: string) => request<{
+    roomId: string; name: string; templateId: string; status: string; owner: string; archived: boolean;
+    publicState: Record<string, unknown> | null; readOnly: boolean;
+    roster: { players: { wallet: string; name: string; ready: boolean; role: string }[]; banned: { wallet: string; name: string }[] };
+    community: { settings: { muteChat: boolean; hidePlayers: boolean; hideGuesses: boolean }; messages: { id: number; text: string; name: string; deleted: boolean; kind: string }[] };
+  }>(`/admin/rooms/${encodeURIComponent(roomId)}/observe`, {}, token),
+  adminRoomAction: (roomId: string, token: string, proof: string, body: Record<string, unknown>) =>
+    request(`/admin/rooms/${encodeURIComponent(roomId)}/actions`, { method: 'POST', body: JSON.stringify(body), headers: { 'X-Admin-Proof': proof } }, token),
+  adminArchiveUnused: (token: string, proof: string) => request<{ count: number }>('/admin/rooms/archive-unused', { method: 'POST', headers: { 'X-Admin-Proof': proof } }, token),
   rooms: () => request<{ rooms: RoomSummary[] }>('/rooms'),
   myRooms: (token: string) =>
     request<{ rooms: { roomId: string; name: string; templateId: string; status: string; visibility: string; players: number; openAt: number | null; closeAt: number | null; scheduled: string | null; expiring: string | null; active: boolean }[] }>(
@@ -166,7 +186,7 @@ export const center = {
   closeRoom: (roomId: string, token: string) =>
     request<{ status: string }>(`/rooms/${roomId}/close`, { method: 'POST' }, token),
   room: (roomId: string, token?: string) => request<RoomDetail>(`/rooms/${roomId}`, {}, token),
-  chooseTeam: (roomId: string, token: string, team: 'a' | 'b') => request<{teams: Record<string, string>}>(`/rooms/${roomId}/team`, {method: 'POST', body: JSON.stringify({team})}, token),
+  chooseTeam: (roomId: string, token: string, team: string) => request<{teams: Record<string, string>}>(`/rooms/${roomId}/team`, {method: 'POST', body: JSON.stringify({team})}, token),
   invite: (roomId: string, token: string) => request<{ invite: string; shareUrl: string }>(`/rooms/${roomId}/invites`, { method: 'POST' }, token),
   join: (roomId: string, token: string, invite?: string) =>
     request<{ role: string; joinerFee: string; status: string; ticket: string }>(`/rooms/${roomId}/join`, { method: 'POST', body: JSON.stringify({ invite: invite ?? null }) }, token),

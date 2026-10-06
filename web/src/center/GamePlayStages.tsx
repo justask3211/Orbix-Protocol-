@@ -4,9 +4,10 @@ import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, CircleHelp, Clock
 import type { StageProps } from './stages'
 import { useModalFocus } from './useModalFocus'
 import './gamePlay.css'
+import { ArenaPlay } from './ArenaControls'
 
 const GameWorld = lazy(() => import('./worlds/GameWorld'))
-type GameId = 'number-hunt' | 'token-catch' | 'reaction-duel' | 'boss-raid'
+type GameId = 'number-hunt' | 'token-catch' | 'reaction-duel' | 'boss-raid' | 'combat-duel'
 const short = (wallet: string) => wallet.length > 14 ? `${wallet.slice(0, 6)}…${wallet.slice(-4)}` : wallet
 const name = (wallet: string, me: string, state: StageProps['state']) => wallet === me ? 'You' : state._hidePlayers ? 'Player' : String(state._playerNames?.[wallet] || short(wallet)).slice(0, 60)
 const allowed = (state: StageProps['state'], finished: boolean) => !finished && !state.finished && state._canAct !== false
@@ -313,7 +314,7 @@ export function DuelPlay(props: StageProps) {
     const winner = outcome.split(':')[0]
     return winner === 'tie' ? 'Draw' : winner === me ? 'You won this round' : `${name(winner, me, state)} won this round`
   }
-  return <GameFrame {...props} game="reaction-duel" title="Duel" eyebrow="The two-player showdown" icon={<Swords />} help={<><p>Choose a move, seal it, then reveal the same move after both players commit. The server resolves the matchup. Rock beats scissors, scissors beats paper, and paper beats rock.</p>{state.choiceSet === 'extended' && <p>Lizard beats paper and Spock; Spock beats rock and scissors. Rock beats lizard, paper beats Spock, and scissors beats lizard.</p>}<p>Your sealed move is kept in this browser tab for reconnects. Do not close the tab before revealing. Published round history appears only after the server resolves both moves.</p></>}>
+  return <GameFrame {...props} game="reaction-duel" title="Rock Paper Scissors Duel" eyebrow="The sealed-move showdown" icon={<Swords />} help={<><p>Choose a move, seal it, then reveal the same move after both players commit. The server resolves the matchup. Rock beats scissors, scissors beats paper, and paper beats rock.</p>{state.choiceSet === 'extended' && <p>Lizard beats paper and Spock; Spock beats rock and scissors. Rock beats lizard, paper beats Spock, and scissors beats lizard.</p>}<p>Your sealed move is kept in this browser tab for reconnects. Do not close the tab before revealing. Published round history appears only after the server resolves both moves.</p></>}>
     <div className="gp-stats"><Stat label="Round" value={`${Math.min(round + 1, numeric(state.rounds, 3))} / ${numeric(state.rounds, 3)}`} /><Stat label="Current phase" value={finished ? 'Complete' : phase === 'reveal' ? 'Reveal moves' : 'Seal your move'} icon={<LockKeyhole size={14} />} /><Stat label="Your wins" value={numeric(state.wins?.[me])} icon={<Trophy size={14} />} /></div>
     <div className="gp-duel-versus">{roster.map((who, index) => <div key={who} className={`gp-duelist duelist-${index}${who === me ? ' is-me' : ''}`}><span className="gp-duelist-avatar" aria-hidden>{index ? <Shield size={26} /> : <Swords size={26} />}</span><strong>{name(who, me, state)}</strong><span>{finished ? `${numeric(state.wins?.[who])} wins` : state.revealed?.[who] ? 'Reveal received' : state.committed?.[who] ? 'Move sealed' : 'Choosing a move…'}</span></div>)}{roster.length === 2 && <span className="gp-versus-label" aria-hidden>VS</span>}</div>
     <div className="gp-control-panel">
@@ -370,7 +371,8 @@ export function BossRaidPlay(props: StageProps) {
 
 export const FOUR_STAGE_VIEWS: Partial<Record<string, (props: StageProps) => ReactNode>> = {
   'number-hunt': NumberHuntPlay,
-  'token-catch': TokenCatchPlay,
+  'token-catch': props => props.state.arena ? <ArenaPlay {...props} /> : <TokenCatchPlay {...props} />,
   'reaction-duel': DuelPlay,
-  'boss-raid': BossRaidPlay,
+  'boss-raid': props => props.state.arena ? <ArenaPlay {...props} /> : <BossRaidPlay {...props} />,
+  'combat-duel': ArenaPlay,
 } satisfies Record<GameId, (props: StageProps) => ReactNode>
