@@ -14,22 +14,23 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RoundPending, STAGES } from './stages'
 import { GameArt, TEMPLATE_META } from './gameArt'
 import { QuizEditor, TEMPLATE_FORMS, ruleNumber, type QuizQuestion, type RuleField } from './wizardForms'
-import { center, explainError, API_BASE, type Allocation, type OnchainBalance, type RoomDetail, type RoomSummary, type Settlement, type TemplateList, type TemplateMeta, type VaultState } from './api'
+import { center, explainError, API_BASE, type Allocation, type RoomDetail, type Settlement, type TemplateMeta } from './api'
 import { playerHue, shortAddress, useSession } from './session'
 import { WalletModal } from './WalletModal'
-import { GameBanner } from './bannerArt'
 import { AdminPanel } from './AdminPanel'
 import { bindRoomOnChain, payJoinToken as payJoinTokenGated } from './gate'
-import { FundsPanel, TxPreview } from './funds'
+import { TxPreview } from './funds'
 import { SharePanel } from './SharePanel'
-import { ActionCards } from './ActionCards'
-import { BackButton } from './BackButton'
 import { ProfileAvatar, ProfileModal } from './ProfilePanel'
 import { useProfile } from './ProfilePanel'
 import { copyText } from './share'
-import { DepositPanel } from './DepositPanel'
 import { useRoomChannel } from './ws'
+import { GameCenterHome } from './GameCenterHome'
+import { CenterVault } from './CenterVault'
+import { FEATURED_GAMES, isFeaturedGame } from './featuredGames'
+import { Gamepad2, Plus, Wallet as WalletIcon, ArrowUpRight, LogOut } from 'lucide-react'
 import './center.css'
+import './centerShell.css'
 
 type Route =
   | { name: 'catalog' }
@@ -91,6 +92,15 @@ function ProfileTopButton({ session, onOpen }: { session: ReturnType<typeof useS
   const avatarUrl = session.address
     ? `${API_BASE}/profile/image/${session.address}?t=${Math.floor(Date.now() / 60000)}`
     : null
+  useEffect(() => {
+    setAvatarLoaded(false)
+    if (!avatarUrl) return
+    let active = true
+    const image = new Image()
+    image.onload = () => { if (active) setAvatarLoaded(true) }
+    image.src = avatarUrl
+    return () => { active = false; image.onload = null }
+  }, [avatarUrl])
 
   if (!session.token) return null
 
@@ -113,70 +123,8 @@ function ProfileTopButton({ session, onOpen }: { session: ReturnType<typeof useS
 }
 
 function WalletChip({ session, onOpenWallet }: { session: ReturnType<typeof useSession>; onOpenWallet: () => void }) {
-  const vault = useAsync(
-    () => (session.token ? center.vault(session.token) : Promise.resolve(null)),
-    [session.token],
-  )
-  // Live on-chain balances, polled so the number in the bar is always real.
-  const [live, setLive] = useState<OnchainBalance | null>(null)
-  useEffect(() => {
-    if (!session.token) return
-    let alive = true
-    const pull = () =>
-      center
-        .onchainBalance(session.token!)
-        .then((b) => {
-          if (alive) setLive(b)
-        })
-        .catch(() => undefined)
-    pull()
-    const t = setInterval(pull, 20_000)
-    return () => {
-      alive = false
-      clearInterval(t)
-    }
-  }, [session.token])
-  const fmt = (n: number | null | undefined) => {
-    if (n == null) return null
-    const v = n / 1e18
-    return v >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : v.toFixed(v >= 1 ? 2 : 4)
-  }
-  const liveLabel = live?.live
-    ? `${fmt(live.vaultCredit) ?? '0'} ${live.symbol}`
-    : null
-  const [copied, setCopied] = useState(false)
-  const copy = () => {
-    void copyText(session.address ?? '').then((ok) => {
-      if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1200) }
-    })
-  }
-  // Before a wallet is connected there is nothing real to show — no placeholder
-  // address, no dash balance. Only the connect control appears.
-  if (!session.token) {
-    return (
-      <div className="ct-wallet">
-        <button className="ct-wallet-connect" onClick={onOpenWallet} disabled={session.signingIn}>
-          {session.signingIn ? 'signing in…' : 'Connect wallet'}
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="ct-wallet" title={session.address ?? undefined}>
-      <span className="dot" />
-      <button className="ct-wallet-addr mono" onClick={copy} title="copy address">
-        {shortAddress(session.address)}
-        {copied ? ' ✓' : ''}
-      </button>
-      <span className="ct-wallet-bal">
-        {liveLabel
-          ? <><i className="live-dot" /> {liveLabel}</>
-          : vault.data ? `${vault.data.balance} ${vault.data.label}` : '…'}
-      </span>
-      <button className="link" onClick={session.signOut}>sign out</button>
-    </div>
-  )
+  if (!session.token) return <button className="ct-wallet-connect" onClick={onOpenWallet} disabled={session.signingIn || session.autoSigningIn}><WalletIcon size={16} />{session.signingIn || session.autoSigningIn ? 'Connecting…' : 'Connect wallet'}</button>
+  return <div className="ct-wallet"><button className="ct-wallet-account" onClick={() => go('/center/wallet')} title={session.address ?? undefined}><WalletIcon size={16} /><span>{shortAddress(session.address)}</span></button><button className="ct-signout" onClick={session.signOut} aria-label="Disconnect wallet"><LogOut size={16} /></button></div>
 }
 
 function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
@@ -186,6 +134,8 @@ function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
   useEffect(() => {
     let live = true
     setLoading(true)
+    setData(null)
+    setError(null)
     fn()
       .then((value) => live && setData(value))
       .catch((err) => live && setError(explainError(err)))
@@ -196,143 +146,6 @@ function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
   return { data, error, loading }
-}
-
-// ------------------------------------------------------------------ catalog
-
-export 
-const FEATURED_ID = 'boss-raid'
-
-function FeaturedGame({ templates, onPlay }: { templates: TemplateList | null; onPlay: (id: string) => void }) {
-  const t = templates?.templates.find((x) => x.templateId === FEATURED_ID)
-  if (!t) return null
-  const meta = TEMPLATE_META[FEATURED_ID]
-  return (
-    <section className="feat" aria-label="Featured game">
-      <div className="feat-art" style={{ ['--gc' as string]: meta.hue }}>
-        <GameBanner templateId={FEATURED_ID} hue={meta.hue} />
-        <div className="gcard-grad" aria-hidden="true" />
-        <div className="feat-glow" aria-hidden="true" />
-      </div>
-      <div className="feat-body">
-        <span className="ct-kicker">FEATURED</span>
-        <h2 className="feat-title">{t.label}</h2>
-        <p className="feat-desc">{meta.blurb} Team up with your community, drain the boss together, and split the haul by contribution.</p>
-        <p className="feat-meta mono">2-100 players · co-op · hint feed live</p>
-        <button className="btn-primary feat-play" onClick={() => onPlay(FEATURED_ID)}>
-          Play {t.label} <span aria-hidden>↗</span>
-        </button>
-      </div>
-    </section>
-  )
-}
-
-
-function Catalog({ session: _session }: { session: ReturnType<typeof useSession> }) {
-  const templates = useAsync(() => center.templates(), [])
-  const rooms = useAsync(() => center.rooms(), [])
-  const [query, setQuery] = useState('')
-  const [kind, setKind] = useState<'all' | 'multiplayer' | 'solo'>('all')
-
-  const shown = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return (templates.data?.templates ?? []).filter((t) => {
-      if (kind === 'multiplayer' && !t.multiplayer) return false
-      if (kind === 'solo' && t.multiplayer) return false
-      if (!q) return true
-      const blurb = TEMPLATE_META[t.templateId]?.blurb ?? t.blurb
-      return `${t.label} ${blurb} ${t.modes}`.toLowerCase().includes(q)
-    })
-  }, [templates.data, query, kind])
-
-  return (
-    <div className="ct-page ct-catalog">
-      <Banner />
-      <section className="ct-hero">
-        <div className="ct-hero-copy"><span className="ct-kicker" translate="no">ORBIX GAME CENTER</span><h1>Play. Explore.<br/><i>Compete.</i></h1><p className="sub">Nineteen live game formats. Real rooms, clear fees, funded rewards. Create a room in four steps or drop into one that is already running.</p><div className="ct-hero-actions"><button className="btn-primary" onClick={() => go('/center/create')}>Play now <span aria-hidden>↗</span></button><button className="btn-ghost" onClick={() => document.querySelector('.ct-sub')?.scrollIntoView({ behavior: 'smooth' })}>Explore games <span aria-hidden>↓</span></button></div><div className="ct-hero-meta"><span><i className="live-dot"/> Rooms update live</span><span>{templates.data?.count ?? templates.data?.templates.length ?? 19} game formats</span></div></div>
-        <div className="ct-hero-orbit" aria-hidden="true"><span className="ct-orbit-label">CENTER / 01</span><span className="ct-orbit-ring ring-a"/><span className="ct-orbit-ring ring-b"/><span className="ct-orbit-core">C</span><span className="ct-orbit-dot dot-a"/><span className="ct-orbit-dot dot-b"/></div>
-      </section>
-      <div className="ct-signal-row"><span><b>{templates.data?.count ?? templates.data?.templates.length ?? 19}</b> game formats</span><span><b>LIVE</b> room play</span><span><b>Testnet</b> funded rewards</span></div>
-      <FeaturedGame templates={templates.data ?? null} onPlay={(id) => go(`/center/create?template=${id}`)} />
-      <ActionCards session={_session} go={go} />
-      <header className="ct-head">
-        <div><span className="ct-kicker">FORMAT LIBRARY</span><h2 className="ct-sub">Find your kind of chaos.</h2><p className="sub">From quick duels to co-op raids, every format is ready to configure.</p></div>
-        <div className="ct-head-count"><b>{String(shown.length).padStart(2, '0')}</b><span>FORMATS</span></div>
-      </header>
-
-      {templates.loading && <p className="muted" role="status" aria-live="polite">Loading formats…</p>}
-      {templates.error && <p className="err">{templates.error}</p>}
-
-      <div className="ct-filters">
-        <input
-          type="search"
-          className="ct-search"
-          placeholder="Search formats…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          aria-label="Search game formats"
-        />
-        <div className="ct-chips">
-          {(['all', 'multiplayer', 'solo'] as const).map((k) => (
-            <button key={k} className={`chip${kind === k ? ' on' : ''}`} onClick={() => setKind(k)} aria-pressed={kind === k}>
-              {k === 'all' ? 'All formats' : k}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {shown.length === 0 && !templates.loading && (
-        <p className="muted">No format matches “{query}”. Try a different word, or clear the filters.</p>
-      )}
-
-      <div className="ct-grid">
-        {shown.map((t) => (
-          <article key={t.templateId} className="gcard" style={{ ['--gc' as string]: TEMPLATE_META[t.templateId]?.hue ?? '#ff6b22' }}>
-            <GameBanner templateId={t.templateId} hue={TEMPLATE_META[t.templateId]?.hue ?? '#ff6b22'} />
-            <div className="gcard-grad" aria-hidden="true" />
-            <div className="gcard-body">
-              <div>
-                <h3>{t.label}</h3>
-                <p>{TEMPLATE_META[t.templateId]?.blurb ?? t.blurb}</p>
-                <div className="ct-tags">
-                  <span>{t.modes}</span>
-                  <span>{t.multiplayer ? 'multiplayer' : 'solo'}</span>
-                  <span className="tag-preview">{t.availability}</span>
-                </div>
-              </div>
-              <span className="gcard-chip">{t.multiplayer ? 'MP' : 'SOLO'}</span>
-            </div>
-            <button className="btn-ghost ct-card-cta" onClick={() => go(`/center/create?template=${t.templateId}`)}>
-              Create {t.label} <span aria-hidden>↗</span>
-            </button>
-          </article>
-        ))}
-      </div>
-
-      <div className="ct-rooms-head">
-        <div><span className="ct-kicker">LIVE ROOMS</span><h2 className="ct-sub">Open now.</h2></div>
-        <span className="ct-live-badge"><i className="live-dot"/> {rooms.data?.rooms.length ?? 0} open</span>
-      </div>
-      {rooms.loading && <p className="muted" role="status" aria-live="polite">Loading rooms…</p>}
-      {rooms.data?.rooms.length === 0 && <p className="muted">No public rooms yet — create the first one.</p>}
-      <div className="ct-rooms">
-        {(rooms.data?.rooms ?? []).map((r: RoomSummary) => (
-          <button key={r.roomId} className="ct-room" onClick={() => go(`/center/rooms/${r.roomId}`)}>
-            <span className={`pill s-${r.status}`}>{STATUS_LABEL[r.status] ?? r.status}</span>
-            <span className="ct-room-name">
-              <b>{r.name}</b>
-              <small>{r.templateId} · ID <span className="mono" translate="no">{r.roomId}</span></small>
-            </span>
-            <span className="ct-room-meta">
-              <span>{r.players} player{r.players === 1 ? '' : 's'}</span>
-              <span>{r.rewards} pts</span>
-            </span>
-            <span className="ct-room-go" aria-hidden>↗</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
 }
 
 // ------------------------------------------------------------------ wizard
@@ -358,14 +171,6 @@ type DraftState = {
   playerCap: number
   minReady: number
   rewardPoints: number
-  rewardKind: 'preview' | 'token' | 'nft' | 'eth'
-  rewardToken: string
-  rewardAmount: string
-  rewardNft: string
-  rewardNftId: string
-  rewardClaimMode: 'auto' | 'code' | 'merkle' | 'open'
-  rewardDeadline: number
-  rewardMessage: string
 }
 
 const HINT_POLICIES: Record<string, string> = {
@@ -468,14 +273,6 @@ function initialDraft(templateId = 'number-hunt'): DraftState {
     playerCap: SOLO.has(templateId) ? 1 : 8,
     minReady: SOLO.has(templateId) ? 1 : 2,
     rewardPoints: 100,
-    rewardKind: 'preview',
-    rewardToken: '',
-    rewardAmount: '',
-    rewardNft: '',
-    rewardNftId: '',
-    rewardClaimMode: 'auto',
-    rewardDeadline: 7,
-    rewardMessage: '',
   }
 }
 
@@ -486,21 +283,22 @@ export const WIZARD_STEPS = [
   { n: 4, label: 'Fees & rewards' },
 ]
 
-function WizardStepper({ current }: { current: number }) {
+function WizardStepper({ current, onChange, disabled }: { current: number; onChange: (step: number) => void; disabled: boolean }) {
   return (
     <nav className="wz-stepper" aria-label="Create-room steps">
       {WIZARD_STEPS.map((st) => (
-        <div key={st.n} className={`wz-step${st.n < current ? ' done' : st.n === current ? ' on' : ''}`}>
+        <button type="button" key={st.n} disabled={disabled} onClick={() => onChange(st.n)} aria-current={st.n === current ? 'step' : undefined} className={`wz-step${st.n < current ? ' done' : st.n === current ? ' on' : ''}`}>
           <span className="wz-num">{st.n < current ? '✓' : st.n}</span>
           <span className="wz-label">{st.label}</span>
-        </div>
+        </button>
       ))}
     </nav>
   )
 }
 
-function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof useSession>; initialTemplateId?: string }) {
-  const templates = useAsync(() => center.templates(), [])
+function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType<typeof useSession>; initialTemplateId?: string; onConnect: () => void }) {
+  const [templateRetry, setTemplateRetry] = useState(0)
+  const templates = useAsync(() => center.templates(), [templateRetry])
   const [draft, setDraft] = useState<DraftState>(() => initialDraft(initialTemplateId && initialTemplateId in DEFAULT_RULES ? initialTemplateId : 'number-hunt'))
   const [caps, setCaps] = useState<{ min: number | null; max: number | null }>({ min: null, max: null })
 
@@ -519,41 +317,29 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
   const [intentNonce] = useState(() => Math.random().toString(36).slice(2))
   // Format picker: collapsed chip after a choice; the full grid shows only while picking.
   const [picking, setPicking] = useState(!initialTemplateId)
-  const [wizardStep, setWizardStep] = useState(1)
+  const [wizardStep, setWizardStep] = useState(initialTemplateId ? 2 : 1)
+  const [edited, setEdited] = useState(false)
   useEffect(() => {
-    const sections = ['wiz-format', 'wiz-room', 'wiz-rules', 'wiz-fees']
-    const obs = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        if (e.isIntersecting) {
-          const idx = sections.indexOf(e.target.id)
-          if (idx >= 0) setWizardStep(idx + 1)
-        }
-      }
-    }, { rootMargin: '-40% 0px -40% 0px' })
-    sections.forEach((id) => {
-      const el = document.getElementById(id)
-      if (el) obs.observe(el)
-    })
-    return () => obs.disconnect()
-  }, [])
-  // Guideline: warn before navigation with unsaved changes. The draft is not persisted.
-  useEffect(() => {
-    const warn = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-      e.returnValue = ''
-    }
-    if (status === null && !busy) {
-      window.addEventListener('beforeunload', warn)
-      return () => window.removeEventListener('beforeunload', warn)
-    }
-  }, [status, busy])
-
-  const setRule = (key: string, value: unknown) => setDraft((d) => ({ ...d, rules: { ...d.rules, [key]: value } }))
-  const set = <K extends keyof DraftState>(key: K, value: DraftState[K]) => setDraft((d) => ({ ...d, [key]: value }))
+    if (!edited || status || busy) return
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [edited, status, busy])
+  const changeStep = (step: number) => {
+    if (step > 1 && !templates.data?.templates.some(template => template.templateId === draft.templateId)) { setError('Wait for game availability to load, or retry the connection.'); return }
+    if (step > 1 && !isFeaturedGame(draft.templateId)) return
+    if (step > 2 && (draft.name.trim().length < 3 || draft.name.trim().length > 60)) { setError('Give your room a name between 3 and 60 characters.'); return }
+    setError(null); setWizardStep(step)
+    document.getElementById('center-main')?.scrollIntoView({ block: 'start', behavior: 'instant' })
+  }
+  const setRule = (key: string, value: unknown) => { setEdited(true); setDraft((d) => ({ ...d, rules: { ...d.rules, [key]: value } })) }
+  const set = <K extends keyof DraftState>(key: K, value: DraftState[K]) => { setEdited(true); setDraft((d) => ({ ...d, [key]: value })) }
 
   const chooseTemplate = (templateId: string) => {
     setDraft(initialDraft(templateId))
     setPicking(false)
+    setEdited(true)
+    setWizardStep(2)
   }
   const capMax = caps.max ?? (SOLO.has(draft.templateId) ? 1 : 100)
   const capMin = caps.min ?? 1
@@ -593,7 +379,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
     if (draft.templateId === 'airdrop-quest' && !Array.isArray(rules.achievements)) {
       rules.achievements = ['first-win']
     }
-    if (draft.entryToken) draft.joinerFee = 0
+    // Token entry absorbs the preview joiner fee in the submitted configuration.
     if (draft.templateId === 'live-quiz') {
       const questions = (rules.questions as QuizQuestion[]) ?? []
       rules.questions = questions.filter((q) => q.prompt.trim() && q.choices.every((c) => c.trim()))
@@ -616,7 +402,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
       access: {
         vault_mode: 'simulated',
         required_amount: draft.requiredAmount,
-        joiner_fee: draft.joinerFee,
+        joiner_fee: draft.entryToken ? 0 : draft.joinerFee,
         creator_absorbs_joiner_fee: draft.absorbsJoinerFee || Boolean(draft.entryToken),
       payout_mode: draft.entryToken ? (draft.payoutMode ?? 'creator') : undefined,
       payout_address: draft.payoutMode === 'custom' ? draft.payoutAddress : undefined,
@@ -686,33 +472,35 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
   }
 
   return (
-    <div className="ct-page">
-      <Banner />
+    <div className="ct-page ct-create">
       <header className="ct-head">
         <div>
-          <h1>Create a room</h1>
-          <p className="sub">Four steps. Pick a format, set the rules, publish a link. The play fee comes out of your vault balance.</p>
+          <span className="ct-create-kicker"><Plus size={16} /> Make room for fun</span>
+          <h1>Your game. Your room.</h1>
+          <p className="sub">Pick your game, set the scene, and invite your people. Review fees and rewards before publishing.</p>
         </div>
         <button className="btn-ghost" onClick={() => go('/center')}>
-          Back to catalog
+          Game center
         </button>
       </header>
 
-      <WizardStepper current={wizardStep} />
-      <section className="ct-panel" id="wiz-format">
+      <WizardStepper current={wizardStep} onChange={changeStep} disabled={busy} />
+      {templates.loading && <p role="status">Checking game availability…</p>}
+      {templates.error && <div className="err" role="alert"><p>Game availability could not be loaded. {templates.error}</p><button className="btn-ghost" onClick={() => setTemplateRetry(value => value + 1)}>Try again</button></div>}
+      <section className="ct-panel" id="wiz-format" hidden={wizardStep !== 1}>
         <h2>1 · Pick a game</h2>
         {picking ? (
           <div className="ct-grid ct-grid-formats">
-            {(templates.data?.templates ?? []).map((t: TemplateMeta) => (
+            {(templates.data?.templates ?? []).filter((t) => isFeaturedGame(t.templateId)).map((t: TemplateMeta) => (
               <button
                 key={t.templateId}
                 className={`ct-format${draft.templateId === t.templateId ? ' on' : ''}`}
                 onClick={() => chooseTemplate(t.templateId)}
                 aria-pressed={draft.templateId === t.templateId}
               >
-                <GameArt templateId={t.templateId} />
-                <b>{t.label}</b>
-                <span>{TEMPLATE_META[t.templateId]?.blurb ?? t.blurb}</span>
+                <img src={`${import.meta.env.BASE_URL}center-art/${t.templateId}.webp`} alt="" width="320" height="200" loading="lazy" />
+                <b>{FEATURED_GAMES.find((game) => game.id === t.templateId)?.name ?? t.label}</b>
+                <span>{FEATURED_GAMES.find(game => game.id === t.templateId)?.description ?? t.blurb}</span>
               </button>
             ))}
           </div>
@@ -723,19 +511,17 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
             <GameArt templateId={draft.templateId} />
             <b>{(templates.data?.templates ?? []).find((t: TemplateMeta) => t.templateId === draft.templateId)?.label ?? draft.templateId}</b>
             <span>{TEMPLATE_META[draft.templateId]?.blurb}</span>
-            <button className="btn-ghost" onClick={() => document.getElementById('wiz-room')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+            <button className="btn-ghost" onClick={() => changeStep(2)}>
               Continue ↓
             </button>
-            <button className="link" onClick={() => setPicking(true)} title="Pick a different format">
+            <button className="link" onClick={() => { setPicking(true); setWizardStep(1) }} title="Pick a different format">
               change
             </button>
           </div>
         )}
       </section>
 
-      <section className="ct-panel" id="wiz-room">
-        </section>
-      <section className="ct-panel" id="wiz-room">
+      <section className="ct-panel" id="wiz-room" hidden={wizardStep !== 2}>
         <h2>2 · Room basics</h2>
         <p className="muted">Name it, decide who can see it, and how many players fit. You can change nothing after publish — the config is hashed.</p>
         <div className="ct-form">
@@ -773,9 +559,7 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
         </div>
       </section>
 
-      <section className="ct-panel">
-        </section>
-      <section className="ct-panel" id="wiz-rules">
+      <section className="ct-panel" id="wiz-rules" hidden={wizardStep !== 3}>
         <h2>3 · {TEMPLATE_FORMS[draft.templateId]?.label ?? draft.templateId} rules & hints</h2>
         <p className="muted">Every field below only affects THIS game format. Anything you skip runs on its default.</p>
         <div className="ct-form">
@@ -834,46 +618,6 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
             )
           })}
         </div>
-        {draft.templateId === 'live-quiz' && (
-          <>
-            <h2 className="ct-sub">Questions</h2>
-            <QuizEditor questions={draft.rules.questions as QuizQuestion[]} onChange={(qs) => setRule('questions', qs)} />
-            <p className="muted">
-              Tick the radio beside the correct choice of each question. Answer keys never leave the server — they are
-              hashed into the round commitment.
-            </p>
-          </>
-        )}
-      </section>
-
-      <section className="ct-panel">
-        </section>
-      <section className="ct-panel" id="wiz-fees">
-        <h2>4 · Fees & rewards</h2>
-        <p className="muted">What it costs to play, what the winner takes, and who pays the joiner fee. All deducted from your vault — never from players without a clear label.</p>
-        <div className="ct-form">
-          <div className="wz-why">The play fee is charged to YOU once at publish — it is the cost of running the room, not something players pay.</div>
-          <label>
-            <span>Play fee from your vault (<span translate="no">ORBIX</span>)</span>
-            <input type="number" min={0} value={draft.requiredAmount} onChange={(e) => set('requiredAmount', Number(e.target.value))} />
-            <small>Deducted from your vault when you publish.</small>
-          </label>
-          <label>
-            <span>Joiner fee per player (<span translate="no">ORBIX</span>){draft.entryToken ? ' — disabled while a join token is set' : ''}</span>
-            <input
-              type="number" min={0}
-              value={draft.entryToken ? 0 : draft.joinerFee}
-              disabled={Boolean(draft.entryToken)}
-              onChange={(e) => set('joinerFee', Number(e.target.value))}
-            />
-            {draft.entryToken
-              ? <small>Joiners pay the token you chose above — <span translate="no">ORBIX</span> joiner fees are absorbed by you.</small>
-              : <small>Each player pays this to join — unless you absorb it below.</small>}
-          </label>
-          <label className="inline">
-            <input type="checkbox" checked={draft.absorbsJoinerFee} onChange={(e) => set('absorbsJoinerFee', e.target.checked)} />
-            <span>I pay all joiner fees (players join free; the total is deducted from MY vault after the game ends, based on who joined)</span>
-          </label>
           <div className="ct-hint-policy">
             <div className="ct-hint-icon" aria-hidden="true">{draft.templateId === 'number-hunt' ? '↕' : draft.templateId === 'live-quiz' ? '?' : '◇'}</div>
             <div>
@@ -967,6 +711,44 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
               )}
             </div>
           </div>
+        {draft.templateId === 'live-quiz' && (
+          <>
+            <h2 className="ct-sub">Questions</h2>
+            <QuizEditor questions={draft.rules.questions as QuizQuestion[]} onChange={(qs) => setRule('questions', qs)} />
+            <p className="muted">
+              Tick the radio beside the correct choice of each question. Answer keys never leave the server — they are
+              hashed into the round commitment.
+            </p>
+          </>
+        )}
+      </section>
+
+      <section className="ct-panel" id="wiz-fees" hidden={wizardStep !== 4}>
+        <h2>4 · Fees & rewards</h2>
+        <p className="muted">What it costs to play, what the winner takes, and who pays the joiner fee. These room fees use preview credits. Token entry, when configured, requires a separate wallet transaction.</p>
+        <div className="ct-form">
+          <div className="wz-why">The play fee is charged to YOU once at publish — it is the cost of running the room, not something players pay.</div>
+          <label>
+            <span>Play fee (preview credits)</span>
+            <input type="number" min={0} value={draft.requiredAmount} onChange={(e) => set('requiredAmount', Number(e.target.value))} />
+            <small>Deducted from your preview-credit ledger when you publish.</small>
+          </label>
+          <label>
+            <span>Joiner fee per player (preview credits){draft.entryToken ? ' — disabled while a join token is set' : ''}</span>
+            <input
+              type="number" min={0}
+              value={draft.entryToken ? 0 : draft.joinerFee}
+              disabled={Boolean(draft.entryToken)}
+              onChange={(e) => set('joinerFee', Number(e.target.value))}
+            />
+            {draft.entryToken
+              ? <small>Joiners pay the token you chose above — <span translate="no">ORBIX</span> joiner fees are absorbed by you.</small>
+              : <small>Each player pays this to join — unless you absorb it below.</small>}
+          </label>
+          <label className="inline">
+            <input type="checkbox" checked={draft.absorbsJoinerFee} onChange={(e) => set('absorbsJoinerFee', e.target.checked)} />
+            <span>I pay all joiner fees (players join free; the total is deducted from MY vault after the game ends, based on who joined)</span>
+          </label>
           <label>
             <span>Join token contract (any ERC-20, optional)</span>
             <input
@@ -1056,117 +838,15 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
           <label>
             <span>Winner points (preview)</span>
             <input type="number" min={0} value={draft.rewardPoints} onChange={(e) => set('rewardPoints', Number(e.target.value))} />
-            <small>Set to 0 to disable preview points and use funded rewards below.</small>
+            <small>These are game points, separate from wallet tokens. Set to 0 to award no preview points.</small>
           </label>
         </div>
 
         <div className="wz-why" style={{ marginTop: 14 }}>
-          Rewards are what winners receive. Preview points are tracked in-app. Funded rewards (tokens, NFTs, ETH) are locked
-          in the RewardEngine contract and transferred to winners when they claim.
+          This wizard publishes preview-point rooms. Publishing here does not fund token, NFT or native-currency prizes.
+          On-chain prizes require a separate contract funding flow and confirmed inventory before players enter.
         </div>
 
-        <div style={{ marginTop: 12 }}>
-          <label className="ct-hint-select">
-            <span>Reward type</span>
-            <select value={draft.rewardKind} onChange={(e) => set('rewardKind', e.target.value as DraftState['rewardKind'])}>
-              <option value="preview">Preview points (in-app, no wallet needed)</option>
-              <option value="token">Creator token (any ERC-20)</option>
-              <option value="nft">NFT (any ERC-721)</option>
-              <option value="eth">ETH (native currency)</option>
-            </select>
-            <small>What winners receive when they claim.</small>
-          </label>
-
-          {draft.rewardKind === 'token' && (
-            <>
-              <label className="ct-hint-select">
-                <span>Reward token contract</span>
-                <input
-                  value={draft.rewardToken}
-                  spellCheck={false}
-                  autoComplete="off"
-                  placeholder="0x… any ERC-20 contract"
-                  onChange={(e) => set('rewardToken', e.target.value)}
-                />
-                <small>Any ERC-20. You must approve the RewardEngine to transfer from your wallet.</small>
-              </label>
-              <label className="ct-hint-select">
-                <span>Amount per winner</span>
-                <input
-                  type="number" min={1} step="any"
-                  value={draft.rewardAmount || ''}
-                  placeholder="e.g. 100"
-                  onChange={(e) => set('rewardAmount', e.target.value)}
-                />
-                <small>Each winner receives this many tokens.</small>
-              </label>
-            </>
-          )}
-
-          {draft.rewardKind === 'nft' && (
-            <>
-              <label className="ct-hint-select">
-                <span>NFT contract</span>
-                <input
-                  value={draft.rewardNft}
-                  spellCheck={false}
-                  autoComplete="off"
-                  placeholder="0x… any ERC-721 contract"
-                  onChange={(e) => set('rewardNft', e.target.value)}
-                />
-                <small>Any ERC-721 collection you own tokens from.</small>
-              </label>
-              <label className="ct-hint-select">
-                <span>Token ID</span>
-                <input
-                  type="number" min={0}
-                  value={draft.rewardNftId || ''}
-                  placeholder="e.g. 42"
-                  onChange={(e) => set('rewardNftId', e.target.value)}
-                />
-                <small>The NFT tokenId the winner receives.</small>
-              </label>
-            </>
-          )}
-
-          {draft.rewardKind !== 'preview' && (
-            <>
-              <label className="ct-hint-select">
-                <span>Claim mode</span>
-                <select value={draft.rewardClaimMode} onChange={(e) => set('rewardClaimMode', e.target.value as DraftState['rewardClaimMode'])}>
-                  <option value="auto">Auto — pushed to winners instantly at settlement</option>
-                  <option value="code">Claim code — winner pastes a code to claim</option>
-                  <option value="merkle">Merkle — for custom distributions (upload CSV)</option>
-                  <option value="open">Open — first N wallets to claim</option>
-                </select>
-                <small>How winners receive their reward.</small>
-              </label>
-              <label className="ct-hint-select">
-                <span>Claim window (days after settlement)</span>
-                <input
-                  type="number" min={1} max={90}
-                  value={draft.rewardDeadline}
-                  onChange={(e) => set('rewardDeadline', Number(e.target.value))}
-                />
-                <small>Unclaimed rewards return to you after this window.</small>
-              </label>
-              <label className="ct-hint-select">
-                <span>Custom message (shown to the winner)</span>
-                <input
-                  value={draft.rewardMessage}
-                  maxLength={200}
-                  placeholder="e.g. Congratulations — you earned this!"
-                  onChange={(e) => set('rewardMessage', e.target.value)}
-                />
-                <small>Displayed when the winner claims.</small>
-              </label>
-              <div className="wz-why">
-                You will need to approve the RewardEngine contract (0x5b8d…8e1b) to transfer your reward assets.
-                The approval and deposit happen when you publish — one signature per asset type.
-              </div>
-            </>
-          )}
-        </div>
         <p className="muted">
           The exact configuration is hashed into the round commitment, so a settled round can be checked against the rules that were
           published.
@@ -1175,28 +855,25 @@ function Wizard({ session, initialTemplateId }: { session: ReturnType<typeof use
 
 
         {/* Room Capsule — compact summary before publish */}
-        <div className="ct-capsule" aria-label="Room summary before publish">
+        <div className="ct-capsule" hidden={wizardStep !== 4} aria-label="Room summary before publish">
           <span className="ct-capsule-title">ROOM SUMMARY</span>
           <div className="ct-capsule-grid">
             <div><small>Game</small><b>{TEMPLATE_FORMS[draft.templateId]?.label ?? draft.templateId}</b></div>
             <div><small>Visibility</small><b>{draft.visibility}</b></div>
             <div><small>Players</small><b>{isSolo ? 1 : draft.playerCap}</b></div>
-            <div><small>Play fee</small><b>{draft.requiredAmount} ORBIX</b></div>
-            <div><small>Joiner fee</small><b>{draft.entryToken ? `${draft.entryAmount} (token)` : draft.joinerFee ? `${draft.joinerFee} ORBIX` : 'Free'}</b></div>
-            <div><small>Winner reward</small><b>{draft.rewardKind === 'preview' ? `${draft.rewardPoints} pts` : draft.rewardKind === 'token' ? `${draft.rewardAmount} tokens` : draft.rewardKind === 'nft' ? `NFT #${draft.rewardNftId}` : draft.rewardKind === 'eth' ? 'ETH' : `${draft.rewardPoints} pts`}</b></div>
+            <div><small>Play fee</small><b>{draft.requiredAmount} preview credits</b></div>
+            <div><small>Joiner fee</small><b>{draft.entryToken ? `${draft.entryAmount} (token)` : draft.joinerFee ? `${draft.joinerFee} preview credits` : 'Free'}</b></div>
+            <div><small>Winner reward</small><b>{draft.rewardPoints} preview points</b></div>
           </div>
         </div>
-      <div className="ct-actions">
-        <button className="btn-ghost" onClick={saveDraft} disabled={busy}>
-          Save draft
-        </button>
-        <button className="btn-primary" onClick={publish} disabled={busy || !session.token} title={!session.token ? "Connect a wallet first" : undefined}>
-          {busy ? 'Publishing…' : 'Publish room'}
-        </button>
+      <div className="ct-wizard-actions">
+        <button className="btn-ghost" onClick={() => changeStep(Math.max(1, wizardStep - 1))} disabled={busy || wizardStep === 1}>Previous step</button>
+        <span>Step {wizardStep} of 4</span>
+        {wizardStep < 4 ? <button className="btn-primary" onClick={() => changeStep(wizardStep + 1)} disabled={busy || templates.loading || !templates.data?.templates.some(template => template.templateId === draft.templateId)}>Continue</button> : <div className="ct-actions"><button className="btn-ghost" onClick={saveDraft} disabled={busy || !session.token || templates.loading || Boolean(templates.error)}>Save draft</button><button className="btn-primary" onClick={session.token ? publish : onConnect} disabled={busy || session.signingIn || templates.loading || Boolean(templates.error)}>{busy ? 'Publishing…' : session.token ? 'Publish room' : 'Connect to publish'}</button></div>}
       </div>
       {status && <p className="st-note ok">{status}</p>}
       {error && <p className="err" role="alert">{error}</p>}
-      {!session.token && <p className="muted">Sign in with your wallet to publish.</p>}
+      {!session.token && wizardStep === 4 && <p className="muted">Connect your wallet before publishing. No transaction is sent by connecting.</p>}
     </div>
   )
 }
@@ -1583,142 +1260,12 @@ function ClaimCard({ allocation, session }: { allocation: Allocation; session: R
   )
 }
 
-// ------------------------------------------------------------------ wallet
-
-export function Wallet({ session }: { session: ReturnType<typeof useSession> }) {
-  const vault = useAsync(() => (session.token ? center.vault(session.token) : Promise.resolve(null)), [session.token])
-  const liveOnchainAsync = useAsync(() => (session.token ? center.onchainBalance(session.token) : Promise.resolve(null)), [session.token])
-  const liveOnchain = liveOnchainAsync.data
-
-  const v: VaultState | null = vault.data ?? null
-  const notConnected = !session.address
-
-  const [localModal, setLocalModal] = useState(false)
-  if (notConnected) {
-    return (
-      <div className="ct-page">
-        <Banner />
-        {localModal && <WalletModal session={session} onClose={() => setLocalModal(false)} />}
-        <section className="ct-panel" style={{ textAlign: 'center', padding: '44px 24px' }}>
-          <div className="vt-orb" style={{ margin: '0 auto 18px' }} />
-          <h2 style={{ fontSize: 22, margin: '0 0 6px' }}>Your vault needs a wallet</h2>
-          <p className="muted" style={{ maxWidth: '46ch', margin: '0 auto 18px', lineHeight: 1.6 }}>
-            The vault holds your <span translate="no">ORBIX</span>, pays room creation fees, and receives refunds. Connect a browser
-            wallet or generate one — it restores automatically every visit.
-          </p>
-          <button className="btn-primary" onClick={() => setLocalModal(true)}>Connect or generate wallet</button>
-        </section>
-      </div>
-    )
-  }
-
-  return (
-    <div className="ct-page">
-      <Banner />
-      <header className="ct-head">
-        <div>
-          <h1>Vault</h1>
-          <p className="sub">One <span translate="no">ORBIX</span> balance. Room creation fees, joiner fees you absorb, and refunds all run through here.</p>
-        </div>
-        <button className="btn-ghost" onClick={() => go('/center')}>
-          Back to catalog
-        </button>
-      </header>
-
-      <FundsPanel address={session.address} onConnect={() => setLocalModal(true)} />
-
-      <section className="vt-hero">
-        <div className="vt-orb" aria-hidden="true" />
-        <div>
-          <div className="vt-balance">
-            {vault.loading ? '…' : v ? v.balance : '—'}
-            <small><span translate="no">{v?.label ?? "ORBIX"}</span></small>
-          </div>
-          <p className="sub">
-            <span className="wl-addr-chip">{shortAddress(session.address, 6)}</span>
-            {' '}{session.kind === 'generated' ? 'generated wallet · saved in this browser' : 'browser wallet connected'}
-          </p>
-        </div>
-        <div className="vt-actions">
-          <button className="btn-ghost" onClick={() => session.address && void copyText(session.address)}>
-            Copy wallet address
-          </button>
-        </div>
-      </section>
-
-      <DepositPanel onchain={liveOnchain} token={session.token ?? ''} />
-
-      {session.token && (
-        <section className="ct-panel">
-          <h2>On-chain view</h2>
-          <OnchainPanel token={session.token} />
-        </section>
-      )}
-
-      {session.token && (
-        <section className="ct-panel">
-          <h2>Ledger</h2>
-          <div className="board">
-            {(v?.ledger ?? []).map((row) => (
-              <div key={row.id} className="board-row">
-                <span className="rank">{row.kind}</span>
-                <span className="who mono">{row.room_id ?? '—'}</span>
-                <b>{row.amount}</b>
-              </div>
-            ))}
-            {(v?.ledger ?? []).length === 0 && <p className="muted">No movements yet.</p>}
-          </div>
-          <div className="ct-actions" style={{ marginTop: 12 }}>
-            <button className="btn-ghost" onClick={() => void exportLedger(session.token as string)}>
-              Export ledger (CSV)
-            </button>
-          </div>
-        </section>
-      )}
-    </div>
-  )
-}
-
-function OnchainPanel({ token }: { token: string }) {
-  const [live, setLive] = useState<OnchainBalance | null>(null)
-  useEffect(() => {
-    let alive = true
-    const pull = () => center.onchainBalance(token).then((b) => { if (alive) setLive(b) }).catch(() => undefined)
-    pull()
-    const t = setInterval(pull, 20_000)
-    return () => { alive = false; clearInterval(t) }
-  }, [token])
-  if (!live?.live) return null
-  const fmt = (n: number | null) => (n == null ? '0' : (n / 1e18).toLocaleString('en-US', { maximumFractionDigits: 4 }))
-  return (
-    <div className="ct-onchain">
-      <p>
-        <i className="live-dot" /> <b>{fmt(live.vaultCredit)} {live.symbol}</b> credited in the vault
-        {live.wallet != null && <> · <b>{fmt(live.wallet)} {live.symbol}</b> in wallet</>}
-      </p>
-      <p className="muted mono">vault {shortAddress(live.vaultAddress ?? '')} · chain {live.chainId}</p>
-    </div>
-  )
-}
-
-async function exportLedger(token: string) {
-  const res = await fetch(center.ledgerCsvUrl(), { headers: { authorization: `Bearer ${token}` } })
-  const text = await res.text()
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'orbix-center-ledger.csv'
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 // ------------------------------------------------------------------ app shell
 
 const NAV: { label: string; path: string }[] = [
-  { label: 'Catalog', path: '/center' },
-  { label: 'Create', path: '/center/create' },
+  { label: 'Game center', path: '/center' },
+  { label: 'Create room', path: '/center/create' },
   { label: 'Vault', path: '/center/wallet' },
-  { label: 'Admin', path: '/center/admin' },
 ]
 
 export function CenterApp() {
@@ -1737,55 +1284,56 @@ export function CenterApp() {
   // Per-route document title (browser tab readability)
   useEffect(() => {
     const titles: Record<string, string> = {
-      catalog: 'Orbix Game Center — Play. Explore. Compete.',
+      catalog: 'Orbix Game Center — Your next round starts here',
       create: 'Create a room — Orbix Game Center',
       room: 'Room — Orbix Game Center',
       wallet: 'Vault — Orbix Game Center',
       admin: 'Admin — Orbix Game Center',
     }
     document.title = titles[route.name] ?? 'Orbix Game Center'
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }, [route])
 
   const body = useMemo(() => {
     switch (route.name) {
       case 'create':
-        return <Wizard session={session} initialTemplateId={route.templateId} />
+        return route.templateId && !isFeaturedGame(route.templateId) ? <div className="ct-page ct-unavailable"><Gamepad2 size={48} /><h1>More worlds are on the way.</h1><p>This game is coming soon. Pick one of the four featured games for your next room.</p><button className="btn-primary" onClick={() => go('/center')}>Explore games</button></div> : <Wizard key={route.templateId ?? 'choose'} session={session} initialTemplateId={route.templateId} onConnect={() => setWalletOpen(true)} />
       case 'room':
         return <Room roomId={route.roomId} session={session} />
       case 'wallet':
-        return <Wallet session={session} />
+        return <CenterVault session={session} onConnect={() => setWalletOpen(true)} navigate={go} />
       case 'admin':
         return <AdminPanel session={session} />
       default:
-        return <Catalog session={session} />
+        return <GameCenterHome session={session} onConnect={() => setWalletOpen(true)} navigate={go} />
     }
   }, [route, session])
 
   return (
     <div className="ct-app">
       <a className="ct-skip-link" href="#center-main">Skip to content</a>
-      <BackButton onFallback={() => go('/center')} />
       <header className="ct-topbar">
         <a className="ct-brand" href="/center" onClick={(e) => { e.preventDefault(); go('/center') }}>
-          <span className="orb" />
+          <span className="ct-brand-orbit" aria-hidden="true"><i /></span>
           <span className="brand-text">
             <b translate="no">ORBIX</b>
-            <small>CENTER</small>
+            <small>game center</small>
           </span>
         </a>
-        {NAV.map((item) => (
+        <nav className="ct-primary-nav" aria-label="Game center navigation">{NAV.map((item) => (
           <button
             key={item.path}
             className={`ct-nav-item${item.path === activePath ? ' on' : ''}`}
+            aria-current={item.path === activePath ? 'page' : undefined}
             onClick={() => go(item.path)}
           >
-            {item.label}
+            {item.path === '/center' ? <Gamepad2 size={17} /> : item.path === '/center/create' ? <Plus size={17} /> : <WalletIcon size={17} />}{item.label}
           </button>
-        ))}
+        ))}</nav>
         <a className="ct-nav-item back" href="/">
-          ← Cockpit
+          Orbix Core <ArrowUpRight size={14} />
         </a>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flex: 'none' }}>
+        <div className="ct-player-controls">
           {session.token && session.address && (
             <ProfileTopButton session={session} onOpen={() => setProfileOpen(true)} />
           )}
@@ -1795,6 +1343,7 @@ export function CenterApp() {
       {walletOpen && <WalletModal session={session} onClose={() => setWalletOpen(false)} />}
       {profileOpen && <ProfileModalWrapper session={session} onClose={() => setProfileOpen(false)} />}
       <main className="ct-main" id="center-main" tabIndex={-1}>{body}</main>
+      <footer className="ct-footer"><a href="/center" onClick={(e) => { e.preventDefault(); go('/center') }}><Gamepad2 size={18} /> Orbix Game Center</a><span>Made for the next round.</span><div><a href="/">Orbix Core</a><button onClick={() => go('/center/admin')}>Admin</button><span>Robinhood testnet</span></div></footer>
     </div>
   )
 }

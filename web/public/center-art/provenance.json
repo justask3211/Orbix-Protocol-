@@ -1,0 +1,38 @@
+[
+  {
+    "game": "number-hunt",
+    "file": "center-art/number-hunt.webp",
+    "bytes": 109372,
+    "sha256": "aff75d0ddf137bbecad8508b2a54a352005ce95c4482138e7f90355724ca75f4",
+    "generatedWith": "Built-in image_gen",
+    "prompt": "An orange fox explorer with teal backpack standing on a whimsical coral and mint floating puzzle island, oversized tactile cube tiles bearing clear numerals 3, 7, 9, a large luminous question-mark mystery cube, small golden coins and lush chunky stylized plants. Sunlit coral peach atmosphere, turquoise shadows and creamy highlights, clear composition with strongest subjects toward right and no text labels.",
+    "use": "Illustrated world preview; not a gameplay screenshot."
+  },
+  {
+    "game": "boss-raid",
+    "file": "center-art/boss-raid.webp",
+    "bytes": 129514,
+    "sha256": "87f4d8830477ac2580c2626263d0353aa20a62c66150ff02aab9e3e07a02a46a",
+    "generatedWith": "Built-in image_gen",
+    "prompt": "A majestic cute giant violet crystalline stone golem boss, glowing amber heart, on a lavender floating arena, six little colorful adventurers approaching in two visual groups of three, coral and teal costumes, magical impact arcs and bright stylized stones. Joyful cooperative action, friendly expressive characters, indigo lilac sky and orange warm rim light, no text.",
+    "use": "Illustrated world preview; not a gameplay screenshot."
+  },
+  {
+    "game": "token-catch",
+    "file": "center-art/token-catch.webp",
+    "bytes": 90632,
+    "sha256": "bb7b6d8175875cacc56a7df91c23bf022b348e6c0b4cbdd5050dafb9af09bf47",
+    "generatedWith": "Built-in image_gen",
+    "prompt": "A nimble coral-orange fox mascot with a little teal catcher basket leaping between floating turquoise platforms to catch oversized shiny golden coin tokens, a handful of magenta geometric hazard shapes clearly separate, dynamic diagonal arc of coins, fresh aqua blue environment and candy colored flora, cheerful sunlight, no text.",
+    "use": "Illustrated world preview; not a gameplay screenshot."
+  },
+  {
+    "game": "reaction-duel",
+    "file": "center-art/reaction-duel.webp",
+    "bytes": 74428,
+    "sha256": "3e9a530e7380bb664ae8d3c718e1a9d08cb27af8d553670b04a05fe451ef7136",
+    "generatedWith": "Built-in image_gen",
+    "prompt": "Two charming stylized adventurers facing each other across a split coral and periwinkle floating reaction arena, expressive competitive poses, a chunky golden lightning symbol floating between them, dramatic playful energetic composition, peach-coral left world and blue-lilac right world, tactile rounded game props, no text.",
+    "use": "Illustrated world preview; not a gameplay screenshot."
+  }
+]

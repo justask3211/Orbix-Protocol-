@@ -5,17 +5,15 @@
 //   2. vault.deposit(amount)
 //   each step uses window.ethereum personal wallet; no backend custody.
 //
-// QR deposit (second tab):
-//   show the vault address QR + copyable address. After sending from any
-//   wallet, the user presses "Check deposit"; the backend scans recent
-//   vault deposit events, matches the sender wallet, and credits the
-//   software balance exactly once per deposit event.
+// Contract details explain the exact token and vault. Direct token transfers do not
+// call deposit() and must never be presented as credited deposits.
 
 import { useState } from 'react'
 import { encodeFunctionData, parseUnits, formatUnits } from 'viem'
 import { center, explainError } from './api'
 import { copyText } from './share'
 import type { OnchainBalance } from './api'
+import { TxPreview } from './funds'
 
 const ERC20_ABI = [
   {
@@ -50,7 +48,7 @@ type EthProvider = {
 
 async function eth(): Promise<EthProvider> {
   const p = (window as any).ethereum as EthProvider | undefined
-  if (!p) throw new Error('No browser wallet connected. Generate or connect a wallet first.')
+  if (!p) throw new Error('Connect a browser wallet to make a contract deposit.')
   return p
 }
 
@@ -74,49 +72,66 @@ async function ensureChain(provider: EthProvider): Promise<void> {
     // 4902 = chain not added to the wallet
     if (e?.code === 4902 || /Unrecognized chain/i.test(String(e?.message))) {
       await provider.request({ method: 'wallet_addEthereumChain', params: [CHAIN_PARAMS] })
-      return
+      await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] })
     }
     throw new Error('Switch your wallet to the Robinhood testnet (chain 46630) to deposit.')
   }
+  const switched = await provider.request({ method: 'eth_chainId' })
+  if (String(switched).toLowerCase() !== CHAIN_ID_HEX) throw new Error('Your wallet has not switched to Robinhood testnet. Switch networks before depositing.')
 }
 
 function shortHex(h: string, size = 6): string {
   return `${h.slice(0, 2 + size)}…${h.slice(-size)}`
 }
 
-/** Simple deterministic QR matrix (no dependency): NOT a spec-compliant QR.
- *  Renders the address as a scannable-looking block; wallets should copy the
- *  address text. A true QR needs a real encoder — see AddressQr below which
- *  draws the address as a decorative matrix plus the full copyable address. */
-export function DepositPanel({ onchain, token }: {
+export function DepositPanel({ onchain, token, address, onConfirmed }: {
   onchain: OnchainBalance | null
   token: string
+  address?: string | null
+  onConfirmed?: () => void
 }) {
-  const [tab, setTab] = useState<'contract' | 'qr'>('contract')
+  const [tab, setTab] = useState<'contract' | 'details'>('contract')
   const [amount, setAmount] = useState('100')
   const [step, setStep] = useState<'idle' | 'approving' | 'depositing' | 'done'>('idle')
   const [txHash, setTxHash] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [preview, setPreview] = useState(false)
+  const [copyStatus, setCopyStatus] = useState<string | null>(null)
 
   const vault = onchain?.vaultAddress ?? ''
-  const tokenAddr = onchain?.token ?? token
+  const tokenAddr = onchain?.token ?? ''
   const decimals = 18
   const symbol = onchain?.symbol ?? 'ORBIX'
+  const configured = Boolean(token && onchain?.live && onchain.chainId === 46630 &&
+    /^0x[0-9a-fA-F]{40}$/.test(vault) && /^0x[0-9a-fA-F]{40}$/.test(tokenAddr))
+  const busy = step === 'approving' || step === 'depositing'
+  const depositAmount = () => {
+    if (!configured) throw new Error('Live vault details are unavailable. Refresh before depositing.')
+    if (!/^\d+(\.\d{1,18})?$/.test(amount)) throw new Error('Enter a positive amount with no more than 18 decimal places.')
+    const wei = parseUnits(amount, decimals)
+    if (wei <= 0n) throw new Error('Enter an amount greater than zero.')
+    return wei
+  }
+  const reviewDeposit = () => {
+    setErr(null)
+    try { depositAmount(); setPreview(true) }
+    catch (cause) { setErr(explainError(cause)) }
+  }
 
   const contractDeposit = async () => {
     setErr(null)
-    const provider = await eth()
-    const accounts: string[] = await provider.request({ method: 'eth_requestAccounts' })
-    const from = accounts[0]
-    await ensureChain(provider)
-    const wei = parseUnits(amount || '0', decimals)
-    if (wei <= 0n) {
-      setErr('Enter an amount greater than zero.')
-      return
-    }
+    setPreview(false)
+    let sent = false
     try {
-      // step 1: allowance check
+      const wei = depositAmount()
       setStep('approving')
+      const provider = await eth()
+      const accounts: string[] = await provider.request({ method: 'eth_requestAccounts' })
+      const from = accounts[0]
+      if (!from) throw new Error('No wallet account selected. Choose an account in your browser wallet.')
+      if (address && from.toLowerCase() !== address.toLowerCase()) throw new Error('The browser wallet account differs from your game-center wallet. Switch to the connected account before depositing.')
+      await ensureChain(provider)
+      // step 1: allowance check
       const allowanceData = encodeFunctionData({
         abi: ERC20_ABI, functionName: 'allowance',
         args: [from as `0x${string}`, vault as `0x${string}`],
@@ -135,6 +150,7 @@ export function DepositPanel({ onchain, token }: {
           method: 'eth_sendTransaction',
           params: [{ from, to: tokenAddr, data: approveData }],
         })
+        sent = true
         // wait for the approve receipt (simple poll)
         await waitMined(provider, approveTx)
       }
@@ -147,9 +163,11 @@ export function DepositPanel({ onchain, token }: {
         method: 'eth_sendTransaction',
         params: [{ from, to: vault, data: depositData }],
       })
-      await waitMined(provider, depositTx)
+      sent = true
       setTxHash(depositTx)
+      await waitMined(provider, depositTx)
       setStep('done')
+      onConfirmed?.()
     } catch (e) {
       setStep('idle')
       const msg = e instanceof Error ? e.message : String(e)
@@ -158,7 +176,7 @@ export function DepositPanel({ onchain, token }: {
       } else if (/insufficient allowance/i.test(msg)) {
         setErr('The approval did not go through. Approve again when your wallet asks, then deposit.')
       } else if (/user rejected|denied/i.test(msg)) {
-        setErr('You declined the signature. Nothing was sent.')
+        setErr(sent ? 'You declined the next wallet request. An earlier transaction may already be confirmed; review your wallet activity before retrying.' : 'You declined the wallet request. No transaction was submitted.')
       } else {
         setErr(msg)
       }
@@ -172,27 +190,28 @@ export function DepositPanel({ onchain, token }: {
         <button role="tab" aria-selected={tab === 'contract'} className={tab === 'contract' ? 'on' : ''} onClick={() => setTab('contract')}>
           Contract deposit
         </button>
-        <button role="tab" aria-selected={tab === 'qr'} className={tab === 'qr' ? 'on' : ''} onClick={() => setTab('qr')}>
-          Deposit via QR
+        <button role="tab" aria-selected={tab === 'details'} className={tab === 'details' ? 'on' : ''} onClick={() => setTab('details')}>
+          Vault details
         </button>
       </div>
 
       {tab === 'contract' && (
         <div>
           <ol className="vt-steps" style={{ margin: '14px 0' }}>
-            <li><b>Approve</b> — your wallet grants the vault permission to pull exactly the amount you enter. One signature.</li>
-            <li><b>Deposit</b> — the vault contract pulls the {symbol} from your wallet into your vault credit. Second signature.</li>
+            <li><b>Approve</b> — your wallet grants the vault permission to pull exactly the amount you enter. Approval is requested only if your allowance is too low.</li>
+            <li><b>Deposit</b> — the vault contract pulls the {symbol} from your wallet into your vault credit. A separate deposit transaction is requested.</li>
           </ol>
           <div className="ct-actions" style={{ alignItems: 'center' }}>
             <input
               className="pad-input"
               type="number" min={0} step="any"
               value={amount}
+              disabled={busy}
               onChange={(e) => { setAmount(e.target.value); setStep('idle'); setTxHash(null) }}
               aria-label={`Amount of ${symbol}`}
             />
-            <button className="btn-primary" onClick={contractDeposit} disabled={step === 'approving' || step === 'depositing'}>
-              {step === 'idle' && 'Deposit with wallet'}
+            <button className="btn-primary" onClick={reviewDeposit} disabled={busy || !configured}>
+              {step === 'idle' && 'Review deposit'}
               {step === 'approving' && 'Waiting: approve…'}
               {step === 'depositing' && 'Waiting: deposit…'}
               {step === 'done' && 'Deposit confirmed ✓'}
@@ -200,36 +219,30 @@ export function DepositPanel({ onchain, token }: {
           </div>
           {txHash && (
             <p className="wz-why mono" role="status" aria-live="polite">
-              Deposit confirmed on-chain — tx {shortHex(txHash)}. Your vault credit updates within a minute.
+              {step === 'done' ? 'Deposit confirmed on-chain' : 'Deposit transaction submitted'} — tx {shortHex(txHash)}. {step === 'done' ? 'Use Check deposit to sync room credit.' : 'Check your wallet activity while confirmation is pending.'}
             </p>
           )}
           {err && <p className="err" role="alert">{err}</p>}
         </div>
       )}
 
-      {tab === 'qr' && (
-        <div className="dp-qr-wrap">
-          <ol className="vt-steps" style={{ margin: '14px 0' }}>
-            <li><b>Send {symbol}</b> — scan the QR or copy the vault address and send from any wallet or exchange. Include your own wallet as the sender.</li>
-            <li><b>Press Check deposit</b> — we scan the vault's recent deposits on-chain, match the sender to your connected wallet, and credit your vault balance exactly once per deposit.</li>
-          </ol>
-          <div className="dp-qr-row">
-            <AddressQr value={vault} />
-            <div style={{ minWidth: 0 }}>
-              <p className="mono dp-addr" translate="no">{vault}</p>
-              <div className="ct-actions">
-                <button className="btn-ghost" onClick={() => void copyText(vault)}>
-                  Copy vault address
-                </button>
-              </div>
-              <p className="muted" style={{ fontSize: 11.5 }}>
-                Only send {symbol} on chain {onchain?.chainId ?? 46630}. Anything else is lost.
-              </p>
-            </div>
-          </div>
-          <CheckDeposit onchain={onchain} token={token} />
+      {tab === 'details' && (
+        <div className="dp-details">
+          <p className="muted">Use the contract deposit flow to create vault credit. Sending tokens directly to this address does not call deposit() and is not a credited deposit.</p>
+          <dl><dt>Network</dt><dd>Robinhood Chain Testnet · 46630</dd><dt>Token contract</dt><dd className="mono dp-addr" translate="no">{tokenAddr || 'Unavailable'}</dd><dt>Vault contract</dt><dd className="mono dp-addr" translate="no">{vault || 'Unavailable'}</dd></dl>
+          <button className="btn-ghost" disabled={!configured} onClick={() => { void copyText(vault).then(ok => setCopyStatus(ok ? 'Vault address copied.' : 'Copy failed. Select the address to copy it.')) }}>Copy vault address</button>
+          {copyStatus && <p role="status" className="muted">{copyStatus}</p>}
+          <CheckDeposit onchain={onchain} token={token} onConfirmed={onConfirmed} />
         </div>
       )}
+      {step === 'done' && tab === 'contract' && <CheckDeposit onchain={onchain} token={token} onConfirmed={onConfirmed} />}
+      <TxPreview open={preview} title={`Deposit ${amount} ${symbol}`} busy={busy}
+        onCancel={() => setPreview(false)} onConfirm={() => { void contractDeposit() }}
+        steps={[
+          { label: 'Approve if needed', detail: `Allow this vault to transfer exactly ${amount} ${symbol}. Your wallet asks for approval only when your current allowance is too low.`, contract: tokenAddr, fn: 'approve(spender, amount)', args: [['spender', vault], ['amount', `${amount} ${symbol}`]] },
+          { label: 'Deposit', detail: `Move ${amount} ${symbol} from your connected wallet into this vault on chain 46630. A blockchain transaction requires test ETH for gas.`, contract: vault, fn: 'deposit(amount)', args: [['amount', `${amount} ${symbol}`]] },
+        ]} />
+
     </section>
   )
 }
@@ -247,42 +260,7 @@ async function waitMined(provider: EthProvider, txHash: string, timeoutMs = 180_
   throw new Error('Timed out waiting for the transaction — check the explorer and refresh.')
 }
 
-/** Decorative deterministic matrix from the address bytes + the full address in text.
- *  Real wallet apps should use the copyable address (rendered right beside it). */
-function AddressQr({ value }: { value: string }) {
-  if (!value) return null
-  const size = 21
-  let seed = 0
-  for (const c of value.toLowerCase()) seed = (seed * 31 + c.charCodeAt(0)) >>> 0
-  const cells: boolean[] = []
-  let t = seed
-  for (let i = 0; i < size * size; i++) {
-    t = (t * 1103515245 + 12345) >>> 0
-    cells.push(((t >>> 16) & 1) === 1)
-  }
-  // finder patterns (three corners) so it reads as a QR
-  const finder = (r: number, c: number) => (r < 7 && c < 7) || (r < 7 && c >= size - 7) || (r >= size - 7 && c < 7)
-  return (
-    <svg className="dp-qr" width="148" height="148" viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges" role="img" aria-label={`Vault address code for ${value}`}>
-      <rect width={size} height={size} fill="#0a0c0d" />
-      {cells.map((on, i) => {
-        const r = Math.floor(i / size)
-        const c = i % size
-        if (finder(r, c)) return null
-        return on ? <rect key={i} x={c} y={r} width="1" height="1" fill="#e9e7e2" /> : null
-      })}
-      {[[0, 0], [0, size - 7], [size - 7, 0]].map(([r, c], i) => (
-        <g key={i}>
-          <rect x={c} y={r} width="7" height="7" fill="#e9e7e2" />
-          <rect x={c + 1} y={r + 1} width="5" height="5" fill="#0a0c0d" />
-          <rect x={c + 2} y={r + 2} width="3" height="3" fill="#e9e7e2" />
-        </g>
-      ))}
-    </svg>
-  )
-}
-
-function CheckDeposit({ onchain, token }: { onchain: OnchainBalance | null; token: string }) {
+function CheckDeposit({ onchain, token, onConfirmed }: { onchain: OnchainBalance | null; token: string; onConfirmed?: () => void }) {
   const [state, setState] = useState<'idle' | 'checking' | 'ok' | 'nothing'>('idle')
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -291,12 +269,13 @@ function CheckDeposit({ onchain, token }: { onchain: OnchainBalance | null; toke
     setState('checking'); setMsg(null)
     try {
       const res = await center.checkDeposit(token)
+      onConfirmed?.()
       if (res.credited > 0) {
         setState('ok')
         setMsg(`Credited ${formatUnits(BigInt(res.credited), 18)} ${res.symbol ?? 'ORBIX'} to your vault.`)
       } else {
         setState('nothing')
-        setMsg('No new deposit found for your wallet yet. Send first, wait for it to confirm (about 15 seconds), then check again.')
+        setMsg('No new deposit found for your wallet yet. Use the contract deposit flow, wait for its receipt, then check again.')
       }
     } catch (e) {
       setState('nothing')
