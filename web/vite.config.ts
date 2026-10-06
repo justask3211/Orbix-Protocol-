@@ -9,7 +9,7 @@ export default defineConfig({
   server: {
     allowedHosts: true,
     proxy: {
-      '/api/center': { target: 'http://127.0.0.1:8099', changeOrigin: true },
+      '/api/center': { target: 'http://127.0.0.1:8099', changeOrigin: true, ws: true },
     },
   },
   build: {

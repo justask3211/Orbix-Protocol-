@@ -41,6 +41,7 @@ class Hub:
     def __init__(self, maxsize: int = 64) -> None:
         self._conns: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
+        self.frame_filter = None
 
     async def register(self, conn_id: str, room_id: str, who: str, ws, role: str = "player") -> None:
         async with self._lock:
@@ -60,15 +61,15 @@ class Hub:
     def count(self, room_id: str) -> int:
         return sum(1 for c in self._conns.values() if c["room"] == room_id)
 
-    async def send(self, who: str, msg: dict) -> None:
+    async def send(self, who: str, msg: dict, room_id: str | None = None) -> None:
         for conn in list(self._conns.values()):
-            if conn["who"] == who:
-                self._enqueue(conn, msg)
+            if conn["who"] == who and (room_id is None or conn["room"] == room_id):
+                self._enqueue(conn, self.frame_filter(conn, msg) if self.frame_filter else msg)
 
     async def broadcast(self, room_id: str, msg: dict) -> None:
         for conn in list(self._conns.values()):
             if conn["room"] == room_id:
-                self._enqueue(conn, msg)
+                self._enqueue(conn, self.frame_filter(conn, msg) if self.frame_filter else msg)
 
     @staticmethod
     def _enqueue(conn: dict, msg: dict) -> None:
@@ -111,6 +112,10 @@ class RoomRuntime:
         self.finished_at: float | None = None
         self._deadline: float | None = None
         self.actions_seen: deque = deque(maxlen=2000)
+        from center.community import CommunityService
+        self.community = CommunityService(store)
+        self._last_hint_tick = 0.0
+        self.entry_verifier = None
 
     # ------------------------------------------------------------------ factories
 
@@ -125,7 +130,7 @@ class RoomRuntime:
             "visibility": config.visibility,
             "mode": config.mode,
             "status": status,
-            "config": config.public_dict(),
+            "config": config.model_dump(mode="json"),
             "config_hash": "0x" + hashlib.sha256(config.config_hash_input().encode()).hexdigest(),
         }
         store.create_room(room)
@@ -141,9 +146,15 @@ class RoomRuntime:
         config = RC(**row["config"])
         rt = cls(store, vault, hub, row, config)
         rnd = store.room_round(room_id)
-        if rnd and rnd.get("snapshot") and rnd.get("state") in {lc.RUNNING, lc.RESULT_PENDING}:
+        if rnd and rnd.get("snapshot"):
             engine_cls = ENGINES[config.template_id]
             rt.engine = engine_cls.restore(config, rnd["round_id"], rnd["seed"], rnd["snapshot"])
+            duration = float(getattr(config.rules, "duration_seconds", 120))
+            if config.template_id == "reaction-duel":
+                duration = config.rules.rounds * (config.rules.choice_window_seconds + config.rules.reveal_window_seconds)
+            rt._deadline = rnd["started_at"] + duration
+        if rnd:
+            rt.finished_at = rnd.get("ended_at")
         return rt
 
     # ------------------------------------------------------------------ state helpers
@@ -204,16 +215,24 @@ class RoomRuntime:
         appear in discovery, and a leaked URL cannot bypass a private room."""
         now = now or time.time()
         who = who.lower()
-        if self.config.visibility == "private" and role == "player":
+        if role not in {"player", "spectator"}:
+            raise ValueError("BAD_ROLE")
+        if self.status not in lc.JOINABLE:
+            if who not in {p["who"] for p in self.store.participants(self.room_id)}:
+                raise ValueError("REGISTRATION_CLOSED")
+        if role == "spectator" and not self.config.admission.spectators:
+            raise ValueError("SPECTATORS_DISABLED")
+        if self.config.visibility == "private":
             if not self.store.invite_valid(self.room_id, invite):
                 raise PermissionError("INVITE_REQUIRED")
         players = [p for p in self.store.participants(self.room_id) if p["role"] == "player"]
         if role == "player" and who not in {p["who"] for p in players}:
             if len(players) >= self.config.admission.player_cap:
                 raise ValueError("ROOM_FULL")
-            if self.config.entry.kind == "erc20":
-                # A paid room records the entry intent; the chain confirms it out of band.
-                pass
+        if role == "player" and self.config.entry.kind == "erc20":
+            if self.entry_verifier is None:
+                raise ValueError("ENTRY_VERIFICATION_UNAVAILABLE")
+            self.entry_verifier(who)
         self.store.join(self.room_id, who, role)
 
         # Joiner fee: either the creator absorbs it from the vault, or the player sees it.
@@ -252,15 +271,20 @@ class RoomRuntime:
 
         self.round_id = self.round_id or secrets.token_hex(16)
         self.seed = self.seed or secrets.token_hex(32)
-        config_hash = "0x" + hashlib.sha256(self.config.config_hash_input().encode()).hexdigest()
+        config_hash = self.store.get_room(self.room_id)["config_hash"]
         raw_commit = commit_hash(self.round_id, config_hash, self.seed)
         # the wire format always carries the 0x prefix, whatever the helper returns
         self.commit = raw_commit if raw_commit.startswith("0x") else "0x" + raw_commit
 
         engine_cls = ENGINES[self.config.template_id]
         self.engine = engine_cls(self.config, self.round_id, self.seed, players)
+        if self.config.template_id == "boss-raid" and getattr(self.config.rules, "team_mode", "coop") == "teams":
+            self.engine.teams = (self.store.get_setting(f"teams:{self.room_id}") or {}).get("teams", {})
         self.engine.start(now)
-        self._deadline = now + float(getattr(self.config.rules, "duration_seconds", 120))
+        duration = float(getattr(self.config.rules, "duration_seconds", 120))
+        if self.config.template_id == "reaction-duel":
+            duration = self.config.rules.rounds * (self.config.rules.choice_window_seconds + self.config.rules.reveal_window_seconds)
+        self._deadline = now + duration
         self._set_status(lc.RUNNING)
 
         self.store.save_round({
@@ -302,11 +326,11 @@ class RoomRuntime:
             "payload": {"accepted": result.ok, "error": result.error,
                         "patch": result.patch, "scores": result.scores},
         }
-        if result.ok and result.private:
-            await self.hub.send(who.lower(), {**msg, "payload": {**msg["payload"], **result.private}})
-            await self.hub.broadcast(self.room_id, {**msg, "payload": {"accepted": True, "patch": result.patch, "scores": result.scores}})
-        else:
-            await self.hub.send(who.lower(), msg)
+        await self.hub.send(who.lower(), {**msg, "payload": {**msg["payload"], **(result.private or {})}}, self.room_id)
+        if result.ok:
+            # Every player must see accepted public state, including a Duel opponent's
+            # sealed status. Private preimages and hints never enter this frame.
+            await self.hub.broadcast(self.room_id, {"v": PROTOCOL_VERSION, "type": "game.patch", "seq": seq, "roundId": self.round_id, "payload": self.engine.public_state()})
 
         if result.finished:
             await self.finish(now)
@@ -321,7 +345,10 @@ class RoomRuntime:
         if lc.is_terminal(self.status):
             return True
         result = self.engine.tick(now)
-        if result is not None and self.round_id:
+        if now - self._last_hint_tick >= 1:
+            self.community.deliver_hints(self.room_id, getattr(self.engine, "started_at", 0), now)
+            self._last_hint_tick = now
+        if result is not None and self.round_id and (self.config.template_id != "token-catch" or result.finished):
             self.store.save_snapshot(self.round_id, self.engine.snapshot())
         if result is not None and result.patch:
             await self.hub.broadcast(self.room_id, {
@@ -347,7 +374,7 @@ class RoomRuntime:
 
         actions = [{"who": a["who"], "action": a["action"], "at": a["at"]} for a in self.actions_seen]
         transcript = st.transcript_hash(self.round_id or "", actions)
-        config_hash = "0x" + hashlib.sha256(self.config.config_hash_input().encode()).hexdigest()
+        config_hash = self.store.get_room(self.room_id)["config_hash"]
 
         entitlements = self.engine.entitlements()
         escrow = PLACEHOLDER_ESCROW if self.config.mode == "preview" else os.environ.get("CENTER_ESCROW", PLACEHOLDER_ESCROW)
@@ -388,7 +415,7 @@ class RoomRuntime:
 
         self.store.save_round({
             "round_id": self.round_id, "room_id": self.room_id, "seed": self.seed,
-            "commit_hash": self.commit or "", "started_at": now, "ended_at": now,
+            "commit_hash": self.commit or "", "started_at": (self.store.room_round(self.room_id) or {}).get("started_at", now), "ended_at": now,
             "merkle_root": "0x" + root.hex(), "allocations_hash": "0x" + alloc.hex(),
             "transcript_hash": "0x" + transcript.hex(), "settlement_deadline": deadline,
             "settled_at": now, "state": lc.CLAIMABLE, "snapshot": self.engine.snapshot(),
@@ -429,7 +456,7 @@ class RoomRuntime:
         return {
             "roundId": self.round_id,
             "commitHash": rnd.get("commit_hash"),
-            "seed": rnd.get("seed"),
+            "seed": rnd.get("seed") if rnd.get("ended_at") is not None else None,
             "merkleRoot": rnd.get("merkle_root"),
             "allocationsHash": rnd.get("allocations_hash"),
             "transcriptHash": rnd.get("transcript_hash"),
@@ -456,7 +483,7 @@ class RoomRuntime:
                 "claimId": e["claim_id"], "roundId": e["round_id"], "winner": e["winner"],
                 "slotId": e["slot_id"], "points": e["points"], "assetKind": e["asset_kind"],
                 "assetContract": e["asset_contract"], "tokenId": e["token_id"],
-                "amount": e["amount"], "code": "OC1-" + e["claim_id"][:8].upper() + "-" + e["claim_id"][8:14].upper(),
+                "amount": e["amount"], "code": st.payment_code(e["claim_id"]),
             }
             for e in allocations
         ]
@@ -510,7 +537,8 @@ class Scheduler:
                         await rt.finish(now)
                 self._enforce_schedules(now)
                 self._reap_closed(now)
-            await asyncio.sleep(self.interval)
+            catching = any(rt.config.template_id == "token-catch" and rt.status == lc.RUNNING for rt in self.runtimes.values())
+            await asyncio.sleep(min(self.interval, 0.05) if catching else self.interval)
 
     def _enforce_schedules(self, now: float) -> None:
         """Open scheduled rooms at their open_at time; close rooms whose close_at

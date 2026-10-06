@@ -44,10 +44,12 @@ class DuelEngine(Engine):
         self.phase: str = "commit"     # commit -> reveal -> done
         self.history: list[dict] = []
         self.finished: bool = False
+        self.phase_started_at: float = 0
 
     # ------------------------------------------------------------------ lifecycle
 
     def start(self, now: float = 0.0) -> None:
+        self.phase_started_at = now
         self.players = list(self.participants)[:2]
         for p in self.players:
             self.commits[p] = {}
@@ -63,6 +65,26 @@ class DuelEngine(Engine):
     def _target_wins(self) -> int:
         return self.rules.rounds // 2 + 1
 
+    def phase_deadline(self) -> float:
+        return self.phase_started_at + (self.rules.choice_window_seconds if self.phase == "commit" else self.rules.reveal_window_seconds)
+
+    def tick(self, now: float) -> ActionResult | None:
+        if self.finished or now < self.phase_deadline():
+            return None
+        submitted = self.commits if self.phase == "commit" else self.reveals
+        active = [p for p in self.players if self.round_index in submitted.get(p, {})]
+        if len(active) == 1:
+            self.wins[active[0]] += 1
+        self.history.append({"round": self.round_index, "a": "", "b": "", "outcome": "timeout", "winner": active[0] if len(active) == 1 else None})
+        self.finished = self.round_index + 1 >= self.rules.rounds or max(self.wins.values(), default=0) >= self._target_wins()
+        if self.finished:
+            self.phase = "done"
+        else:
+            self.round_index += 1
+            self.phase = "commit"
+        self.phase_started_at = now
+        return ActionResult(True, patch=self.public_state(), finished=self.finished, scores=self.scores())
+
     # ------------------------------------------------------------------ actions
 
     def act(self, who: str, action: dict, now: float) -> ActionResult:
@@ -71,6 +93,8 @@ class DuelEngine(Engine):
             return ActionResult(False, "NOT_ADMITTED")
         if self.finished:
             return ActionResult(False, "ROUND_FINISHED")
+        if now >= self.phase_deadline():
+            return ActionResult(False, "ROUND_NOT_OPEN")
         kind = action.get("kind")
 
         if kind == "commit":
@@ -85,6 +109,7 @@ class DuelEngine(Engine):
             both = all(self.round_index in self.commits[p] for p in self.players)
             if both:
                 self.phase = "reveal"
+                self.phase_started_at = now
             return ActionResult(True, patch={"phase": self.phase, "committed": {p: self.round_index in self.commits[p] for p in self.players}})
 
         if kind == "reveal":
@@ -122,6 +147,7 @@ class DuelEngine(Engine):
             else:
                 self.round_index += 1
                 self.phase = "commit"
+            self.phase_started_at = now
             return ActionResult(
                 True,
                 patch={"outcome": outcome, "wins": dict(self.wins), "roundIndex": self.round_index, "phase": self.phase, "finished": self.finished},
@@ -133,7 +159,9 @@ class DuelEngine(Engine):
 
     def eligible(self) -> set[str]:
         """Only a player who won a round is eligible; a drawn duel pays nobody."""
-        return {p for p in self.participants if self.wins.get(p, 0) > 0}
+        high = max(self.wins.values(), default=0)
+        winners = [p for p in self.players if self.wins.get(p, 0) == high]
+        return set(winners) if high > 0 and len(winners) == 1 else set()
 
     # ------------------------------------------------------------------ results
 
@@ -149,6 +177,11 @@ class DuelEngine(Engine):
             "rounds": self.rules.rounds,
             "roundIndex": self.round_index,
             "phase": self.phase,
+            "phaseStartedAt": self.phase_started_at,
+            "phaseDeadline": self.phase_deadline(),
+            "committed": {p: self.round_index in self.commits.get(p, {}) for p in self.players},
+            "revealed": {p: self.round_index in self.reveals.get(p, {}) for p in self.players},
+            "roundId": self.round_id,
             "choiceSet": self.rules.choice_set,
             "players": self.players,
             "wins": dict(self.wins),
@@ -159,6 +192,7 @@ class DuelEngine(Engine):
     def snapshot(self) -> dict:
         return {
             "participants": self.participants,
+            "phaseStartedAt": self.phase_started_at,
             "players": self.players,
             "commits": {k: {str(a): b for a, b in v.items()} for k, v in self.commits.items()},
             "reveals": {k: {str(a): b for a, b in v.items()} for k, v in self.reveals.items()},
@@ -170,6 +204,7 @@ class DuelEngine(Engine):
         }
 
     def _load(self, snapshot: dict) -> None:
+        self.phase_started_at = float(snapshot.get("phaseStartedAt", 0))
         self.players = list(snapshot.get("players", []))
         self.commits = {k: {int(a): b for a, b in v.items()} for k, v in snapshot.get("commits", {}).items()}
         self.reveals = {k: {int(a): b for a, b in v.items()} for k, v in snapshot.get("reveals", {}).items()}

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { ArrowDown, ArrowRight, ArrowUpRight, ChevronDown, Coins, Gamepad2, KeyRound, Search, ShieldCheck, Sparkles, Users, Wallet } from 'lucide-react'
-import { center, explainError, type RoomSummary, type TemplateMeta } from './api'
+import { center, explainError, type TemplateMeta } from './api'
 import { GameBanner } from './bannerArt'
 import { useCenterBalances } from './CenterBalance'
 import { FEATURED_GAMES, isFeaturedGame } from './featuredGames'
 import { shortAddress, type SessionState } from './session'
+import { OPEN_ROOM_STATES, roomPathFromInput, usePublicRooms } from './roomDiscovery'
 import './home.css'
+export { roomPathFromInput } from './roomDiscovery'
 
 export type GameCenterHomeProps = {
   session: SessionState
@@ -20,23 +22,6 @@ function Artwork({ id, color, eager = false }: { id: string; color: string; eage
     : <img src={`${import.meta.env.BASE_URL}center-art/${id}.webp`} alt="" loading={eager ? 'eager' : 'lazy'} fetchPriority={eager ? 'high' : 'auto'} decoding="async" width={960} height={640} onError={() => setFailed(true)} />
 }
 
-/** Accept only Orbix room paths, keeping invite codes while rejecting external navigation. */
-export function roomPathFromInput(input: string): string | null {
-  const value = input.trim()
-  if (/^[a-f\d]{16}$/i.test(value)) return `/center/rooms/${value.toLowerCase()}`
-  try {
-    const url = new URL(value, window.location.origin)
-    if (!['http:', 'https:'].includes(url.protocol)) return null
-    if (url.origin !== window.location.origin && url.hostname !== 'orbixcore.fun' && url.hostname !== 'www.orbixcore.fun') return null
-    const match = url.pathname.match(/^\/center\/rooms\/([a-f\d]{16})\/?$/i)
-    if (!match) return null
-    const invite = url.searchParams.get('invite')
-    if (invite && !/^[a-z\d_-]{1,128}$/i.test(invite)) return null
-    return `/center/rooms/${match[1].toLowerCase()}${invite ? `?invite=${encodeURIComponent(invite)}` : ''}`
-  } catch { return null }
-}
-
-const ROOM_OPEN_STATES = new Set(['registration', 'ready'])
 const amountFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 4 })
 function chainAmount(value: number | null | undefined) {
   return value == null ? 'Unavailable' : amountFormat.format(value / 1e18)
@@ -46,10 +31,7 @@ export function GameCenterHome({ session, onConnect, navigate }: GameCenterHomeP
   const [templates, setTemplates] = useState<TemplateMeta[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
   const [templateError, setTemplateError] = useState<string | null>(null)
-  const [rooms, setRooms] = useState<RoomSummary[]>([])
-  const [roomsLoading, setRoomsLoading] = useState(true)
-  const [roomError, setRoomError] = useState<string | null>(null)
-  const [lastRoomUpdate, setLastRoomUpdate] = useState<Date | null>(null)
+  const { rooms, loading: roomsLoading, error: roomError, updatedAt: lastRoomUpdate, refreshing: roomsRefreshing, refresh: refreshRooms } = usePublicRooms()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('All games')
   const [roomGame, setRoomGame] = useState('all')
@@ -69,26 +51,7 @@ export function GameCenterHome({ session, onConnect, navigate }: GameCenterHomeP
     return () => { active = false }
   }, [retry])
 
-  useEffect(() => {
-    let active = true
-    let pulling = false
-    async function pull() {
-      if (pulling || document.hidden) return
-      pulling = true
-      try {
-        const result = await center.rooms()
-        if (active) { setRooms(result.rooms); setRoomError(null); setLastRoomUpdate(new Date()) }
-      } catch (error) { if (active) setRoomError(explainError(error)) }
-      finally { pulling = false; if (active) setRoomsLoading(false) }
-    }
-    void pull()
-    const timer = window.setInterval(() => { void pull() }, 20_000)
-    const onVisible = () => { if (!document.hidden) void pull() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => { active = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
-  }, [retry])
-
-  const openRooms = useMemo(() => rooms.filter((room) => room.visibility === 'public' && ROOM_OPEN_STATES.has(room.status) && isFeaturedGame(room.templateId)), [rooms])
+  const openRooms = useMemo(() => rooms.filter((room) => room.visibility === 'public' && OPEN_ROOM_STATES.has(room.status) && isFeaturedGame(room.templateId)), [rooms])
   const matchingRooms = openRooms.filter((room) => roomGame === 'all' || room.templateId === roomGame)
   const templateById = new Map(templates.map((template) => [template.templateId, template]))
   const shownGames = FEATURED_GAMES.filter((game) => (filter === 'All games' || game.category === filter) && `${game.name} ${game.category} ${game.description}`.toLowerCase().includes(query.toLowerCase().trim()))
@@ -163,9 +126,9 @@ export function GameCenterHome({ session, onConnect, navigate }: GameCenterHomeP
 
       <section className="arcade-join-section" id="arcade-join" aria-labelledby="arcade-join-title">
         <div className="arcade-join-card"><span className="arcade-icon-box"><KeyRound size={24} aria-hidden="true" /></span><h2 id="arcade-join-title">Got an invite?<br />You’re in the right place.</h2><p>Paste a room ID or invite link. Check the room’s rules and entry requirements, then join.</p><form onSubmit={joinRoom} noValidate><label htmlFor="arcade-room-id">Room ID or invite link</label><input id="arcade-room-id" ref={joinField} value={joinInput} onChange={(event) => { setJoinInput(event.target.value); setJoinError(null) }} placeholder="Paste your invite here" aria-invalid={Boolean(joinError)} aria-describedby={joinError ? 'arcade-join-error' : undefined} autoComplete="off" spellCheck={false} />{joinError && <p id="arcade-join-error" className="arcade-inline-error" role="alert">{joinError}</p>}<button className="arcade-button arcade-button-ink" type="submit">Open room <ArrowUpRight size={18} aria-hidden="true" /></button></form></div>
-        <div className="arcade-room-browser"><header><div><h2>Find your people.</h2><p>Public rooms waiting for players.</p></div><button className="arcade-refresh" onClick={() => setRetry((value) => value + 1)} aria-label="Refresh public rooms">Refresh</button></header><label className="arcade-room-filter">Game <select value={roomGame} onChange={(event) => setRoomGame(event.target.value)}><option value="all">All four games</option>{FEATURED_GAMES.map((game) => <option key={game.id} value={game.id}>{game.name}</option>)}</select></label>
+        <div className="arcade-room-browser"><header><div><h2>Find your people.</h2><p>Public rooms waiting for players.</p></div><button className="arcade-refresh" onClick={refreshRooms} disabled={roomsRefreshing} aria-label="Refresh public rooms">{roomsRefreshing ? 'Refreshing…' : 'Refresh'}</button></header><label className="arcade-room-filter">Game <select value={roomGame} onChange={(event) => setRoomGame(event.target.value)}><option value="all">All four games</option>{FEATURED_GAMES.map((game) => <option key={game.id} value={game.id}>{game.name}</option>)}</select></label>
           {roomsLoading && <p className="arcade-fetch-state" role="status">Looking for open rooms…</p>}
-          {roomError && <div className="arcade-error" role="status"><p>Rooms couldn’t be refreshed. {roomError}</p><button className="arcade-button arcade-button-light" onClick={() => setRetry((value) => value + 1)}>Try again</button></div>}
+          {roomError && <div className="arcade-error" role="status"><p>Rooms couldn’t be refreshed. {roomError}</p><button className="arcade-button arcade-button-light" disabled={roomsRefreshing} onClick={refreshRooms}>Try again</button></div>}
           {!roomsLoading && !roomError && matchingRooms.length === 0 && <div className="arcade-room-empty"><div className="arcade-empty-avatars" aria-hidden="true"><span>✦</span><span>+</span><span>✦</span></div><h3>The next round could be yours.</h3><p>No waiting rooms {roomGame === 'all' ? 'right now' : 'for this game'}. Create one and send your friends an invite.</p><button className="arcade-button arcade-button-lime" onClick={() => navigate(`/center/create${roomGame === 'all' ? '' : `?template=${roomGame}`}`)}>Create a room <ArrowUpRight size={17} aria-hidden="true" /></button></div>}
           {!roomError && <div className="arcade-room-list">{matchingRooms.map((room) => <button key={room.roomId} className="arcade-room-item" onClick={() => navigate(`/center/rooms/${room.roomId}`)}><span className="arcade-room-icon" style={{ background: FEATURED_GAMES.find((game) => game.id === room.templateId)?.color }}><Gamepad2 size={20} aria-hidden="true" /></span><span className="arcade-room-name"><strong>{room.name}</strong><small>{FEATURED_GAMES.find((game) => game.id === room.templateId)?.name} · {room.players} {room.players === 1 ? 'player' : 'players'}</small><small>{room.mode === 'preview' ? 'Preview · game points' : 'Funded · check room reward'}{room.entryKind === 'erc20' ? ' · Token entry required' : ' · No token entry'}</small></span><span className="arcade-room-status">{room.status === 'ready' ? 'Ready to start' : 'Waiting for players'}<ArrowUpRight size={16} aria-hidden="true" /></span></button>)}</div>}
           {lastRoomUpdate && !roomError && <p className="arcade-room-updated">Checked at {lastRoomUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Refreshes every 20 seconds.</p>}

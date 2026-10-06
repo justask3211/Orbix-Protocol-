@@ -10,7 +10,7 @@ export const FEATURED_GAMES = [
     id: 'boss-raid', name: 'Co-op Boss Raid', category: 'Co-op', mode: 'Team up',
     color: '#bcb2ff', ink: '#34246f',
     description: 'Bring your crew. Take on one big boss. Put your damage on the board.',
-    instructions: 'Everyone attacks the same boss. Time your hits around the cooldown and watch your contribution. This version is cooperative; competing teams of three are coming in the gameplay update.',
+    instructions: 'Choose Team A or Team B, with three players per crew. Strike the shared boss with server-verified attacks. The team with more total damage wins; equal damage is a draw. Meet the room’s minimum contribution to qualify for a winning-team reward.',
   },
   {
     id: 'token-catch', name: 'Token Catch', category: 'Arcade', mode: 'Catch & dodge',

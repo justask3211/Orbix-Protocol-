@@ -25,10 +25,22 @@ class BossEngine(Engine):
         self.started_at: float = 0.0
         self.finished: bool = False
         self.slain: bool = False
+        self.teams: dict[str, str] = {}
+
+    def team_damage(self) -> dict[str, int]:
+        return {team: sum(self.contribution.get(p, 0) for p in self.participants if self.teams.get(p) == team) for team in ("a", "b")}
+
+    def winning_team(self) -> str | None:
+        damage = self.team_damage()
+        if not self.finished or damage["a"] == damage["b"]:
+            return None
+        return "a" if damage["a"] > damage["b"] else "b"
 
     # ------------------------------------------------------------------ lifecycle
 
     def start(self, now: float = 0.0) -> None:
+        if self.rules.team_mode == "teams" and (len(self.participants) != 6 or any(sum(self.teams.get(p) == team for p in self.participants) != 3 for team in ("a", "b"))):
+            raise ValueError("TEAMS_REQUIRE_THREE_EACH")
         self.health = self.rules.boss_health
         for p in self.participants:
             self.contribution[p] = 0
@@ -63,6 +75,10 @@ class BossEngine(Engine):
         power = action.get("power", 1)
         if not isinstance(power, int) or isinstance(power, bool) or not (1 <= power <= 100):
             return ActionResult(False, "BAD_ACTION")
+        # Team raids have a fixed server-issued strike; clients cannot buy more damage
+        # by altering the wire payload. Legacy cooperative rounds retain their rule.
+        if self.rules.team_mode == "teams":
+            power = 25
 
         remaining_allowance = self.rules.contribution_cap - self.contribution.get(who, 0)
         if remaining_allowance <= 0:
@@ -81,10 +97,13 @@ class BossEngine(Engine):
             True,
             patch={
                 "health": self.health,
+                "bossHealth": self.health,
                 "damage": damage,
                 "contribution": dict(self.contribution),
                 "finished": self.finished,
                 "slain": self.slain,
+                "teamDamage": self.team_damage(),
+                "winningTeam": self.winning_team(),
             },
             private={"damage": damage, "hits": self.hits[who]},
             finished=self.finished,
@@ -94,7 +113,7 @@ class BossEngine(Engine):
     # ------------------------------------------------------------------ results
 
     def eligible(self) -> list[str]:
-        return [p for p in self.participants if self.contribution.get(p, 0) >= self.rules.min_contribution]
+        return [p for p in self.participants if self.contribution.get(p, 0) >= self.rules.min_contribution and (self.rules.team_mode != "teams" or self.teams.get(p) == self.winning_team())]
 
     def scores(self) -> dict[str, float]:
         return {p: float(self.contribution.get(p, 0)) for p in self.participants}
@@ -124,7 +143,7 @@ class BossEngine(Engine):
             if idx < len(eligible):
                 winner = eligible[idx]
                 share = self.contribution.get(winner, 0) / total
-                amount = int(slot.amount * share) if slot.asset_kind == "erc20" else slot.amount
+                amount = slot.amount * self.contribution.get(winner, 0) // total if slot.asset_kind == "erc20" else slot.amount
                 if amount <= 0:
                     continue
                 out.append(
@@ -149,6 +168,14 @@ class BossEngine(Engine):
             "minContribution": self.rules.min_contribution,
             "rewardRule": self.rules.reward_rule,
             "durationSeconds": self.rules.duration_seconds,
+            "startedAt": self.started_at,
+            "actionCooldownMs": self.rules.action_cooldown_ms,
+            "contributionCap": self.rules.contribution_cap,
+            "lastHitAt": dict(self.last_hit_at),
+            "teams": dict(self.teams),
+            "teamMode": self.rules.team_mode,
+            "teamDamage": self.team_damage(),
+            "winningTeam": self.winning_team(),
             "slain": self.slain,
             "finished": self.finished,
         }
@@ -156,6 +183,7 @@ class BossEngine(Engine):
     def snapshot(self) -> dict:
         return {
             "participants": self.participants,
+            "teams": self.teams,
             "health": self.health,
             "contribution": self.contribution,
             "hits": self.hits,
@@ -166,6 +194,7 @@ class BossEngine(Engine):
         }
 
     def _load(self, snapshot: dict) -> None:
+        self.teams = dict(snapshot.get("teams", {}))
         self.health = int(snapshot.get("health", 0))
         self.contribution = dict(snapshot.get("contribution", {}))
         self.hits = dict(snapshot.get("hits", {}))

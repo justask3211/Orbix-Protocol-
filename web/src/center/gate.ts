@@ -38,6 +38,8 @@ const GATE_ABI = [
     ], outputs: [] },
   { name: 'join', type: 'function', stateMutability: 'nonpayable',
     inputs: [{name:'roomId',type:'bytes32'}], outputs: [] },
+  { name: 'hasJoined', type: 'function', stateMutability: 'view',
+    inputs: [{name:'roomId',type:'bytes32'}, {name:'player',type:'address'}], outputs: [{type:'bool'}] },
   { name: 'bindingOf', type: 'function', stateMutability: 'view',
     inputs: [{name:'roomId',type:'bytes32'}], outputs: [
       {name:'creator',type:'address'},{name:'token',type:'address'},
@@ -121,7 +123,8 @@ async function waitMined(eth: any, txHash: string, timeoutMs = 180_000): Promise
           : (await eth.request({ method: 'eth_call', params: [{ to: r.to, data: r.input }, 'latest'] }).catch(() => null))
         throw new Error(decodeRevert(typeof revertData === 'string' && revertData.startsWith('0x') && revertData.length > 10 ? revertData : '0x', 'gate'))
       }
-      return
+      const head = BigInt(await eth.request({ method: 'eth_blockNumber' }))
+      if (head >= BigInt(r.blockNumber) + 2n) return
     }
     await new Promise((res) => setTimeout(res, 3000))
   }
@@ -160,7 +163,8 @@ export async function bindRoomOnChain(
 ): Promise<void> {
   const eth = await getEth()
   await ensureChain46630(eth)
-  const wei = parseUnits(String(amount), 18)
+  const { decimals } = await fetchTokenInfo(token, wallet)
+  const wei = parseUnits(String(amount), decimals)
   const roomBytes = roomIdToBytes32(roomId)
 
   // resolve payee + payout
@@ -202,7 +206,8 @@ export async function payJoinToken(
 ): Promise<void> {
   const eth = await getEth()
   await ensureChain46630(eth)
-  const wei = parseUnits(String(amount), 18)
+  const { decimals } = await fetchTokenInfo(token, wallet)
+  const wei = parseUnits(String(amount), decimals)
   const roomBytes = roomIdToBytes32(roomId)
   if (wei <= 0n) throw new Error('Join amount must be positive.')
 
@@ -212,9 +217,15 @@ export async function payJoinToken(
   const bindingHex: string = await eth.request({
     method: 'eth_call', params: [{ from: wallet, to: GATE_ADDRESS, data: bindData }, 'latest'],
   })
-  const creatorSlot = bindingHex && bindingHex.length >= 66 ? '0x' + bindingHex.slice(26, 66) : '0x' + '0'.repeat(40)
+  const [creatorSlot, boundToken, boundFee, , , paused] = decodeFunctionResult({ abi: GATE_ABI, functionName: 'bindingOf', data: bindingHex as `0x${string}` })
   if (creatorSlot === '0x' + '0'.repeat(40)) {
     throw new Error('This room has no join token bound on-chain yet. The creator must republish the room so the binding is written.')
+  }
+  if (paused || boundToken.toLowerCase() !== token.toLowerCase() || boundFee !== wei) throw new Error('The on-chain entry token, fee, or admission state differs from this room. Refresh the room before signing.')
+  const joinedHex = await eth.request({method:'eth_call', params:[{to:GATE_ADDRESS,data:encodeFunctionData({abi:GATE_ABI,functionName:'hasJoined',args:[roomBytes,wallet as `0x${string}`]})},'latest']})
+  if (decodeFunctionResult({abi:GATE_ABI,functionName:'hasJoined',data:joinedHex as `0x${string}`})) {
+    onStep('done', 'An entry payment already exists. The server will verify its confirmations before reconnecting.')
+    return
   }
 
   // 1) allowance
