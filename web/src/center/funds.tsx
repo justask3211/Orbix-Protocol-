@@ -8,6 +8,7 @@
 // "this is safe / what to expect" line, so nobody signs blind.
 
 import { useEffect, useState } from 'react'
+import { useModalFocus } from './useModalFocus'
 
 const RPC = 'https://rpc.testnet.chain.robinhood.com'
 const ORBIX = '0x16c5451763ec2e0e7f041e2db761a0491fdb6db1'
@@ -147,10 +148,11 @@ export function TxPreview({ open, title, steps, onConfirm, onCancel, busy }: {
   onCancel: () => void
   busy?: boolean
 }) {
+  const dialog = useModalFocus(onCancel, open)
   if (!open) return null
   return (
     <div className="wl-backdrop" onClick={onCancel} role="presentation">
-      <div className="wl-modal tx-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialog} tabIndex={-1} className="wl-modal tx-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <button className="wl-close" onClick={onCancel} aria-label="Close">✕</button>
         <h3>{title}</h3>
         <p className="wl-sub">
@@ -159,8 +161,8 @@ export function TxPreview({ open, title, steps, onConfirm, onCancel, busy }: {
         <div className="tx-safe">
           <span aria-hidden="true">🔒</span>
           <span>
-            This is a testnet transaction on Robinhood chain (46630). It costs only test ETH for gas — no real funds.
-            You can verify every field against the explorer before signing.
+            This transaction runs on Robinhood testnet (46630), changes the specified token balances, and costs test ETH for gas.
+            Verify the contracts, amount and destination before signing.
           </span>
         </div>
         <ol className="tx-steps">

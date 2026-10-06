@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { center } from './api'
 import { ProfileImageUpload } from './ProfileImage'
 import { shortAddress } from './session'
+import { useModalFocus } from './useModalFocus'
 
 type Profile = { name: string; bio: string; hue: number; showAddress: boolean }
 
@@ -16,11 +17,14 @@ export function useProfile(address: string | null, token: string | null) {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!address) { setProfile(null); return }
+    let active = true
+    setProfile(null)
+    if (!address) { setLoading(false); return }
     setLoading(true)
     center.getProfile(address).then((p: any) => {
-      setProfile(p)
-    }).catch(() => setProfile(null)).finally(() => setLoading(false))
+      if (active) setProfile(p)
+    }).catch(() => { if (active) setProfile(null) }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [address, token])
 
   return { profile, setProfile, loading }
@@ -66,6 +70,7 @@ export function ProfileModal({ session, profile, onClose, onSave }: {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [hasImage, setHasImage] = useState(false) // fetch from API in useEffect
+  const dialog = useModalFocus(onClose)
 
   const save = async () => {
     setBusy(true); setErr(null)
@@ -82,7 +87,7 @@ export function ProfileModal({ session, profile, onClose, onSave }: {
 
   return (
     <div className="wl-backdrop" onClick={onClose} role="presentation">
-      <div className="wl-modal pf-modal" role="dialog" aria-modal="true" aria-label="Edit profile" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialog} tabIndex={-1} className="wl-modal pf-modal" role="dialog" aria-modal="true" aria-label="Edit profile" onClick={(e) => e.stopPropagation()}>
         <button className="wl-close" onClick={onClose} aria-label="Close">✕</button>
         <h3>Your profile</h3>
         <p className="wl-sub">This is what other players see in game logs and player lists.</p>

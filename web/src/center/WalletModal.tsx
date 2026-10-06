@@ -6,11 +6,18 @@ import { useState } from 'react'
 import type { SessionState, GeneratedWallet } from './session'
 import { hasInjected, shortAddress } from './session'
 import { copyText } from './share'
+import { useModalFocus } from './useModalFocus'
 
 export function WalletModal({ session, onClose }: { session: SessionState; onClose: () => void }) {
   const [generated, setGenerated] = useState<GeneratedWallet | null>(null)
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [dismissError, setDismissError] = useState<string | null>(null)
+  const dismiss = () => {
+    if (generated && !copied) { setDismissError('Copy and save your recovery key before closing.'); return }
+    onClose()
+  }
+  const dialog = useModalFocus(dismiss)
 
   const doGenerate = () => {
     const w = session.generate()
@@ -27,16 +34,17 @@ export function WalletModal({ session, onClose }: { session: SessionState; onClo
   }
 
   return (
-    <div className="wl-backdrop" onClick={onClose} role="presentation">
-      <div className="wl-modal" role="dialog" aria-modal="true" aria-label="Connect a wallet" onClick={(e) => e.stopPropagation()}>
-        <button className="wl-close" onClick={onClose} aria-label="Close">✕</button>
+    <div className="wl-backdrop" onClick={dismiss} role="presentation">
+      <div ref={dialog} tabIndex={-1} className="wl-modal" role="dialog" aria-modal="true" aria-label="Connect a wallet" onClick={(e) => e.stopPropagation()}>
+        <button className="wl-close" onClick={dismiss} aria-label="Close">✕</button>
+        {dismissError && <p className="err" role="alert">{dismissError}</p>}
 
         {!generated ? (
           <>
             <h3>Connect a wallet</h3>
-            <p className="wl-sub">Pick how you want to hold your ORBIX. Both are real EVM wallets — the vault deducts from whichever you use.</p>
+            <p className="wl-sub">Choose your wallet for Orbix. Signing in proves ownership with a message; it does not send a transaction.</p>
 
-            <button className="wl-option primary" onClick={() => { setBusy(true); void session.connectInjected().finally(() => setBusy(false)) }}>
+            <button className="wl-option primary" disabled={busy || session.signingIn} onClick={() => { setBusy(true); void session.connectInjected().finally(() => setBusy(false)) }}>
               <span className="wl-icon wl-icon-metamask" aria-hidden="true">
                 <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
                   <path d="M23 3.5l-8.2 6.1 1.5-3.6L23 3.5z" fill="#E2761B"/>
@@ -57,7 +65,7 @@ export function WalletModal({ session, onClose }: { session: SessionState; onClo
               <span className="wl-arrow" aria-hidden="true">→</span>
             </button>
 
-            <button className="wl-option" onClick={doGenerate}>
+            <button className="wl-option" disabled={busy || session.signingIn} onClick={doGenerate}>
               <span className="wl-icon wl-icon-generate" aria-hidden="true">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="9" stroke="#ff6b22" strokeWidth="1.5" strokeOpacity="0.55" />
