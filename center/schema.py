@@ -105,6 +105,14 @@ class CatchRules(Strict):
     template_id: Literal["token-catch"] = Field(default="token-catch", alias="templateId")
     duration_seconds: int = Field(ge=15, le=600)
     arena_mode: bool = False
+    world_version: Literal[2, 3] = 2
+    loot_budget: int = Field(default=500, ge=1, le=10000)
+    airdrop_count: int = Field(default=10, ge=1, le=30)
+    loot_chunk: int = Field(default=5, ge=1, le=100)
+    gun_spawn_chance_pct: int = Field(default=30, ge=0, le=100)
+    gun_knockout_seconds: int = Field(default=10, ge=1, le=15)
+    gun_shots: int = Field(default=5, ge=1, le=30)
+    punch_stun_seconds: int = Field(default=2, ge=1, le=5)
     spawn_per_second: int = Field(ge=1, le=8)
     lanes: int = Field(ge=3, le=5)
     fall_speed: Literal["slow", "normal", "fast"] = "normal"
@@ -113,6 +121,16 @@ class CatchRules(Strict):
     win_threshold: int = Field(default=30, ge=1, le=500)
     top_n: int = Field(default=3, ge=1, le=50)
     catch_window_ms: int = Field(default=1000, ge=250, le=2000)
+
+    @model_validator(mode="after")
+    def _loot_bounds(self):
+        if self.world_version == 3 and not self.arena_mode:
+            raise ValueError('third-person loot requires arena_mode')
+        if self.world_version == 3 and self.airdrop_count > self.loot_budget:
+            raise ValueError('airdrop_count cannot exceed loot_budget')
+        if self.world_version == 3 and (self.loot_budget + self.loot_chunk - 1)//self.loot_chunk + self.airdrop_count > 400:
+            raise ValueError('use larger loot piles: at most 400 piles per match')
+        return self
 
 
 class DuelRules(Strict):
@@ -132,6 +150,9 @@ class CombatRules(Strict):
     max_players: int = Field(default=2, ge=2, le=2)
     starting_health: int = Field(default=100, ge=50, le=300)
     attack_cooldown_ms: int = Field(default=500, ge=300, le=1000)
+    world_version: Literal[2, 3] = 2
+    allow_guns: bool = False
+    combo_window_ms: int = Field(default=800, ge=300, le=1500)
 
 
 class PuzzleRules(Strict):
@@ -163,6 +184,13 @@ class BossRules(Strict):
     max_players: int = Field(ge=2, le=100)
     duration_seconds: int = Field(ge=60, le=600)
     arena_mode: bool = False
+    world_version: Literal[2, 3] = 2
+    winning_teams: int = Field(default=3, ge=1, le=3)
+    team_reward_shares: list[int] = Field(default_factory=lambda: [60,25,15], min_length=1, max_length=3)
+    team_member_split: Literal['equal', 'damage'] = 'equal'
+    starting_gun_damage: int = Field(default=12, ge=5, le=40)
+    upgrade_interval_seconds: int = Field(default=30, ge=10, le=120)
+    knockout_seconds: int = Field(default=10, ge=3, le=15)
     team_size: int = Field(default=3, ge=2, le=5)
     boss_health: int = Field(default=10000, ge=100, le=10_000_000)
     action_cooldown_ms: int = Field(default=500, ge=300, le=2000)
@@ -171,6 +199,14 @@ class BossRules(Strict):
     reward_rule: Literal["proportional", "top-n", "milestone"] = "proportional"
     top_n: int = Field(default=3, ge=1, le=100)
     team_mode: Literal["coop", "teams"] = "coop"
+
+    @model_validator(mode="after")
+    def _crew_reward_bounds(self):
+        if self.world_version == 3 and (not self.arena_mode or self.team_mode != 'teams'):
+            raise ValueError('third-person raids require arena teams')
+        if len(self.team_reward_shares) != self.winning_teams or any(type(n) is not int or n < 0 or n > 100 for n in self.team_reward_shares) or sum(self.team_reward_shares) != 100:
+            raise ValueError('team reward shares must match winning teams and total 100 percent')
+        return self
 
 
 
@@ -240,12 +276,12 @@ TEMPLATE_META: dict[str, dict] = {
     "number-hunt": {"label": "Number Hunt", "blurb": "Guess the hidden number before the budget runs out.", "modes": "4 or 6 digits", "multiplayer": True},
     "live-quiz": {"label": "Live Quiz", "blurb": "Timed questions, live leaderboard.", "modes": "accuracy / +speed", "multiplayer": True},
     "memory-match": {"label": "Memory Match", "blurb": "Flip and match every pair.", "modes": "moves / time", "multiplayer": False},
-    "token-catch": {"label": "Token Catch", "blurb": "Catch the falling tokens, dodge the hazards.", "modes": "3-5 lanes", "multiplayer": True},
+    "token-catch": {"label": "Token Catch", "blurb": "Race to shared airdrops, loot coin piles and outplay rivals.", "modes": "character world / legacy lanes", "multiplayer": True},
     "reaction-duel": {"label": "Rock Paper Scissors Duel", "blurb": "Seal your choice, then reveal. Best of 3/5/7.", "modes": "commits", "multiplayer": True},
     "combat-duel": {"label": "Arena Duel", "blurb": "Move, block and battle with fists, swords and spears.", "modes": "1 vs 1 arena", "multiplayer": True},
     "puzzle-sprint": {"label": "Puzzle Sprint", "blurb": "Solve the sliding puzzle against the clock.", "modes": "3x3 / 4x4", "multiplayer": False},
     "hash-hunt": {"label": "Hash Hunt", "blurb": "Proof-of-work race. Bots and agents welcome.", "modes": "first-valid / best-effort", "multiplayer": True},
-    "boss-raid": {"label": "Co-op Boss Raid", "blurb": "Everyone hits the same boss. Contribution decides the split.", "modes": "2-100 players", "multiplayer": True},
+    "boss-raid": {"label": "Co-op Boss Raid", "blurb": "Choose a crew, dodge the guardian and compete for the podium.", "modes": "2-50 arena players / legacy raid", "multiplayer": True},
     # later catalog (G09-G20)
     "rps-duel": {"label": "RPS Duel", "blurb": "Commit-reveal rock-paper-scissors, extended moves, best of 3-11.", "modes": "1v1", "multiplayer": True},
     "reward-grid": {"label": "Reward Grid", "blurb": "Reveal tiles, find the hidden reward slots. Demo points only.", "modes": "9-100 tiles", "multiplayer": True},
@@ -404,6 +440,9 @@ class RoomConfig(Strict):
             raise ValueError("simulated vault must not name a token")
         if self.rewards.kind == "funded-assets" and self.mode != "testnet":
             raise ValueError("funded-asset rewards require mode=testnet")
+        if getattr(self.rules, 'world_version', 2) == 3 and self.template_id in {'token-catch', 'boss-raid'} and self.rewards.kind == 'funded-assets':
+            if any(s.asset_kind != 'erc20' for s in self.rewards.slots) or len({(s.asset_contract or '').lower() for s in self.rewards.slots}) != 1:
+                raise ValueError('shared loot and team pools require one ERC-20 reward asset')
         ranks = [s.rank for s in self.rewards.slots]
         if len(ranks) != len(set(ranks)):
             raise ValueError("reward slot ranks must be unique")

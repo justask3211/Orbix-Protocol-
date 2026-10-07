@@ -26,6 +26,7 @@ from center.games.runner_detective_mev import (
 )
 from center.games.rps_duel import RpsDuelEngine
 from center.games.arena import BossArenaEngine, CatchArenaEngine, CombatDuelEngine
+from center.games.field_arena import FieldCatchEngine, FieldBossEngine, FieldCombatEngine
 
 ENGINES: dict[str, type[Engine]] = {
     "number-hunt": NumberHuntEngine,
@@ -53,6 +54,8 @@ ENGINES: dict[str, type[Engine]] = {
 
 
 def engine_for(config):
+    if getattr(config.rules, 'world_version', 2) == 3:
+        return {'token-catch':FieldCatchEngine,'boss-raid':FieldBossEngine,'combat-duel':FieldCombatEngine}[config.template_id]
     if getattr(config.rules, 'arena_mode', False):
         return {'token-catch': CatchArenaEngine, 'boss-raid': BossArenaEngine}[config.template_id]
     return ENGINES[config.template_id]

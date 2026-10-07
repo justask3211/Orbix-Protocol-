@@ -13,9 +13,9 @@ PLAYER = '0x'+'11'*20
 BOTS = ['0x'+f'{i:02x}'*20 for i in range(32,36)]
 RULES = {
     'number-hunt':dict(digits=4,min=1111,max=9999,guess_budget=20,duration_seconds=300,hints='on',hint_visibility='private'),
-    'token-catch':dict(duration_seconds=180,arena_mode=True,spawn_per_second=4,lanes=3,hazard_chance_pct=12,win_threshold=5),
-    'boss-raid':dict(duration_seconds=180,arena_mode=True,team_mode='teams',team_size=2,max_players=50,min_players=2,boss_health=1800,contribution_cap=10000),
-    'combat-duel':dict(duration_seconds=180,starting_health=100),
+    'token-catch':dict(duration_seconds=120,arena_mode=True,world_version=3,loot_budget=500,airdrop_count=10,loot_chunk=5,spawn_per_second=4,lanes=3,hazard_chance_pct=12,win_threshold=5),
+    'boss-raid':dict(duration_seconds=180,arena_mode=True,world_version=3,team_mode='teams',team_size=2,max_players=50,min_players=2,boss_health=6000,contribution_cap=10000),
+    'combat-duel':dict(duration_seconds=180,world_version=3,starting_health=150),
     'reaction-duel':dict(rounds=3),
 }
 
@@ -47,22 +47,31 @@ def mount_practice(app,prefix):
                     choice,salt=record['botChoice']
                     engine.act(BOTS[0],{'kind':'reveal','choice':choice,'salt':salt},now)
             return
-        if now-record['lastBot']<.15:return
+        if now-record['startedAt']<8 or now-record['lastBot']<.15:return
         record['lastBot']=now
         for bot in record['bots']:
             body=engine.bodies[bot]
+            if body['hp']<=0:continue
             target=None
             if engine.template_id=='token-catch':
                 coins=[d for d in engine.drops if d['kind'] in {'coin','push','shield'}]
-                target=min(coins,key=lambda d:engine._distance(body,d),default=None)
-            elif engine.template_id=='boss-raid':target=engine.boss
+                crates=[d for d in getattr(engine,'airdrops',[]) if not d['opened'] and d['landAt']<=engine.elapsed]
+                target=min([*coins,*crates],key=lambda d:engine._distance(body,d),default=None)
+            elif engine.template_id=='boss-raid':
+                upgrades=[d for d in engine.drops if d['kind']=='upgrade']
+                target=min(upgrades,key=lambda d:engine._distance(body,d),default=None) or engine.boss
             else:target=engine.bodies[PLAYER]
             if not target:continue
             dx,dz=target['x']-body['x'],target['z']-body['z'];distance=math.hypot(dx,dz)
-            moving=distance>(2.3 if engine.template_id=='boss-raid' else 1.25 if engine.template_id=='combat-duel' else .35)
+            desired=12 if engine.template_id=='boss-raid' and target is engine.boss else 1.25 if engine.template_id=='combat-duel' else 2
+            moving=distance>desired
             record['seqs'][bot]+=1
             engine.act(bot,{'kind':'move','seq':record['seqs'][bot],'dx':dx/max(1,distance) if moving else 0,
                 'dz':dz/max(1,distance) if moving else 0,'yaw':math.atan2(dx,dz)},now)
+            if getattr(engine,'version',2)==3 and target.get('id') and distance<=3:
+                engine.act(bot,{'kind':'open_airdrop' if target.get('id','').startswith('airdrop-') else 'loot','dropId':target['id']},now)
+            if getattr(engine,'version',2)==3 and moving and not engine._can_walk_body(body['x']+dx/max(1,distance),body['z']+dz/max(1,distance),body):
+                engine.act(bot,{'kind':'jump'},now)
             if engine.template_id!='token-catch' and body['attackReadyAt']<=now*1000:
                 engine.act(bot,{'kind':'attack'},now)
 

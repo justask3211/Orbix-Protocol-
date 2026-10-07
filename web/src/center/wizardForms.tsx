@@ -4,8 +4,9 @@
 
 export type RuleField =
   | { kind: 'number'; key: string; label: string; min?: number; max?: number; step?: number; help?: string; half?: boolean }
-  | { kind: 'select'; key: string; label: string; options: { value: string; label: string }[]; help?: string; half?: boolean }
+  | { kind: 'select'; key: string; label: string; options: { value: string; label: string; description?: string; patch?: Record<string, unknown> }[]; help?: string; half?: boolean }
   | { kind: 'toggle'; key: string; label: string; help?: string; half?: boolean }
+  | { kind: 'shares'; key: string; label: string; help?: string; half?: boolean }
   | { kind: 'text'; key: string; label: string; placeholder?: string; help?: string; half?: boolean; maxLength?: number }
 
 export type TemplateForm = {
@@ -19,12 +20,12 @@ export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
     label: 'Number Hunt',
     fields: [
       { kind: 'select', key: 'digits', label: 'Number width', half: true, options: [{ value: '4', label: '4 digits (1111–9999)' }, { value: '6', label: '6 digits (111111–999999)' }], help: 'Players type a guess; only this many digits are accepted.' },
-      { kind: 'select', key: 'win_mode', label: 'Split rule', half: true, options: [{ value: 'first-hit', label: 'First hit takes all' }, { value: 'split-at-end', label: 'Split among all who hit' }] },
-      { kind: 'number', key: 'min', label: 'Range start', half: true },
-      { kind: 'number', key: 'max', label: 'Range end', half: true },
+      { kind: 'select', key: 'win_mode', label: 'Split rule', half: true, options: [{ value: 'first-hit', label: 'First hit takes all', description: 'The first exact guess ends the hunt.' }, { value: 'split-at-end', label: 'Split among all who hit', description: 'Continue until the clock ends and share among correct guessers.' }], help: 'Choose whether the first hit ends the match or every qualifying correct guesser can share at the deadline.' },
+      { kind: 'number', key: 'min', label: 'Range start', half: true, help: 'The lowest number the server may choose. It must match your selected digit width.' },
+      { kind: 'number', key: 'max', label: 'Range end', half: true, help: 'The highest possible hidden number. It must be greater than the range start.' },
       { kind: 'number', key: 'guess_budget', label: 'Guesses per player', min: 1, max: 50, half: true, help: 'The round also ends when everyone runs out.' },
-      { kind: 'number', key: 'target_count', label: 'Hidden numbers', min: 1, max: 20, half: true },
-      { kind: 'select', key: 'hints', label: 'Warmer/colder hints', half: true, options: [{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }] },
+      { kind: 'number', key: 'target_count', label: 'Hidden numbers', min: 1, max: 20, half: true, help: 'How many different secret numbers are chosen from the range for this hunt.' },
+      { kind: 'select', key: 'hints', label: 'Warmer/colder hints', half: true, options: [{ value: 'on', label: 'Clues on', description: 'Get higher/lower guidance after a miss.' }, { value: 'off', label: 'Pure instinct', description: 'Guess without automatic clues.' }], help: 'Automatic direction clues help players narrow their search without revealing any secret target.' },
       { kind: 'number', key: 'guess_cooldown_ms', label: 'Cooldown between guesses (ms)', min: 300, max: 2000, step: 100, half: true, help: 'Blocks spamming; 500 ms is a good pace.' },
     ],
   },
@@ -51,6 +52,13 @@ export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
   'token-catch': {
     label: 'Token Catch',
     fields: [
+      { kind: 'number', key: 'loot_budget', label: 'Total airdrop loot', min: 1, max: 10000, help: 'The entire loot pool is divided across scheduled airdrops. In preview rooms this is a pool of game points; token prizes require confirmed contract funding.' },
+      { kind: 'number', key: 'airdrop_count', label: 'Airdrops per round', min: 1, max: 30, half: true, help: 'Drops are spread across the round clock. More drops give players more places to compete for the shared pool.' },
+      { kind: 'number', key: 'loot_chunk', label: 'Points per loot item', min: 1, max: 100, half: true, help: 'Each item is claimed separately. A 50-point crate with 5-point items offers ten loots shared by nearby players.' },
+      { kind: 'number', key: 'gun_spawn_chance_pct', label: 'Gun drop chance (%)', min: 0, max: 100, half: true, help: 'Chance of an airdrop including a gun. A gun temporarily knocks out another player; it does not transfer their wallet funds.' },
+      { kind: 'number', key: 'gun_shots', label: 'Shots per gun pickup', min: 1, max: 30, half: true, help: 'A gun has this many shots before it runs out. Each hit temporarily knocks out a rival.' },
+      { kind: 'number', key: 'gun_knockout_seconds', label: 'Gun knockout (seconds)', min: 1, max: 15, half: true, help: 'How long a hit player sits out before respawning. Their collected loot remains in the match.' },
+      { kind: 'number', key: 'punch_stun_seconds', label: 'Punch stun (seconds)', min: 1, max: 5, half: true, help: 'A close-range punch interrupts a rival briefly. They regain control after this time.' },
       { kind: 'number', key: 'lanes', label: 'Lanes', min: 3, max: 5, half: true, help: 'Mobile players tap a lane to move.' },
       { kind: 'number', key: 'spawn_per_second', label: 'Falling objects per second', min: 1, max: 8, step: 1, half: true },
       { kind: 'select', key: 'fall_speed', label: 'Fall speed', half: true, options: [{ value: 'slow', label: 'Slow' }, { value: 'normal', label: 'Normal' }, { value: 'fast', label: 'Fast' }] },
@@ -63,8 +71,8 @@ export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
   'reaction-duel': {
     label: 'Rock Paper Scissors Duel',
     fields: [
-      { kind: 'select', key: 'rounds', label: 'Best of', half: true, options: [{ value: '3', label: '3 rounds' }, { value: '5', label: '5 rounds' }, { value: '7', label: '7 rounds' }] },
-      { kind: 'select', key: 'choice_set', label: 'Move set', half: true, options: [{ value: 'classic', label: 'Rock / paper / scissors' }, { value: 'extended', label: 'Extended (5 moves)' }] },
+      { kind: 'select', key: 'rounds', label: 'Best of', half: true, options: [{ value: '3', label: '3 rounds', description: 'Quick showdown.' }, { value: '5', label: '5 rounds', description: 'Room for a comeback.' }, { value: '7', label: '7 rounds', description: 'A longer mind game.' }], help: 'Sets the number of committed-choice rounds played by both opponents.' },
+      { kind: 'select', key: 'choice_set', label: 'Move set', half: true, options: [{ value: 'classic', label: 'Rock / paper / scissors', description: 'The familiar three-way matchup.' }, { value: 'extended', label: 'Extended (5 moves)', description: 'Add lizard and Spock.' }], help: 'Both players use the same choice set. Moves remain secret until the reveal phase.' },
       { kind: 'number', key: 'choice_window_seconds', label: 'Commit window (s)', min: 5, max: 20, half: true },
       { kind: 'number', key: 'reveal_window_seconds', label: 'Reveal window (s)', min: 3, max: 10, half: true },
     ],
@@ -74,6 +82,8 @@ export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
     fields: [
       {kind:'number',key:'starting_health',label:'Fighter starting health',min:50,max:300,help:'Both fighters start with the same health.'},
       {kind:'number',key:'attack_cooldown_ms',label:'Attack cooldown (ms)',min:300,max:1000,step:100,help:'Server limits each attack. Move and use shields between strikes.'},
+      {kind:'number',key:'combo_window_ms',label:'Combo window (ms)',min:300,max:1500,step:100,help:'Link valid melee strikes within this window to build a combo. Both fighters use the same rules.'},
+      {kind:'toggle',key:'allow_gun',label:'Allow gun pickups',help:'Enable ranged gun pickups alongside fists, swords and spears. Leave off for a melee-only duel.'},
     ],
   },
   'puzzle-sprint': {
@@ -96,7 +106,13 @@ export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
   'boss-raid': {
     label: 'Boss Raid Arena',
     fields: [
-      {kind:'select',key:'team_size',label:'Players per crew',options:[{value:'2',label:'Duo · 2'},{value:'3',label:'Trio · 3'},{value:'4',label:'Squad · 4'},{value:'5',label:'Crew · 5'}],help:'Pick a team in the lobby; unassigned players are automatically placed at start.'},
+      {kind:'select',key:'team_size',label:'Players per crew',options:[{value:'2',label:'Duo · 2',description:'Two partners, one shared damage score.'},{value:'3',label:'Trio · 3',description:'A close three-person crew.'},{value:'4',label:'Squad · 4',description:'Four teammates fight together.'},{value:'5',label:'Crew · 5',description:'The largest team formation.'}],help:'Pick a team in the lobby; unassigned players are automatically placed at start.'},
+      {kind:'select',key:'winning_teams',label:'Teams that share the prize',options:[{value:'1',label:'Winner takes all',description:'First crew receives 100% of the pool.',patch:{team_reward_shares:[100]}},{value:'2',label:'Top two crews',description:'First receives 70%; second receives 30%.',patch:{team_reward_shares:[70,30]}},{value:'3',label:'Top three podium',description:'First 60%, second 25%, third 15%.',patch:{team_reward_shares:[60,25,15]}}],help:'Crews are ranked by confirmed boss damage. Choose a preset, then adjust the podium shares; the total must equal 100%.'},
+      {kind:'shares',key:'team_reward_shares',label:'Podium reward shares',help:'These percentages split the complete reward pool across the ranked crews. Exactly 100% must be assigned; an absent qualifying crew does not redirect its share to another crew.'},
+      {kind:'select',key:'team_member_split',label:'Share within each winning crew',options:[{value:'equal',label:'Equal crew share',description:'Each qualifying teammate receives the same share.'},{value:'damage',label:'Damage contribution',description:'Qualifying teammates share according to boss damage.'}],help:'First assign the podium prize to each winning crew, then divide that crew’s prize using this rule.'},
+      {kind:'number',key:'starting_gun_damage',label:'Starting gun damage',min:5,max:40,half:true,help:'Every player spawns with equal gun damage and fire rate. Boss drops can upgrade those weapons during the match.'},
+      {kind:'number',key:'upgrade_interval_seconds',label:'Boss upgrade interval (seconds)',min:10,max:120,half:true,help:'The boss periodically releases upgrades while its health falls. Players must move to the pickup to improve their gun.'},
+      {kind:'number',key:'knockout_seconds',label:'Respawn delay (seconds)',min:3,max:15,half:true,help:'Players whose health reaches zero wait this long before respawning. Crew damage remains recorded.'},
       { kind: 'number', key: 'boss_health', label: 'Boss health', min: 1000, max: 100000, step: 500, half: true },
       { kind: 'select', key: 'reward_rule', label: 'Split the haul by', half: true, options: [{ value: 'proportional', label: 'Contribution share' }, { value: 'top-n', label: 'Top contributors' }, { value: 'milestone', label: 'Equal among finishers' }] },
       { kind: 'number', key: 'action_cooldown_ms', label: 'Hit cooldown (ms)', min: 300, max: 2000, step: 100, half: true },

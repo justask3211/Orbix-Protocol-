@@ -18,7 +18,9 @@
 .ct-app .ct-nav-item.on:after{display:none}
 .ct-app .ct-nav-item.back{font-size:11px;margin:0;min-width:unset;padding:8px;color:#bdc2d2;gap:5px}
 .ct-player-controls{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.ct-player-controls>.ct-nav-item{width:auto;flex:none}
 .ct-app .ct-wallet{display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;border-radius:0}
+.ct-app .ct-topbar .ct-player-controls .ct-wallet{width:auto;margin:0;padding:0;justify-content:flex-start;grid-column:auto;grid-row:auto;border:0}
 .ct-app .ct-wallet-connect{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;background:#e0f77c;color:#191d31;border:0;border-radius:12px;font-size:12px;font-weight:800;padding:11px 17px;white-space:nowrap}
 .ct-wallet-account{display:flex;gap:8px;align-items:center;background:#303750;border:1px solid #48506b;min-height:44px;padding:10px 12px;border-radius:12px;font-size:12px;font-weight:700}
 .ct-signout{width:44px;height:44px;display:grid;place-items:center;color:#bfc3d2}
@@ -93,3 +95,24 @@
 @media(max-width:1100px){.ct-app .ct-topbar{padding:0 24px;gap:14px}.ct-app .ct-nav-item.back{display:none}.ct-topbar .ct-brand{margin-right:0}.ct-primary-nav .ct-nav-item{padding:10px 11px}.ct-create .ct-grid-formats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.ct-app .ct-main{padding:22px 18px 35px}.ct-app .ct-topbar{height:auto;display:grid;grid-template-columns:1fr auto;gap:12px;padding:15px 18px 0}.ct-primary-nav{grid-row:2;grid-column:1/-1;justify-content:space-between;padding-bottom:10px}.ct-primary-nav .ct-nav-item{flex:1;min-height:44px;padding:10px 8px;font-size:11px}.ct-player-controls{gap:5px;margin:0}.ct-player-controls .pf-avatar{display:none}.ct-player-controls>div>span{display:none}.ct-topbar .brand-text b{font-size:20px}.ct-brand-orbit{width:36px;height:36px;border-radius:12px}.ct-app .ct-wallet-connect{padding:10px 12px;font-size:11px}.ct-wallet-account{font-size:10px;padding:10px}.ct-signout{width:32px}.ct-footer{width:calc(100% - 36px);flex-wrap:wrap;gap:8px;padding:22px 0}.ct-footer>span{display:none}.ct-footer>div{width:100%;justify-content:space-between;font-size:10px}.ct-create .wz-stepper{gap:6px}.ct-create .wz-step{padding:9px 4px;min-height:72px;gap:6px;flex-direction:column;text-align:center;border-radius:12px}.ct-create .wz-label{font-size:10px;line-height:1.3}.ct-create .ct-form{grid-template-columns:minmax(0,1fr);gap:20px}.ct-create .ct-panel{padding:20px 16px}.ct-create .ct-head{display:block}.ct-create .ct-head .btn-ghost{margin-top:15px}.ct-wizard-actions{flex-wrap:wrap;gap:12px}.ct-wizard-actions>.ct-actions{margin-left:auto}.ct-create .ct-capsule-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ct-app .wl-backdrop{padding:16px}.ct-app .wl-modal{padding:25px 20px}.ct-app .wl-option{padding:16px 12px}.ct-app .wl-option .wl-arrow{display:none}}
 @media(prefers-reduced-motion:reduce){.ct-app *,.ct-app *:before,.ct-app *:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+/* Compact account controls must override legacy full-width wallet navigation. */
+@media(max-width:720px){
+  .ct-app .ct-topbar{grid-template-columns:minmax(0,1fr) auto;column-gap:8px}
+  .ct-topbar .ct-brand{min-width:0;gap:8px;margin:0;padding-right:0}
+  .ct-player-controls{min-width:0;max-width:100%;gap:4px}
+  .ct-player-controls>.ct-nav-item{padding:9px 8px;gap:5px;font-size:11px}
+  .ct-app .ct-topbar .ct-player-controls .ct-wallet{gap:3px;flex:none;width:auto}
+  .ct-wallet-account{gap:5px;padding:9px 7px;white-space:nowrap;color:#f5f3e9}
+  .ct-wallet-account>svg{flex:none;width:14px}
+  .ct-signout{padding:0;width:32px;min-width:32px;min-height:44px}
+}
+@media(max-width:380px){
+  .ct-app .ct-topbar{padding-left:12px;padding-right:12px;column-gap:5px}
+  .ct-topbar .brand-text small{font-size:9px}
+  .ct-topbar .brand-text b{font-size:18px}
+  .ct-brand-orbit{width:30px;height:30px;border-radius:10px}
+  .ct-player-controls>.ct-nav-item{padding:8px 6px;font-size:10px;gap:3px}
+  .ct-player-controls>.ct-nav-item>svg{width:14px}
+  .ct-wallet-account{font-size:9px;padding:9px 5px;gap:3px}
+  .ct-wallet-account>svg{display:none}
+}

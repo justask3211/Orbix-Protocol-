@@ -119,6 +119,61 @@ def test_archive_preserves_financial_records_and_finished_round(ops):
     assert_error(lambda: service.archive(ADMIN, ROOM), "MATCH_RUNNING")
 
 
+def test_archive_audit_failure_rolls_back_metadata_and_memory(ops):
+    import sqlite3
+    service, store, _, _ = ops
+    with store.tx() as cx:
+        cx.execute("CREATE TRIGGER reject_audit BEFORE INSERT ON admin_audit BEGIN SELECT RAISE(ABORT,'audit unavailable'); END")
+    with pytest.raises(sqlite3.IntegrityError, match="audit unavailable"):
+        service.archive(ADMIN, ROOM)
+    assert not room_archived(store, ROOM)
+    service.assert_can_act(ROOM, PLAYER, "round-1")
+    assert store.get_room(ROOM) and len(store.participants(ROOM)) == 1
+
+
+def test_signed_archive_migrates_legacy_audit_without_losing_history(tmp_path):
+    import sqlite3
+    from eth_account import Account
+    from center.api import API_PREFIX
+    from center.tests.test_admin_pricing import make_app, sign_in, admin_proof
+    from center.tests.test_flow import fund_and_publish
+
+    # This is the persistent production shape from before audit hashes were
+    # introduced. A fresh database cannot reproduce its missing-column failure.
+    path = tmp_path / "center.db"
+    with sqlite3.connect(path) as cx:
+        cx.execute("CREATE TABLE admin_audit(id INTEGER PRIMARY KEY AUTOINCREMENT,actor TEXT NOT NULL,action TEXT NOT NULL,old_json TEXT NOT NULL,new_json TEXT NOT NULL,chain_id INTEGER NOT NULL,created_at REAL NOT NULL)")
+        cx.execute("INSERT INTO admin_audit(actor,action,old_json,new_json,chain_id,created_at) VALUES (?,'pricing.update','{}','{\"creatorFee\":3}',46630,123.0)", (ADMIN,))
+        with pytest.raises(sqlite3.OperationalError, match="no such column: entry_hash"):
+            cx.execute("SELECT entry_hash FROM admin_audit")
+    admin, host = Account.create(), Account.create()
+    app = make_app(tmp_path, admin_address=admin.address)
+    with TestClient(app) as client:
+        _, published = fund_and_publish(client, host)
+        room_id = published["roomId"]
+        headers = sign_in(client, admin)
+        before_ledger = app.state.store.ledger(host.address.lower())
+        signed = {**headers, "X-Admin-Proof": admin_proof(client, admin)}
+        response = client.post(f"{API_PREFIX}/admin/rooms/{room_id}/actions", headers=signed, json={"operation": "archive", "archived": True})
+        assert response.status_code == 200, response.text
+        assert response.json()["recordsPreserved"] and room_archived(app.state.store, room_id)
+        assert app.state.store.ledger(host.address.lower()) == before_ledger
+        assert app.state.store.verify_audit_chain()["ok"]
+        historical = next(row for row in app.state.store.list_audit() if row["action"] == "pricing.update")
+        assert historical["actor"] == ADMIN and historical["createdAt"] == 123.0
+        assert historical["newValue"] == {"creatorFee": 3}
+        assert client.post(f"{API_PREFIX}/admin/rooms/{room_id}/actions", headers=signed, json={"operation": "archive", "archived": False}).status_code == 403
+        signed["X-Admin-Proof"] = admin_proof(client, admin)
+        assert client.post(f"{API_PREFIX}/admin/rooms/{room_id}/actions", headers=signed, json={"operation": "archive", "archived": False}).status_code == 200
+        assert not room_archived(app.state.store, room_id)
+        entries = app.state.store.list_audit()
+    app.state.store.close()
+    reopened = Store(str(path))
+    assert reopened.list_audit() == entries
+    assert reopened.verify_audit_chain()["ok"]
+    reopened.close()
+
+
 def test_unused_cleanup_only_old_empty_nonrunning_rooms(ops):
     service, store, _, _ = ops
     service.clock = lambda: 200000
