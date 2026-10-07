@@ -153,7 +153,32 @@ class Store:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(SCHEMA)
+        self._migrate_admin_audit()
         self._conn.commit()
+
+    def _migrate_admin_audit(self) -> None:
+        """Upgrade persistent pre-hash audit tables without deleting their history.
+
+        CREATE TABLE IF NOT EXISTS does not add columns to an existing deployment.
+        Only a legacy table is backfilled; an existing hash chain is never repaired
+        automatically, since that would conceal changes to its committed entries.
+        """
+        columns = {row[1] for row in self._conn.execute("PRAGMA table_info(admin_audit)")}
+        missing = {"prev_hash", "entry_hash"} - columns
+        if not missing:
+            return
+        for column in sorted(missing):
+            self._conn.execute(f"ALTER TABLE admin_audit ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
+        previous = ""
+        for row in self._conn.execute("SELECT id,actor,action,old_json,new_json,chain_id,created_at,entry_hash FROM admin_audit ORDER BY id").fetchall():
+            if row[7]:
+                # Preserve any already-committed hashes; verification will expose
+                # an inconsistent partially migrated table rather than rewrite it.
+                previous = row[7]
+                continue
+            entry = self._audit_entry_hash(previous, row[1], row[2], row[3], row[4], row[5], row[6])
+            self._conn.execute("UPDATE admin_audit SET prev_hash=?,entry_hash=? WHERE id=?", (previous, entry, row[0]))
+            previous = entry
 
     # -- admin settings / audit (pricing authority) --------------------------
 
@@ -216,17 +241,26 @@ class Store:
 
     def append_audit(self, actor: str, action: str, old: dict, new: dict, chain_id: int) -> dict:
         with self.tx() as cx:
-            prev = self._audit_head_hash(cx)
-            created_at = time.time()
-            old_json, new_json = json.dumps(old), json.dumps(new)
-            entry_hash = self._audit_entry_hash(prev, actor.lower(), action,
-                                                old_json, new_json, chain_id, created_at)
-            cx.execute(
-                "INSERT INTO admin_audit (actor, action, old_json, new_json, chain_id, created_at, prev_hash, entry_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (actor.lower(), action, old_json, new_json, chain_id, created_at, prev, entry_hash),
-            )
-            return {"prev_hash": prev, "entry_hash": entry_hash}
+            return self._append_audit(cx, actor, action, old, new, chain_id)
+
+    def _append_audit(self, cx, actor, action, old, new, chain_id) -> dict:
+        prev = self._audit_head_hash(cx)
+        created_at = time.time()
+        old_json, new_json = json.dumps(old), json.dumps(new)
+        entry_hash = self._audit_entry_hash(prev, actor.lower(), action, old_json, new_json, chain_id, created_at)
+        cx.execute(
+            "INSERT INTO admin_audit (actor,action,old_json,new_json,chain_id,created_at,prev_hash,entry_hash) VALUES (?,?,?,?,?,?,?,?)",
+            (actor.lower(), action, old_json, new_json, chain_id, created_at, prev, entry_hash),
+        )
+        return {"prev_hash": prev, "entry_hash": entry_hash}
+
+    def set_setting_with_audit(self, key: str, value: dict, actor: str, action: str, audit_value: dict, chain_id: int) -> None:
+        """Publish administrative metadata and its evidence in one transaction."""
+        with self.tx() as cx:
+            row = cx.execute("SELECT value_json FROM admin_settings WHERE key=?", (key,)).fetchone()
+            old = json.loads(row[0]) if row else None
+            cx.execute("INSERT INTO admin_settings(key,value_json,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at", (key, json.dumps(value), time.time()))
+            self._append_audit(cx, actor, action, old, audit_value, chain_id)
 
     def list_audit(self, limit: int = 100) -> list[dict]:
         with self.tx() as cx:

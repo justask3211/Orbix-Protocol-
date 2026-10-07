@@ -15,7 +15,7 @@ import { RoundPending, STAGES } from './stages'
 import { FOUR_STAGE_VIEWS } from './GamePlayStages'
 import { CenterJoin } from './CenterJoin'
 import { RoomCommunity } from './RoomCommunity'
-import { ArcadeChoices, ArcadeNumber, ArcadeToggle, numericError, type NumericBounds } from './ArcadeSettings'
+import { ArcadeChoices, ArcadeNumber, ArcadeShares, ArcadeToggle, numericError, type NumericBounds } from './ArcadeSettings'
 import { PracticeArena } from './PracticeArena'
 import { AdminRoomTools } from './AdminRoomTools'
 import { CharacterPicker } from './ArenaControls'
@@ -221,12 +221,12 @@ const DEFAULT_RULES: Record<string, Record<string, unknown>> = {
     questions: Array.from({ length: 5 }, (_, i) => ({ prompt: `Question ${i + 1}?`, choices: ['Choice A', 'Choice B', 'Choice C'], correct_index: 0 })),
   },
   'memory-match': { pairs: 6, move_cap: 100, score_mode: 'moves', top_n: 3, hints: 'off', hint_budget: 2 },
-  'token-catch': { arena_mode: true, spawn_per_second: 2, lanes: 3, fall_speed: 'normal', hazard_chance_pct: 12, combo_cap: 3, win_threshold: 20, top_n: 3 },
-  'combat-duel': { starting_health: 100, attack_cooldown_ms: 500, min_players: 2, max_players: 2 },
+  'token-catch': { arena_mode: true, world_version:3, loot_budget:500,airdrop_count:10,loot_chunk:5,gun_spawn_chance_pct:30,gun_shots:5,gun_knockout_seconds:10,punch_stun_seconds:2,spawn_per_second: 2, lanes: 3, fall_speed: 'normal', hazard_chance_pct: 12, combo_cap: 3, win_threshold: 20, top_n: 3 },
+  'combat-duel': { world_version:3,allow_guns:false,combo_window_ms:800,starting_health: 150, attack_cooldown_ms: 500, min_players: 2, max_players: 2 },
   'reaction-duel': { rounds: 3, choice_window_seconds: 10, reveal_window_seconds: 5, choice_set: 'classic' },
   'puzzle-sprint': { board: 3, move_cap: 300, score_mode: 'time', top_n: 3, hints: 'off', hint_budget: 3, hint_move_penalty: 2 },
   'hash-hunt': { difficulty_bits: 18, win_mode: 'first-valid', leaderboard_size: 10 },
-  'boss-raid': { arena_mode: true, team_size: 3, min_players: 2, max_players: 50, team_mode: 'teams', boss_health: 6000, action_cooldown_ms: 500, contribution_cap: 10000, min_contribution: 10, reward_rule: 'top-n', top_n: 3 },
+  'boss-raid': { arena_mode: true,world_version:3,winning_teams:3,team_reward_shares:[60,25,15],team_member_split:'equal',starting_gun_damage:12,upgrade_interval_seconds:30,knockout_seconds:10, team_size: 3, min_players: 2, max_players: 50, team_mode: 'teams', boss_health: 12000, action_cooldown_ms: 500, contribution_cap: 100000, min_contribution: 10, reward_rule: 'top-n', top_n: 3 },
   'rps-duel': { rounds: '5', choice_window_seconds: 10, reveal_window_seconds: 5, choice_set: 'classic' },
   'reward-grid': { tiles: 36, reward_slots: 4, reveal_cap_per_wallet: 6, duration_seconds: 180 },
   'logo-bingo': { board: '3', call_cadence_seconds: 4, win_mode: 'first-line', free_centre: true, duration_seconds: 300 },
@@ -366,7 +366,11 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
   const capMin = draft.templateId === 'boss-raid' || ['reaction-duel', 'combat-duel'].includes(draft.templateId) ? 2 : caps.min ?? 1
   const isSolo = SOLO.has(draft.templateId)
   const roundBounds: NumericBounds = ruleSchemas.duration_seconds ?? {minimum: draft.templateId === 'boss-raid' ? 60 : 15, maximum:600}
-  const ruleFields = (TEMPLATE_FORMS[draft.templateId]?.fields ?? []).filter(field => !(draft.rules.arena_mode && draft.templateId === 'token-catch' && ['lanes','fall_speed','combo_cap'].includes(field.key)))
+  const ruleFields = (TEMPLATE_FORMS[draft.templateId]?.fields ?? []).filter(field => {
+    if(draft.rules.world_version===3 && draft.templateId==='token-catch' && ['lanes','fall_speed','combo_cap','spawn_per_second','win_threshold','top_n','catch_window_ms'].includes(field.key))return false
+    if(draft.rules.world_version===3 && draft.templateId==='boss-raid' && ['top_n','reward_rule','team_mode'].includes(field.key))return false
+    return !(draft.rules.arena_mode && draft.templateId==='token-catch' && ['lanes','fall_speed','combo_cap'].includes(field.key))
+  })
   const boundsFor = (field: Extract<RuleField, {kind:'number'}>): NumericBounds => {
     if (draft.templateId === 'number-hunt' && ['min','max'].includes(field.key)) return Number(draft.rules.digits) === 6 ? {minimum:111111,maximum:999999} : {minimum:1111,maximum:9999}
     return ruleSchemas[field.key] ?? {minimum:field.min,maximum:field.max}
@@ -390,6 +394,14 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
     if (Number(draft.rules.target_count) > Number(draft.rules.max) - Number(draft.rules.min) + 1) ruleErrors.target_count = 'Choose fewer targets than the available numbers.'
   }
   if (draft.templateId === 'boss-raid' && Number(draft.rules.min_contribution) > Number(draft.rules.contribution_cap)) ruleErrors.min_contribution = 'Minimum contribution cannot exceed the per-player cap.'
+  if(draft.templateId==='boss-raid' && draft.rules.world_version===3){
+    const shares=draft.rules.team_reward_shares
+    if(!Array.isArray(shares) || shares.length!==Number(draft.rules.winning_teams) || shares.some(n=>!Number.isInteger(n)||n<0||n>100) || shares.reduce((a,n)=>a+n,0)!==100)ruleErrors.team_reward_shares='Crew prize shares must match winning crews and total 100%.'
+  }
+  if(draft.templateId==='token-catch' && draft.rules.world_version===3){
+    if(Number(draft.rules.airdrop_count)>Number(draft.rules.loot_budget))ruleErrors.airdrop_count='Use at least one loot unit per airdrop.'
+    if(Math.ceil(Number(draft.rules.loot_budget)/Number(draft.rules.loot_chunk))+Number(draft.rules.airdrop_count)>400)ruleErrors.loot_chunk='Use larger piles: this match supports up to 400 loot piles.'
+  }
   const hintErrors = timedHints.map(hint => hint.text.trim() ? numericError(hint.delay_seconds,{minimum:0,maximum:3600},'Hint delay') : undefined).filter(Boolean)
   const feeErrors: Record<string,string | undefined> = {
     requiredAmount:numericError(draft.requiredAmount,{minimum:0},'Play fee'),
@@ -473,7 +485,7 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
       entry: draft.entryToken && draft.entryAmount > 0
         ? { kind: 'erc20' as const, token: draft.entryToken.trim(), amount: draft.entryAmount }
         : { kind: 'free' as const },
-      rewards: { kind: 'preview-points', slots: draft.templateId === 'boss-raid' ? Array.from({length:Number(draft.rules.team_size ?? 3)},(_,index) => ({rank:index + 1, points:draft.rewardPoints})) : [{ rank: 1, points: draft.rewardPoints }, { rank: 2, points: Math.round(draft.rewardPoints / 2) }] },
+      rewards: { kind: 'preview-points', slots: draft.rules.world_version===3 && ['token-catch','boss-raid'].includes(draft.templateId) ? [{rank:1,points:draft.templateId==='token-catch'?Number(draft.rules.loot_budget):draft.rewardPoints}] : [{ rank: 1, points: draft.rewardPoints }, { rank: 2, points: Math.round(draft.rewardPoints / 2) }] },
       branding: { preset: 'solar' },
       community_settings: {...communityOptions, timed_hints: timedHints.filter(h => h.text.trim()).map(h => ({...h, text: h.text.trim()}))},
     }
@@ -653,9 +665,10 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
             if (f.kind === 'select') {
               const asString = String(value)
               return (
-                <ArcadeChoices key={f.key} label={f.label} value={asString} options={f.options} onChange={choice => setRule(f.key, choice)} help={f.help} />
+                <ArcadeChoices key={f.key} label={f.label} value={asString} options={f.options} onChange={choice => {setRule(f.key, choice);Object.entries(f.options.find(option=>option.value===choice)?.patch ?? {}).forEach(([key,value])=>setRule(key,value))}} help={f.help} />
               )
             }
+            if (f.kind === 'shares') return <ArcadeShares key={f.key} label={f.label} value={Array.isArray(value) ? value as number[] : []} count={Number(draft.rules.winning_teams ?? 3)} onChange={shares => setRule(f.key, shares)} error={ruleErrors[f.key]} help={f.help} />
             return (
               <ArcadeNumber key={f.key} label={f.label} value={typeof value === 'number' ? value : ruleNumber(value)} onChange={number => setRule(f.key, number)} minimum={boundsFor(f).minimum} maximum={boundsFor(f).maximum} step={f.step} error={ruleErrors[f.key]} help={f.help} />
             )
@@ -673,74 +686,28 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
               ) : draft.templateId === 'puzzle-sprint' ? (
                 <>
                   <p>Legal-move hint: asking suggests ONE legal tile beside the blank, to that player only — never the solution path. Each use adds a small move penalty to the score. Set the uses per player.</p>
-                  <label className="ct-hint-select">
-                    <span>Puzzle hints</span>
-                    <select value={draft.rules.hints === 'on' ? 'on' : 'off'} onChange={(e) => setRule('hints', e.target.value)}>
-                      <option value="off">Off</option>
-                      <option value="on">On (private legal-move)</option>
-                    </select>
-                  </label>
+                  <ArcadeChoices label="Puzzle hints" value={draft.rules.hints === 'on' ? 'on' : 'off'} onChange={value => setRule('hints', value)} options={[{value:'off',label:'Solve unaided',description:'Players work out each move themselves.'},{value:'on',label:'Private move clue',description:'Suggest one legal move beside the blank.'}]} help="The server suggests a legal move only to the requesting player. It never reveals the solution path." />
                   {draft.rules.hints === 'on' && (
                     <>
-                      <label className="ct-hint-select">
-                        <span>Hints per player</span>
-                        <input type="number" min={1} max={10} value={ruleNumber(draft.rules.hint_budget)} onChange={(e) => setRule('hint_budget', Number(e.target.value))} />
-                        <small>1 to 10 hint uses per player per round.</small>
-                      </label>
-                      <label className="ct-hint-select">
-                        <span>Move penalty per hint</span>
-                        <input type="number" min={0} max={10} value={ruleNumber(draft.rules.hint_move_penalty)} onChange={(e) => setRule('hint_move_penalty', Number(e.target.value))} />
-                        <small>Score moves added per hint use (0 to 10).</small>
-                      </label>
+                      <ArcadeNumber label="Hints per player" minimum={1} maximum={10} value={ruleNumber(draft.rules.hint_budget)} onChange={value => setRule('hint_budget', value)} help="The maximum private move clues each player can request in a round." />
+                      <ArcadeNumber label="Move penalty per hint" minimum={0} maximum={10} value={ruleNumber(draft.rules.hint_move_penalty)} onChange={value => setRule('hint_move_penalty', value)} help="Add these scoring moves for every hint used; 0 makes clues free." />
                     </>
                   )}
                 </>
               ) : draft.templateId === 'memory-match' ? (
                 <>
                   <p>Bounded pair reveal: asking shows ONE hidden matching pair face-up, to that player only. It never maps the remaining board. Set how many reveals each player gets.</p>
-                  <label className="ct-hint-select">
-                    <span>Memory hints</span>
-                    <select value={draft.rules.hints === 'on' ? 'on' : 'off'} onChange={(e) => setRule('hints', e.target.value)}>
-                      <option value="off">Off</option>
-                      <option value="on">On (private pair reveal)</option>
-                    </select>
-                  </label>
+                  <ArcadeChoices label="Memory hints" value={draft.rules.hints === 'on' ? 'on' : 'off'} onChange={value => setRule('hints', value)} options={[{value:'off',label:'Trust your memory',description:'No extra card reveals.'},{value:'on',label:'Private pair reveal',description:'Show one matching pair to the requesting player.'}]} help="Each clue reveals one pair, not the remaining board. Choose a reveal budget for each player." />
                   {draft.rules.hints === 'on' && (
-                    <label className="ct-hint-select">
-                      <span>Reveals per player</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={ruleNumber(draft.rules.hint_budget)}
-                        onChange={(e) => setRule('hint_budget', Number(e.target.value))}
-                      />
-                      <small>1 to 5 pair reveals per player per round.</small>
-                    </label>
+                    <ArcadeNumber label="Reveals per player" minimum={1} maximum={5} value={ruleNumber(draft.rules.hint_budget)} onChange={value => setRule('hint_budget', value)} help="How many private matching-pair reveals each player may request in this round." />
                   )}
                 </>
               ) : draft.templateId === 'live-quiz' ? (
                 <>
                   <p>Elimination cue: after asking, one wrong choice is struck out for that player only. The server never eliminates the correct answer. Choose how many wrong choices a player may strike out per question.</p>
-                  <label className="ct-hint-select">
-                    <span>Quiz hints</span>
-                    <select value={draft.rules.hints === 'on' ? 'on' : 'off'} onChange={(e) => setRule('hints', e.target.value)}>
-                      <option value="off">Off</option>
-                      <option value="on">On (private elimination)</option>
-                    </select>
-                  </label>
+                  <ArcadeChoices label="Quiz hints" value={draft.rules.hints === 'on' ? 'on' : 'off'} onChange={value => setRule('hints', value)} options={[{value:'off',label:'Answer unaided',description:'Keep every answer option in play.'},{value:'on',label:'Private elimination',description:'Remove a wrong answer for the requesting player.'}]} help="The server strikes out incorrect choices only; it never marks or removes the correct answer." />
                   {draft.rules.hints === 'on' && (
-                    <label className="ct-hint-select">
-                      <span>Eliminations per question</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={3}
-                        value={ruleNumber(draft.rules.hint_eliminations)}
-                        onChange={(e) => setRule('hint_eliminations', Number(e.target.value))}
-                      />
-                      <small>1 to 3 wrong choices may be struck out per question.</small>
-                    </label>
+                    <ArcadeNumber label="Eliminations per question" minimum={1} maximum={3} value={ruleNumber(draft.rules.hint_eliminations)} onChange={value => setRule('hint_eliminations', value)} help="The maximum wrong choices a player can strike out on each question." />
                   )}
                 </>
               ) : (
@@ -814,7 +781,7 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
             </label>
           )}
           <ArcadeNumber label="Auto-close after (hours, 0 = never)" minimum={0} maximum={168} value={draft.closeAfterHours ?? 0} onChange={value => set('closeAfterHours',value)} error={feeErrors.closeAfterHours} />
-          <ArcadeNumber label="Winner points (preview)" minimum={0} value={draft.rewardPoints} onChange={value => set('rewardPoints',value)} error={feeErrors.rewardPoints} help={draft.templateId === 'boss-raid' ? `The first ${Number(draft.rules.team_size ?? 3)} qualifying winning-team members receive the preconfigured preview reward slots. Extra team members have no unconfigured reward.` : 'Game points are separate from wallet tokens. Set to 0 for no preview points.'} />
+          {draft.templateId==='token-catch' && draft.rules.world_version===3 ? <ArcadeNumber label="Total airdrop loot pool (preview units)" minimum={1} maximum={10000} value={Number(draft.rules.loot_budget)} onChange={value=>setRule('loot_budget',value)} error={ruleErrors.loot_budget} help="The complete pool is split across the scheduled airdrops. Every collector receives their final collected share as preview points. These are game units, not a wallet transfer."/> : <ArcadeNumber label={draft.templateId==='boss-raid' ? 'Total crew prize pool (preview points)' : 'Winner points (preview)'} minimum={0} value={draft.rewardPoints} onChange={value => set('rewardPoints',value)} error={feeErrors.rewardPoints} help={draft.templateId === 'boss-raid' ? 'This is the complete prize pool. The podium percentages split it between qualifying crews, then the chosen member rule divides each crew share. Game points are separate from wallet tokens.' : 'Game points are separate from wallet tokens. Set to 0 for no preview points.'} />}
         </div>
 
         <div className="wz-why" style={{ marginTop: 14 }}>
@@ -838,7 +805,7 @@ function Wizard({ session, initialTemplateId, onConnect }: { session: ReturnType
             <div><small>Players</small><b>{isSolo ? 1 : draft.playerCap}</b></div>
             <div><small>Play fee</small><b>{draft.requiredAmount} preview credits</b></div>
             <div><small>Joiner fee</small><b>{draft.entryToken ? `${draft.entryAmount} (token)` : draft.joinerFee ? `${draft.joinerFee} preview credits` : 'Free'}</b></div>
-            <div><small>Winner reward</small><b>{draft.rewardPoints} preview points</b></div>
+            <div><small>{['token-catch','boss-raid'].includes(draft.templateId)?'Total game reward pool':'Winner reward'}</small><b>{draft.templateId==='token-catch'?Number(draft.rules.loot_budget):draft.rewardPoints} preview points</b></div>
           </div>
         </div>
       {currentStepErrors.length > 0 && <p className="ct-field-error ct-validation-summary" role="status">{currentStepErrors.length} setting{currentStepErrors.length === 1 ? '' : 's'} need attention. Check the messages beside your fields.</p>}
@@ -1155,8 +1122,8 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
           {templateId === 'boss-raid' && (room?.config?.rules as {team_mode?:string})?.team_mode === 'teams' && room?.status !== 'running' && !finished && (() => {
             const rules = room?.config?.rules as {arena_mode?:boolean;team_size?:number}
             const teamSize = Number(rules.team_size ?? 3)
-            const teamIds = rules.arena_mode ? Array.from({length:Math.ceil(Number((room?.config?.admission as {player_cap?:number})?.player_cap ?? 12) / teamSize)},(_,i) => `team-${i + 1}`) : ['a','b']
-            return <div className="ct-team-picker"><strong>Choose your crew · up to {teamSize} players</strong><p>Highest team damage wins. Unassigned players join a crew automatically at start. Only the published reward slots are awarded.</p><div className="ct-team-grid">{teamIds.map((team,index) => <button key={team} className={room?.teams?.[me] === team ? 'btn-primary' : 'btn-ghost'} disabled={!amPlayer || busy || Object.values(room?.teams ?? {}).filter(t => t === team).length >= teamSize && room?.teams?.[me] !== team} onClick={async () => { if (!session.token) return; try { await center.chooseTeam(roomId,session.token,team);await refresh() } catch(err) {setError(explainError(err))} }}>Crew {index + 1} · {Object.values(room?.teams ?? {}).filter(t => t === team).length}/{teamSize}</button>)}</div></div>
+            const teamIds = rules.arena_mode ? Array.from({length:Math.max(2,Math.ceil(Number((room?.config?.admission as {player_cap?:number})?.player_cap ?? 12) / teamSize))},(_,i) => `team-${i + 1}`) : ['a','b']
+            return <div className="ct-team-picker"><strong>Choose your crew · up to {teamSize} players</strong><p>Choose a squad card or let the lobby assign you. Crews rank by boss damage; the published podium shares determine prizes.</p><div className="ct-team-grid">{teamIds.map((team,index) => {const members=Object.entries(room?.teams ?? {}).filter(([,t])=>t===team);return <button key={team} className={`ct-squad-card${room?.teams?.[me]===team?' is-selected':''}`} aria-pressed={room?.teams?.[me]===team} disabled={!amPlayer || busy || members.length>=teamSize && room?.teams?.[me]!==team} onClick={async () => { if (!session.token) return; try { await center.chooseTeam(roomId,session.token,team);await refresh() } catch(err) {setError(explainError(err))} }}><span className="ct-squad-banner">✦ <strong>Crew {index+1}</strong><small>{members.length}/{teamSize} slots</small></span><span className="ct-squad-slots">{Array.from({length:teamSize},(_,slot)=><i key={slot} title={members[slot]?.[0]}>{members[slot]?'●':'+'}</i>)}</span><span>{room?.teams?.[me]===team?'Your squad':members.length>=teamSize?'Squad full':'Join this squad'}</span></button>})}</div></div>
           })()}
           {['token-catch','boss-raid','combat-duel'].includes(templateId) && (templateId === 'combat-duel' || (room?.config?.rules as {arena_mode?:boolean})?.arena_mode) && room?.status !== 'running' && !finished && <CharacterPicker selected={room?.characters?.[me] ?? 'fox'} disabled={!amPlayer || busy || !session.token} onChoose={async character => {
             if (!session.token || !amPlayer) return

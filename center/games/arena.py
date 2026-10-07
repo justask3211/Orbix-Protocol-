@@ -286,7 +286,9 @@ class ArenaEngine(Engine):
             if seq<=body['inputSeq']:return ActionResult(False,'STALE_INPUT')
             yaw=action.get('yaw')
             if yaw is not None and (not finite(yaw) or abs(yaw)>math.tau*2):return ActionResult(False,'INVALID_FACING')
-            if now*1000-self.inputs.get(who,{}).get('at',-1000)<35:return ActionResult(False,'INPUT_RATE_LIMIT')
+            prior=self.inputs.get(who,{})
+            stopping=dx==0 and dz==0 and (prior.get('dx',0)!=0 or prior.get('dz',0)!=0)
+            if not stopping and now*1000-prior.get('at',-1000)<35:return ActionResult(False,'INPUT_RATE_LIMIT')
             norm=max(1,math.hypot(dx,dz))
             self.inputs[who]=dict(dx=dx/norm,dz=dz/norm,at=now*1000,until=now*1000+250)
             body['inputSeq']=seq

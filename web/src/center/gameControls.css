@@ -87,3 +87,41 @@
 @media(max-width:600px){.ct-choice-grid{grid-template-columns:1fr}.ct-toggle-grid{grid-template-columns:1fr}.ct-create .ct-choice-grid .ct-choice-card,.ct-create .ct-toggle-card{min-height:76px;padding:13px}.ct-number-control{max-width:none}.ct-create .ct-community-options{padding:17px 13px}}
 @media(prefers-reduced-motion:reduce){.ct-choice-card,.ct-toggle-card,.ct-choice-art,.ct-toggle-switch>i{transition:none!important}.ct-create .ct-choice-grid .ct-choice-card:hover,.ct-create .ct-toggle-card:hover{transform:none}}
 @media(forced-colors:active){.ct-create .ct-choice-card.is-selected,.ct-create .ct-toggle-card.is-selected{border:3px solid Highlight}.ct-choice-art{color:CanvasText;background:Canvas}.ct-choice-check,.ct-toggle-switch{border-color:CanvasText}.ct-create .ct-field-error{color:CanvasText!important}}
+/* Each setting carries an accessible explanation without stealing its input. */
+.ct-create .ct-setting-label,.ct-create .ct-choice-field>legend{display:flex;align-items:center;gap:8px;width:100%;margin-bottom:9px;font-size:13px;font-weight:750;color:#edf1fb}
+.ct-create .ct-setting-label>label{margin:0;display:block;flex:1;font-weight:750}
+.ct-setting-info{position:relative;display:inline-flex;flex:none;z-index:4}
+.ct-create .ct-info-button{display:grid;place-items:center;border:1px solid #737e9d;color:#a6e8ef;background:#29364e;width:30px;height:30px;min-height:30px;padding:0;border-radius:50%;transition:background .18s,transform .18s;cursor:pointer}
+.ct-create .ct-info-button:hover,.ct-create .ct-info-button[aria-expanded=true]{color:#1b2d3b;background:#a6e8ef;transform:rotate(-8deg)}
+.ct-info-explanation{position:absolute;left:0;top:calc(100% + 8px);width:min(290px,calc(100vw - 76px));padding:15px;background:#eaf3d6;color:#263833;border:1px solid #ceddaf;border-radius:14px;box-shadow:0 12px 35px #0b112966;font-size:12px;line-height:1.6;font-weight:500;animation:ct-setting-reveal .15s ease-out}
+.ct-info-explanation>strong{display:block;color:#263833;font-size:13px;margin-bottom:6px}
+.ct-setting-label>.ct-setting-info .ct-info-explanation{left:auto;right:0}
+.ct-toggle-field{position:relative;min-width:0;display:flex;align-items:stretch}
+.ct-create .ct-toggle-field>.ct-toggle-card{flex:1;padding-right:50px;margin:0}
+.ct-toggle-field>.ct-setting-info{position:absolute;right:13px;top:11px}
+.ct-toggle-field .ct-info-explanation{left:auto;right:0}
+.ct-create .ct-toggle-field .ct-toggle-switch{margin-top:22px}
+.ct-create .ct-choice-grid .ct-choice-tone-0{background:linear-gradient(120deg,#25494e,#29314b);border-color:#507c88}
+.ct-create .ct-choice-grid .ct-choice-tone-1{background:linear-gradient(120deg,#463959,#2e324c);border-color:#7f6b9d}
+.ct-create .ct-choice-grid .ct-choice-tone-2{background:linear-gradient(120deg,#514145,#30314b);border-color:#9a797b}
+.ct-create .ct-choice-grid .ct-choice-card.is-selected{background:linear-gradient(120deg,#476047,#324139);border-color:#e0f77c;box-shadow:inset 0 0 0 1px #e0f77c,0 7px 24px #b7ed7720}
+.ct-create .ct-choice-card.is-selected .ct-choice-check{animation:ct-setting-reveal .2s ease-out}
+.ct-create .ct-number-field{padding:14px;border:1px solid #586888;border-radius:16px;background:linear-gradient(140deg,#293650,#273046)}
+.ct-create .ct-number-field:focus-within{border-color:#95e7ef;box-shadow:0 0 0 1px #95e7ef33}
+.ct-create .ct-number-field.is-invalid{border-color:#ffad94}
+@keyframes ct-setting-reveal{from{opacity:0;transform:translateY(5px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.ct-create .ct-info-button{transition:none}.ct-info-explanation,.ct-create .ct-choice-card.is-selected .ct-choice-check{animation:none}}
+@media(forced-colors:active){.ct-info-explanation,.ct-create .ct-info-button{background:Canvas;color:CanvasText;border-color:CanvasText}}
+.ct-create .ct-share-field{grid-column:1/-1;border:1px solid #7d789d;padding:17px;border-radius:18px;background:linear-gradient(110deg,#353346,#2a3550);min-width:0}
+.ct-create .ct-share-field>legend{display:flex;gap:9px;align-items:center;padding:0 6px;font-size:13px;font-weight:750;color:#e1d1ff}
+.ct-share-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.ct-create .ct-share-place{padding:13px;border-radius:12px;background:#353e57;border-top:3px solid #e0f77c;display:flex;flex-direction:column}
+.ct-create .ct-share-place-1{border-color:#95e7ef}.ct-create .ct-share-place-2{border-color:#ffc091}
+.ct-share-place>div{position:relative}.ct-create .ct-share-place input{padding-right:34px;font-size:20px;font-weight:800}
+.ct-share-place>div>b{position:absolute;right:15px;top:11px;font-size:20px;color:#c5cede;pointer-events:none}
+.ct-create .ct-share-field.is-invalid{border-color:#ffad94}
+/* Anchor disclosures to the field so long labels cannot push notes off-screen. */
+.ct-create .ct-choice-field,.ct-create .ct-number-field,.ct-create .ct-share-field{position:relative}
+.ct-create .ct-choice-field>legend .ct-setting-info,.ct-create .ct-share-field>legend .ct-setting-info{position:static}
+.ct-create .ct-choice-field>legend .ct-info-explanation,.ct-create .ct-share-field>legend .ct-info-explanation{top:38px;left:0;right:auto;max-width:100%;z-index:20}
+.ct-create .ct-choice-field:has(.ct-info-button[aria-expanded=true]),.ct-create .ct-number-field:has(.ct-info-button[aria-expanded=true]),.ct-create .ct-share-field:has(.ct-info-button[aria-expanded=true]),.ct-toggle-field:has(.ct-info-button[aria-expanded=true]){z-index:8}

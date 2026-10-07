@@ -175,14 +175,13 @@ class AdminGameService:
             raise CommunityError("INVALID_SETTINGS", "Archived must be a boolean.")
         if archived and row["status"] == "running":
             raise CommunityError("MATCH_RUNNING", "Finish the running match before archiving its room.", 409)
-        old = self.store.get_setting(f"room-archive:{room_id}")
-        self.store.set_setting(f"room-archive:{room_id}", {"archived": archived, "at": self.clock()})
+        result = {"roomId": room_id, "archived": archived, "recordsPreserved": True}
+        self.store.set_setting_with_audit(f"room-archive:{room_id}", {"archived": archived, "at": self.clock()}, actor, "room.admin_archive", result, 46630)
         if archived:
             self.archives.add(room_id)
         else:
             self.archives.discard(room_id)
-        self._audit(actor, "room.admin_archive", old, {"roomId": room_id, "archived": archived, "recordsPreserved": True})
-        return {"roomId": room_id, "archived": archived, "recordsPreserved": True}
+        return result
 
     def archive_unused(self, actor):
         actor = self._authorize(actor)

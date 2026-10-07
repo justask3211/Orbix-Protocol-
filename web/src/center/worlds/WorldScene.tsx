@@ -1,6 +1,6 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { CanvasTexture, Group, MathUtils, Mesh, MeshBasicMaterial, OrthographicCamera, SRGBColorSpace } from 'three'
+import { CanvasTexture, Group, MathUtils, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three'
 import type { GameWorldProps } from './GameWorld'
 import ArenaWorld from './ArenaWorld'
 
@@ -352,13 +352,7 @@ function DuelWorld({ state, players, me, reducedMotion }: WorldProps) {
 function CameraRig({ arena = false, width = 20, depth = 16 }: { arena?: boolean; width?: number; depth?: number }) {
   const { camera, size } = useThree()
   useEffect(() => {
-    if (arena && camera instanceof OrthographicCamera) {
-      camera.position.set(0, 20, 22)
-      camera.lookAt(0, .5, 0)
-      camera.zoom = Math.min(size.width / (width + 4), size.height / (depth * .75 + 5))
-      camera.updateProjectionMatrix()
-      return
-    }
+    if (arena) return // ArenaWorld owns its perspective follow camera every frame.
     const aspect = size.width / Math.max(1, size.height)
     const z = arena ? Math.max(depth * 1.75, width * 1.22 / Math.max(.55, aspect)) : Math.max(14.5, 12.7 / Math.max(.7, aspect))
     camera.position.set(0, z * (arena ? .90 : .59), z)
@@ -386,8 +380,7 @@ export default function WorldScene({ active, fallback, onContextLost, onReady, .
   return <Canvas
     aria-hidden="true"
     dpr={[1, 1.5]}
-    camera={{ position: [0, 9, 15], fov: 39, near: .1, far: 70 }}
-    orthographic={Boolean(props.state.arena)}
+    camera={{ position: [0, 3, 6], fov: props.state.arena ? 58 : 39, near: .08, far: 140 }}
     frameloop={active ? props.reducedMotion && !props.state.arena ? 'demand' : 'always' : 'never'}
     gl={{ antialias: true, alpha: false, powerPreference: 'default' }}
     fallback={fallback}
@@ -395,7 +388,7 @@ export default function WorldScene({ active, fallback, onContextLost, onReady, .
     onCreated={({ camera }) => { camera.lookAt(0, .55, 0); onReady() }}
   >
     <color attach="background" args={[background]} />
-    <fog attach="fog" args={[background, props.state.arena ? 65 : 25, props.state.arena ? 100 : 48]} />
+    <fog attach="fog" args={[background, props.state.arena ? 30 : 25, props.state.arena ? 85 : 48]} />
     <ambientLight intensity={1.25} />
     <hemisphereLight args={['#fff8e8', '#7988b3', 1.5]} />
     <directionalLight position={[-4, 9, 6]} intensity={2.1} color="#fff2df" />
