@@ -1,6 +1,7 @@
 import { Component, Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Material, Mesh, MeshStandardMaterial, Object3D, SkinnedMesh } from 'three'
 import './winnerCelebration.css'
+import { CARTOON_SUITS, CARTOON_PROPORTIONS, cartoonFinish } from './worlds/cartoonStyle'
 import { celebrationTitle } from './resultPresentation'
 
 export type PodiumWinner = {
@@ -46,11 +47,11 @@ const PodiumScene = lazy(async () => {
         if (!mesh.isMesh) return
         mesh.castShadow = mesh.receiveShadow = true
         const tint = (source: Material) => {
-          const suits: Record<string, string> = { fox: '#bf6240', robot: '#528ca0', frog: '#6f9150', cat: '#9274ae' }
-          const color = source.name === 'Orbix_Suit' ? suits[winner.character || ''] || ['#5c4c2e', '#425b6b', '#654739'][slot] : source.name === 'Orbix_Armor' ? ['#998250', '#849cae', '#b17d5c'][slot] : source.name === 'Orbix_Accent' ? COLORS[slot] : null
+          const style = CARTOON_SUITS[winner.character || 'fox'] || CARTOON_SUITS.fox
+          const color = source.name === 'Orbix_Suit' ? style.suit : source.name === 'Orbix_Armor' ? style.armor : source.name === 'Orbix_Accent' ? COLORS[slot] : null
           if (!color || !(source as MeshStandardMaterial).isMeshStandardMaterial) return source
           let material = copies.get(source.uuid)
-          if (!material) { material = source.clone(); (material as MeshStandardMaterial).color.set(color); copies.set(source.uuid, material); materials.push(material) }
+          if (!material) { material = source.clone(); (material as MeshStandardMaterial).color.set(color); cartoonFinish(material as MeshStandardMaterial); copies.set(source.uuid, material); materials.push(material) }
           return material
         }
         mesh.material = Array.isArray(mesh.material) ? mesh.material.map(tint) : tint(mesh.material)
@@ -75,7 +76,7 @@ const PodiumScene = lazy(async () => {
       <mesh position={[0, HEIGHTS[slot] / 2, 0]} receiveShadow castShadow><cylinderGeometry args={[.68, .76, HEIGHTS[slot], 32]} /><meshStandardMaterial color={COLORS[slot]} metalness={.55} roughness={.36} /></mesh>
       <mesh position={[0, HEIGHTS[slot] + .012, 0]}><cylinderGeometry args={[.63, .63, .025, 32]} /><meshStandardMaterial color="#373b47" metalness={.28} roughness={.68} /></mesh>
       <group position={[0, HEIGHTS[slot] + .025, 0]} rotation={[0, index === 1 ? .15 : index === 2 ? -.15 : .02, 0]}>
-        <primitive object={owned.model} dispose={null} />
+        <group scale={[...CARTOON_PROPORTIONS]}><primitive object={owned.model} dispose={null} /></group>
       </group>
       {/* Rank remains meaningful in the accessible DOM, rather than canvas text. */}
       <mesh position={[0, HEIGHTS[slot] * .55, .727]}><boxGeometry args={[.075 + Math.min(3, winner.rank) * .045, .055, .018]} /><meshStandardMaterial color="#fff5d7" emissive="#4d432f" emissiveIntensity={.25} /></mesh>

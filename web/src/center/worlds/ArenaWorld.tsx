@@ -4,6 +4,7 @@ import { Color, Group, InstancedMesh, MathUtils, Object3D, PerspectiveCamera, Ve
 import type { GameWorldProps } from './GameWorld'
 import FieldEnvironment from './FieldEnvironment'
 import SkeletalActors from './SkeletalActors'
+import { CARTOON_PROPORTIONS } from './cartoonStyle'
 import ItemPickups from './ItemMeshes'
 import GuardianModel from './GuardianModel'
 import FirstPersonModel from './FirstPersonModel'
@@ -115,7 +116,7 @@ function FollowCamera({ state, me, cameraRef, inputRef, poses }: GameWorldProps 
     const x = pose?.x ?? num(body?.x), z = pose?.z ?? num(body?.z), y = pose?.y ?? num(body?.y)
     const yaw = num(cameraRef?.current.yaw, Math.PI), pitch = MathUtils.clamp(num(cameraRef?.current.pitch, .20), -.5, .90), first = cameraRef?.current.mode === 'first'
     const distance = first ? .04 : size.width < 600 ? 5 : 5.7, flat = Math.cos(pitch), vertical = Math.sin(pitch)
-    target.set(x, y + (first ? Number(state.worldVersion) >= 4 ? 1.66 : 1.57 : 1.25), z)
+    target.set(x, y + (first ? Number(state.worldVersion) >= 4 ? 1.66 * CARTOON_PROPORTIONS[1] : 1.57 : 1.25), z)
     desired.set(target.x - Math.sin(yaw) * flat * distance - (first ? 0 : Math.cos(yaw) * .48), target.y + vertical * distance + (first ? 0 : .55), target.z - Math.cos(yaw) * flat * distance + (first ? 0 : Math.sin(yaw) * .48))
     if (!first) {
       const obstacles = [...(state.obstacles ?? []), ...(state.crates ?? []).filter((crate: any) => crate.hp > 0).map((crate: any) => ({ ...crate, width: .8, depth: .8, height: .8 }))]

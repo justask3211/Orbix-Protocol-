@@ -109,3 +109,22 @@ and skeletal lifecycle regression passed; local Chromium rendered Duel with the
 new item shaders and accepted movement/jump/stop without a visible fallback.
 506 Python tests, tsc -b --noEmit and build passed. Extended human review of all
 pickup/weapon states and physical mobile performance remain unproven.
+
+## Task 5 — cartoon Ranger styling
+
+Shared cartoonStyle.ts supplies peach/cyan/lime/lilac suit palettes, light armor
+and existing team accent rules. Only actor-owned Suit/Armor/Accent materials lose
+the tactical clothing maps and receive matte roughness, minimal metal, a mild
+color fill and soft contour shading inside the existing shader. Face/skin/eyes,
+source textures, skeletons, animation clips and cached geometry are untouched.
+A broader, slightly shorter presentation group keeps every bone/attachment in
+the same rig; FPV eye height follows that visual scale. Both LODs and the podium
+use this treatment. Faster idle/run/action crossfades retain synchronized layers
+and measured displacement-based cadence. FPV gloves use the same playful palette.
+
+Evidence: all four cosmetic IDs and both real GLBs pass clothing/team tint,
+phase/cadence, idle/Kick/StrictMode/lifecycle regressions; item geometry test still
+passes. Chromium rendered the new Duel material shader and character treatment,
+accepted movement/jump/stop, and a screenshot was reviewed. 506 Python tests,
+tsc -b --noEmit and build passed. This restyles the existing Ranger; it does not
+replace its licensed anatomy or establish commercial-game animation parity.

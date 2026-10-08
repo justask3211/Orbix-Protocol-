@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { CylinderGeometry, Group, MathUtils, MeshStandardMaterial, SphereGeometry, TorusGeometry, type BufferGeometry } from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+import { CARTOON_SUITS } from './cartoonStyle'
 import { makeItemGeometry } from './ItemAssets'
 import type { GameWorldProps } from './GameWorld'
 
 type Vec3 = [number, number, number]
 const number = (value: unknown, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
-const SUITS: Record<string, string> = { fox: '#b76c49', robot: '#578d9d', frog: '#7b9356', cat: '#947ab2' }
+const SUITS = Object.fromEntries(Object.entries(CARTOON_SUITS).map(([id,style])=>[id,style.suit]))
 function Part({ geometry, material, position = [0, 0, 0], scale = [1, 1, 1], rotation = [0, 0, 0] }: { geometry: BufferGeometry; material: MeshStandardMaterial; position?: Vec3; scale?: Vec3; rotation?: Vec3 }) {
   return <mesh geometry={geometry} material={material} position={position} scale={scale} rotation={rotation} renderOrder={120} />
 }
@@ -22,7 +23,7 @@ export default function FirstPersonModel({ state, me, cameraRef, inputRef, reduc
     const box = new RoundedBoxGeometry(1, 1, 1, 1, .12), joint = new SphereGeometry(1, 6, 4)
     const cylinder = new CylinderGeometry(1, 1, 1, 6, 1), ring = new TorusGeometry(1, .18, 4, 10)
     const material = (color: string, roughness: number, metalness = 0, emissive?: string) => new MeshStandardMaterial({ color, roughness, metalness, emissive, emissiveIntensity: emissive ? .9 : 0, depthTest: false, depthWrite: false })
-    return { shieldGeo: makeItemGeometry('shield'), shieldMaterial: new MeshStandardMaterial({vertexColors:true,roughness:.65,depthTest:false,depthWrite:false}), box, joint, cylinder, ring, sleeve: material(SUITS[body?.character] || SUITS.fox, .87), glove: material('#343c43', .88), knuckle: material('#626d78', .58, .12), metal: material('#526470', .36, .62), dark: material('#25323c', .65, .3), warm: material('#baa074', .50, .55), blade: material('#c8d6df', .24, .82), glass: material('#68b6c5', .18, .45), flash: material('#ffe8ad', .25, .05, '#ffc658') }
+    return { shieldGeo: makeItemGeometry('shield'), shieldMaterial: new MeshStandardMaterial({vertexColors:true,roughness:.65,depthTest:false,depthWrite:false}), box, joint, cylinder, ring, sleeve: material(SUITS[body?.character] || SUITS.fox, .87), glove: material('#fff3d7', .92), knuckle: material('#b5e8e5', .9), metal: material('#526470', .36, .62), dark: material('#25323c', .65, .3), warm: material('#baa074', .50, .55), blade: material('#c8d6df', .24, .82), glass: material('#68b6c5', .18, .45), flash: material('#ffe8ad', .25, .05, '#ffc658') }
   }, [body?.character])
   useEffect(() => () => {
     for (const geometry of [assets.box, assets.joint, assets.cylinder, assets.ring, assets.shieldGeo]) geometry.dispose()
