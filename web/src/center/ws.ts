@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { API_BASE } from './api'
+import { applyWorldPatch } from './worldSnapshot'
 
 export type ServerFrame = {
   v: number
@@ -109,6 +110,9 @@ export class RoomSocket {
   }
 
   private send(message: Record<string, unknown>): void {
+    const movement = message.type === 'action' && (message.payload as Record<string,unknown>)?.kind === 'move'
+    if (movement && (!this.socket || this.socket.readyState !== WebSocket.OPEN)) return
+    if (this.socket && this.socket.bufferedAmount > 65536) { this.socket.close(); return }
     const raw = JSON.stringify(message)
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.socket.send(raw)
@@ -198,12 +202,12 @@ export function useRoomChannel(
         handlersRef.current.onRoundStarted?.({ roundId: frame.roundId, commitHash: frame.commitHash, deadline: frame.deadline })
         break
       case 'game.patch':
-        setState((prev) => ({ ...(prev ?? {}), ...(frame.payload ?? {}) }))
+        setState(prev => { const next = applyWorldPatch(prev, frame.payload ?? {}); if (!next) socketRef.current?.sync(seqRef.current); return next ?? prev })
         handlersRef.current.onPatch?.(frame.payload ?? {})
         break
       case 'action.ack': {
         const payload = frame.payload ?? {}
-        if (payload.patch) setState((prev) => ({ ...(prev ?? {}), ...(payload.patch as Record<string, unknown>) }))
+        if (payload.patch) setState(prev => { const next = applyWorldPatch(prev, payload.patch as Record<string,unknown>); if (!next) socketRef.current?.sync(seqRef.current); return next ?? prev })
         if (typeof payload.hint === 'string') setState(prev => ({...(prev ?? {}), privateHint: payload.hint}))
         if ((payload.patch as Record<string, unknown> | undefined)?.targets) setState(prev => ({...(prev ?? {}), privateHint: undefined}))
         setLastError(null)

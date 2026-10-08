@@ -111,12 +111,16 @@ function ArenaCharacters({ state, me, inputRef, cameraRef, poses }: GameWorldPro
 /** Follow the same reconciled position as the character; collision shortens the camera boom. */
 function FollowCamera({ state, me, cameraRef, inputRef, poses }: GameWorldProps & { poses: Poses }) {
   const target = useMemo(() => new Vector3(), []), desired = useMemo(() => new Vector3(), []), look = useMemo(() => new Vector3(), []), initialized = useRef(false)
+  const previousTarget = useMemo(() => new Vector3(), [])
   useFrame(({ camera, size }, delta) => {
     const pose = poses.get(me), body = state.bodies?.[me]
     const x = pose?.x ?? num(body?.x), z = pose?.z ?? num(body?.z), y = pose?.y ?? num(body?.y)
     const yaw = num(cameraRef?.current.yaw, Math.PI), pitch = MathUtils.clamp(num(cameraRef?.current.pitch, .20), -.5, .90), first = cameraRef?.current.mode === 'first'
     const distance = first ? .04 : size.width < 600 ? 5 : 5.7, flat = Math.cos(pitch), vertical = Math.sin(pitch)
     target.set(x, y + (first ? Number(state.worldVersion) >= 4 ? 1.66 * CARTOON_PROPORTIONS[1] : 1.57 : 1.25), z)
+    // Translate with the reconciled actor immediately; ease only the camera boom.
+    if (initialized.current) camera.position.add(target).sub(previousTarget)
+    previousTarget.copy(target)
     desired.set(target.x - Math.sin(yaw) * flat * distance - (first ? 0 : Math.cos(yaw) * .48), target.y + vertical * distance + (first ? 0 : .55), target.z - Math.cos(yaw) * flat * distance + (first ? 0 : Math.sin(yaw) * .48))
     if (!first) {
       const obstacles = [...(state.obstacles ?? []), ...(state.crates ?? []).filter((crate: any) => crate.hp > 0).map((crate: any) => ({ ...crate, width: .8, depth: .8, height: .8 }))]

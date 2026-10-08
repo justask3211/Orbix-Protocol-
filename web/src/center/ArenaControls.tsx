@@ -86,7 +86,7 @@ export function ArenaPlay(props: StageProps) {
     }
     lastSend.current = Date.now()
     const sequence = ++seq.current
-    input.current.history = [...(input.current.history ?? []), { dx: input.current.dx, dz: input.current.dz, sprint: input.current.sprint, active: input.current.active, seq: sequence, at: performance.now() }].slice(-64)
+    input.current.history = [...(input.current.history ?? []).filter(command => performance.now() - command.at <= 2000), { dx: input.current.dx, dz: input.current.dz, sprint: input.current.sprint, active: input.current.active, seq: sequence, at: performance.now() }].slice(-64)
     actRef.current({ kind: 'move', dx: input.current.dx, dz: input.current.dz, yaw: camera.current.yaw, aimPitch: -camera.current.pitch, sprint: Boolean(input.current.sprint), seq: sequence })
   }
   const action = (kind: string, extra: Record<string, unknown> = {}) => {
