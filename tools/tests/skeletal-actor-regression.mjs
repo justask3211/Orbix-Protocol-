@@ -21,6 +21,8 @@ async function model(name) {
   return await new GLTFLoader().parseAsync(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength), '')
 }
 const [full, lod] = await Promise.all([model('orbix-ranger.glb'), model('orbix-ranger-lod.glb')])
+const styleCode=transformSync('style.ts',fs.readFileSync(new URL('web/src/center/worlds/cartoonStyle.ts',root),'utf8'),{target:'es2022'}).code.replace(/\bexport\s+/g,'')
+const styles=new Function(styleCode+'\nreturn {CARTOON_SUITS,CARTOON_TEAMS,CARTOON_PROPORTIONS,cartoonFinish};')()
 const frames = [], effects = []
 const jsx = (type, props) => {
   if (type === 'group') {
@@ -40,13 +42,35 @@ const modules = {
   './terrain': { stateGround: () => 0 },
   './motion': require('./motion-regression.cjs'),
   './ItemMeshes': {HeldItems:()=>null},
+  './cartoonStyle': styles,
 }
 const filename = fileURLToPath(new URL('web/src/center/worlds/SkeletalActors.tsx', root))
 const result = transformSync(filename, fs.readFileSync(filename, 'utf8'), { jsx: { runtime: 'automatic' }, target: 'es2022' })
 assert.deepEqual(result.errors, [])
 const source = result.code.replace(/import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g, (_, names, name) => `const {${names.replace(/\bas\b/g, ':')}} = require(${JSON.stringify(name)});`).replace(/\bexport\s+(?:default\s+)?(?=(?:function|const|class)\b)/g, '').replaceAll('import.meta.env.BASE_URL', '"/center/"')
-const { RigActor, PoseMotion } = new Function('require', `${source}\nreturn {RigActor,PoseMotion};`)(name => { if (!(name in modules)) throw new Error(`Unexpected import: ${name}`); return modules[name] })
+const { RigActor, PoseMotion, makeRig, releaseRig, selectAction } = new Function('require', `${source}\nreturn {RigActor,PoseMotion,makeRig,releaseRig,selectAction};`)(name => { if (!(name in modules)) throw new Error(`Unexpected import: ${name}`); return modules[name] })
 
+for (const model of [full,lod]) for (const character of Object.keys(styles.CARTOON_SUITS)) {
+  const owned=makeRig(model,character,'team-2')
+  owned.scene.traverse(object=>{
+    if(!object.isMesh)return
+    for(const material of Array.isArray(object.material)?object.material:[object.material]){
+      if(!['Orbix_Suit','Orbix_Armor','Orbix_Accent'].includes(material.name))continue
+      assert.equal(material.map,null,'Only owned clothing drops the tactical texture')
+      assert.equal(material.roughness,.92)
+      assert.equal(material.metalness,.02)
+      const tint=material.name==='Orbix_Suit'?styles.CARTOON_SUITS[character].suit:material.name==='Orbix_Armor'?styles.CARTOON_SUITS[character].armor:styles.CARTOON_TEAMS[1]
+      assert.equal(material.color.getHexString(),tint.slice(1),'Cosmetic and team tint rules survive for both LODs')
+    }
+  })
+  selectAction(owned,'Run','lower',false,'',.5)
+  selectAction(owned,'Run','lower',false,'',.9)
+  assert.equal(owned.actions.get('Run:lower').getEffectiveTimeScale(),.9,'Cadence changes without resetting the selected action')
+  owned.actions.get('Run:lower').time=.2
+  selectAction(owned,'Run','upper',false,'',.9)
+  assert.equal(owned.actions.get('Run:upper').time,.2,'Locomotion layers share phase')
+  releaseRig(owned)
+}
 const body = { x: 0, y: 0, z: 0, yaw: 0, hp: 100, onGround: true, character: 'fox', weapon: 'hands', moving: false }, state = { bodies: { player: body }, serverTimeMs: 10000, worldVersion: 4, tick: 0 }
 const props = { state, game: 'token-catch', me: 'player', players: ['player'], poses: new Map([['player', { x: 0, y: 0, z: 0, yaw: 0, moving: 0 }]]), inputRef: { current: { dx: 0, dz: 0, active: true, sprint: false, yaw: 0 } }, cameraRef: { current: { mode: 'third' } }, handOutputs: new Map() }
 PoseMotion(props)
@@ -60,6 +84,7 @@ for (let frame = 0; frame < 45; frame++) { state.serverTimeMs += 1000 / 60; stat
 assert.equal(props.poses.get('player').moving, 0, 'Zero movement intent must remain idle')
 const hand = props.handOutputs.get('player')?.right
 assert.ok(hand, 'Visible actor must publish its animated wrist')
+assert.ok(props.handOutputs.get('player')?.left, 'Left wrist is retained for the actual shield')
 let arm = hand
 while (arm && arm.name !== 'upperarm_r') arm = arm.parent
 assert.ok(arm && arm.quaternion.angleTo(bindQuaternion) > .1, 'Idle animation must leave the bind/T pose after StrictMode rehearsal')

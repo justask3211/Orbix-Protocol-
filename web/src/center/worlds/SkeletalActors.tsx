@@ -4,6 +4,7 @@ import { AnimationAction, AnimationClip, AnimationMixer, Color, Frustum, Group, 
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import type { GameWorldProps } from './GameWorld'
+import { CARTOON_SUITS, CARTOON_TEAMS, CARTOON_PROPORTIONS, cartoonFinish } from './cartoonStyle'
 import { HeldItems, type GripBones } from './ItemMeshes'
 import { MotionTrack, type MotionPose } from './motion'
 import { stateGround } from './terrain'
@@ -14,13 +15,7 @@ type Body = Record<string, any>
 type Rig = { scene: Object3D; mixer: AnimationMixer; actions: Map<string, AnimationAction>; hand: Object3D | undefined; leftHand: Object3D | undefined; materials: Material[]; current: Record<'upper' | 'lower', string> }
 type Cue = { name: string; until: number; key: string; whole: boolean }
 const num = (value: unknown, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
-const TEAM_COLORS = ['#ffb275', '#78d9ec', '#b5db83', '#c3a2e8', '#ecd07f', '#ea9bb4']
-const SUITS: Record<string, { suit: string; armor: string; accent: string }> = {
-  fox: { suit: '#bf6240', armor: '#443f45', accent: '#edb760' },
-  robot: { suit: '#528ca0', armor: '#394c60', accent: '#87dadd' },
-  frog: { suit: '#6f9150', armor: '#3d5550', accent: '#bbd978' },
-  cat: { suit: '#9274ae', armor: '#454863', accent: '#d9b1e5' },
-}
+const TEAM_COLORS = CARTOON_TEAMS, SUITS = CARTOON_SUITS
 const lowerTrack = (name: string) => /^(root|pelvis|thigh_[lr]|calf_[lr]|foot_[lr]|ball(?:_leaf)?_[lr])\./.test(name)
 
 function makeRig(gltf: GLTF, character: string, team: string): Rig {
@@ -33,7 +28,7 @@ function makeRig(gltf: GLTF, character: string, team: string): Rig {
       const tint = source.name === 'Orbix_Suit' ? style.suit : source.name === 'Orbix_Armor' ? style.armor : source.name === 'Orbix_Accent' ? team ? TEAM_COLORS[teamIndex % TEAM_COLORS.length] || style.accent : style.accent : null
       if (!tint || !(source instanceof MeshStandardMaterial)) return source // Preserve skin and eyes; cached maps remain shared.
       let owned = materialCache.get(source.uuid)
-      if (!owned) { owned = source.clone(); (owned as MeshStandardMaterial).color.set(tint); materialCache.set(source.uuid, owned); materials.push(owned) }
+      if (!owned) { owned = source.clone(); (owned as MeshStandardMaterial).color.set(tint); cartoonFinish(owned as MeshStandardMaterial); materialCache.set(source.uuid, owned); materials.push(owned) }
       return owned
     }
     object.material = Array.isArray(object.material) ? object.material.map(material) : material(object.material)
@@ -60,11 +55,11 @@ function selectAction(rig: Rig, name: string, layer: 'lower' | 'upper', once: bo
   action.setEffectiveTimeScale(speed)
   if (rig.current[layer] === identity) return
   const previousKey = rig.current[layer].split(':').slice(0, 2).join(':'), prior = rig.actions.get(previousKey)
-  if (prior && prior !== action) prior.fadeOut(.15)
+  if (prior && prior !== action) prior.fadeOut(once ? .07 : .10)
   action.reset().setLoop(once ? LoopOnce : LoopRepeat, once ? 1 : Infinity).setEffectiveTimeScale(speed).setEffectiveWeight(1)
   action.paused = false; action.enabled = true
   if (layer === 'upper' && ['Idle','Run','Sprint'].includes(name)) { const lower = rig.actions.get(`${name}:lower`); if (lower) action.syncWith(lower) }
-  action.clampWhenFinished = once; action.fadeIn(.15).play(); rig.current[layer] = identity
+  action.clampWhenFinished = once; action.fadeIn(once ? .07 : .10).play(); rig.current[layer] = identity
 }
 
 function PoseMotion({ state, me, inputRef, poses }: Props) {
@@ -141,7 +136,7 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
     if (elastic.current) {
       squash.current *= Math.exp(-Math.min(rawDelta, .06) * 17)
       const stretch = props.reducedMotion || down ? 0 : !onGround ? .035 : -squash.current
-      elastic.current.scale.set(1 - stretch * .5, 1 + stretch, 1 - stretch * .5)
+      elastic.current.scale.set(CARTOON_PROPORTIONS[0] * (1 - stretch * .5), CARTOON_PROPORTIONS[1] * (1 + stretch), CARTOON_PROPORTIONS[2] * (1 - stretch * .5))
       elastic.current.rotation.x = props.reducedMotion || down ? 0 : MathUtils.damp(elastic.current.rotation.x, -Math.min(.055, num(pose.speed) * .007), 20, rawDelta)
     }
     attack.current = num(body.lastAttackAt); dodge.current = num(body.dodgeUntil); loot.current = num(body.lootReadyAt); health.current = num(body.hp, 100); grounded.current = onGround
