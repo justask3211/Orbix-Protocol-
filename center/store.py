@@ -189,11 +189,11 @@ class Store:
 
     @staticmethod
     def _allocate_room_code(cx, room_id: str) -> str:
-        """Try random easy codes, then find a gap; never reuse an existing alias."""
+        """Allocate at least six digits; preserve existing aliases and never recycle them."""
         existing = cx.execute("SELECT join_code FROM room_codes WHERE room_id=?", (room_id,)).fetchone()
         if existing:
             return existing[0]
-        for digits in range(3, 10):
+        for digits in range(6, 10):
             low, high = 10 ** (digits - 1), 10 ** digits
             used = cx.execute("SELECT COUNT(*) FROM room_codes WHERE length(join_code)=?", (digits,)).fetchone()[0]
             if used >= high - low:

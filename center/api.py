@@ -597,7 +597,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.get(f"{API_PREFIX}/rooms/resolve/{{join_code}}")
     def resolve_room_code(join_code: str, invite: str | None = None,
                           who: str | None = Depends(optional_wallet)) -> dict:
-        # An easy room alias is navigation, not admission or proof of token entry.
+        # New aliases have six or more digits; accept legacy three-to-five-digit links.
+        # A room alias is navigation, not admission or proof of token entry.
         # Private aliases are deliberately indistinguishable from missing codes.
         row = store.resolve_room_code(join_code) if re.fullmatch(r"[1-9][0-9]{2,8}", join_code) else None
         denied = not row or room_archived(store, row["id"])

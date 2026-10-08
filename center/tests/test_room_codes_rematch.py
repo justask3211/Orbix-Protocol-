@@ -46,7 +46,7 @@ def test_collision_retry_and_durable_alias_not_hash_suffix(tmp_path, monkeypatch
     for identifier in ('aaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb', 'cccccccccccccccc'):
         store.create_room(sample_row(identifier))
     before = {r['id']: r['join_code'] for r in store.list_rooms()}
-    assert set(before.values()) == {'100', '101', '102'}
+    assert set(before.values()) == {'100000', '100001', '100002'}
     store.close()
     reopened = Store(path)
     assert {r['id']: r['join_code'] for r in reopened.list_rooms()} == before
@@ -56,7 +56,7 @@ def test_collision_retry_and_durable_alias_not_hash_suffix(tmp_path, monkeypatch
     reopened.close()
 
 
-def test_three_digit_capacity_extends_without_recycling_codes(monkeypatch):
+def test_existing_three_digit_codes_are_preserved_while_new_codes_start_at_six(monkeypatch):
     monkeypatch.setattr('center.store.secrets.randbelow', lambda size: 0)
     store = Store(':memory:')
     template = sample_row('unused')
@@ -69,10 +69,29 @@ def test_three_digit_capacity_extends_without_recycling_codes(monkeypatch):
                         json.dumps(template['config']), template['config_hash']))
             cx.execute('INSERT INTO room_codes(room_id,join_code) VALUES (?,?)', (identifier, str(code)))
     store.create_room(sample_row('ffffffffffffffff'))
-    assert store.get_room('ffffffffffffffff')['join_code'] == '1000'
+    assert store.get_room('ffffffffffffffff')['join_code'] == '100000'
     assert store.resolve_room_code('100')['id'] == f'{100:016x}'
     assert len(store.list_rooms(limit=1000)) == 901
     store.close()
+
+
+def test_six_digit_upper_boundary(monkeypatch):
+    monkeypatch.setattr('center.store.secrets.randbelow', lambda size: size - 1)
+    store = Store(':memory:')
+    store.create_room(sample_row('upper-boundary'))
+    assert store.get_room('upper-boundary')['join_code'] == '999999'
+    store.close()
+
+
+def test_existing_three_digit_code_resolves_after_database_reopen(tmp_path):
+    app = make_app(tmp_path)
+    with TestClient(app) as client:
+        _, published = fund_and_publish(client, Account.create())
+        with app.state.store.tx() as cx:
+            cx.execute('UPDATE room_codes SET join_code=? WHERE room_id=?', ('123', published['roomId']))
+        assert client.get(f'{API_PREFIX}/rooms/resolve/123').json()['roomId'] == published['roomId']
+    with TestClient(make_app(tmp_path)) as client:
+        assert client.get(f'{API_PREFIX}/rooms/resolve/123').json()['roomId'] == published['roomId']
 
 
 def test_legacy_rooms_and_round_metadata_migrate_without_loss(tmp_path):
@@ -97,7 +116,7 @@ def test_legacy_rooms_and_round_metadata_migrate_without_loss(tmp_path):
     store = Store(path)
     row, rnd = store.get_room('old-room'), store.get_round('prior-round')
     code = row['join_code']
-    assert len(code) == 3 and code.isascii() and code.isdigit()
+    assert len(code) == 6 and code.isascii() and code.isdigit()
     assert row['revision'] == 7 and rnd['merkle_root'] == 'root'
     assert rnd['config'] == raw and rnd['config_hash'] == 'frozen-config'
     assert rnd['action_start_seq'] == 0
@@ -121,6 +140,7 @@ def test_parallel_store_writers_allocate_unique_codes(tmp_path):
     with ThreadPoolExecutor(max_workers=6) as pool:
         codes = list(pool.map(publish, range(24)))
     assert len(set(codes)) == 24
+    assert all(100000 <= int(code) <= 999999 for code in codes)
 
 
 def test_public_alias_resolves_but_private_code_does_not_replace_invite(tmp_path):

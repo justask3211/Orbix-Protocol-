@@ -202,8 +202,8 @@ are one transaction; failure leaves no partial setting or in-memory archive.
 Admin proofs are wallet message signatures with nonce/expiry/replay checks,
 not gas-bearing token transfers. Observation uses no player slot or join notice.
 
-Human room numbers are durable server-allocated strings: 100–999, then four or
-more digits as capacity fills. `room_codes` has unique room/code constraints and
+New human room numbers are durable server-allocated strings: 100000–999999,
+then seven or more digits as capacity fills. Existing shorter codes stay resolvable. `room_codes` has unique room/code constraints and
 startup migration allocates old-room aliases once. Internal hash IDs remain API,
 escrow and history identifiers. Resolve with `/api/center/v1/rooms/resolve/{code}`;
 private codes return uniform 404 unless an authenticated owner/admin/member or
