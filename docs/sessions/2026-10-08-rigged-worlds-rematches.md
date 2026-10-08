@@ -138,13 +138,17 @@ quality direction, not a completed claim.
 - TypeScript and production build: **passed**, Node 24/Vite 8. Three.js chunk remains lazily loaded and triggers the size advisory.
 - Asset/license/hash and terrain parity verification: **passed** for both GLBs, 65 bones, 20 clips, exact manifest hashes; **608** Python/TypeScript terrain samples agree within 5.56e-16. Wallet regressions 13, rematch settings 20, podium eligibility 14, and actual GLTF StrictMode/mixer lifecycle regression passed.
 - Browser observations: generated wallet sign-in closes the modal after verification; room **440** publishes a numeric link. Ready/start, expanded game, successful target hit, settled reward, finished-page reload, edited rematch and same-settings replay verified. Roster/code persist and readiness resets, including backend restart/reconnect. Editor immediately rejects 601 seconds. Token/Boss/Duel scenes reviewed with rigged actors; Jump, Dodge and FPV controls inspected. No held-key or new physical mobile-device claim.
-- Source commit / GitHub CI run: **PENDING_RELEASE_IDS**.
-- API deployment ID / status: **PENDING_RELEASE_IDS**.
-- Site deployment ID / status: **PENDING_RELEASE_IDS**.
-- Served bundle/model hashes / live readiness: **PENDING_ROOT_FINAL**.
+- Source commit: `7ba5a6b78f2fdb2327033ef987a975cf3cc2a40a`, pushed to `main`. [GitHub CI 37742035991](https://github.com/justask3211/Orbix-Protocol-/actions/runs/37742035991): **success** (Foundry project workflow; frontend/backend checks were performed locally as documented).
+- API Railway deployment: `ce440490-13cd-49a9-a2d8-3b8d88c43669`: **SUCCESS**. Live readiness confirms durable database/scheduler; existing testnet flags, chain 46630, vault and escrow retained.
+- Site Railway deployment: `89b7c683-ac65-48a3-aee3-5dbd18acedff`: **SUCCESS**.
+- Served bundle/model hashes / live readiness: **passed**. Live index, CenterApp JS/CSS, WorldScene, RematchSettings JS/CSS, WinnerCelebration JS/CSS and both GLBs match source commit SHA-256 bytes. All three perspective practice games report worldVersion 4 and field-v1, and accept movement, jump and stop; practice sessions closed after verification. Number Hunt/RPS practice also responded. Anonymous admin access returns 401.
 
 Only the integrating agent should replace these pending fields with observed
 results. No commit or deployment was performed by the documentation/backend
 subtask. Preserve the production volume and independent financial evidence.
 
 A browser timeout exposed a false Number Hunt podium based on unused guesses. Fixed all server results paths to publish engine rank and final eligibility; the UI now uses a pure verified-podium selector. Regression coverage includes unused guesses, zero-budget true hits, hit-order ranking and drawn RPS.
+
+Production browser observation: Token Catch loaded the released rig/environment with touch controls and fitting Vault/Connect header at a narrow viewport. FPV toggle works; the trial reached 500/500 scheduled loot dropped and displayed practice honors with no token payout. This is viewport simulation, not a physical-phone benchmark.
+
+Verification transport note: two urllib polling reads timed out around rollout/edge responses. Stable httpx requests completed the remaining Arena Duel and all served-byte checks. No paid admission or reward transaction was retried. API/site deployment statuses and readiness were verified independently. This release does not establish Fortnite parity, sustained 50-player performance or a fresh funded reward-wallet payout test.
