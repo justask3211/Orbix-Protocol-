@@ -5,6 +5,7 @@ Record new substantial updates here; preserve earlier entries as history.
 
 | Session | Request and resulting change | Source revision |
 | --- | --- | --- |
+| [2026-10-08 upgrade](2026-10-08-center-upgrade.md) | Eight ordered Center fixes and arcade UX changes; no Railway deployment | Per-task commits |
 | 2026-10-05 | Game skills/tooling research and isolated game lab | `b499d82` |
 | 2026-10-06, homepage | Illustrated game center, wallet and room discovery | `04167c0` |
 | 2026-10-06, worlds | Four procedural worlds, room/team/moderation controls | `b6de2c4` |

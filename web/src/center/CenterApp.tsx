@@ -104,10 +104,10 @@ function Banner() {
 }
 
 function ProfileTopButton({ session, onOpen }: { session: ReturnType<typeof useSession>; onOpen: () => void }) {
-  const { profile } = useProfile(session.address, session.token)
+  const { profile, revision } = useProfile(session.address, session.token)
   const [avatarLoaded, setAvatarLoaded] = useState(false)
-  const avatarUrl = session.address
-    ? `${API_BASE}/profile/image/${session.address}?t=${Math.floor(Date.now() / 60000)}`
+  const avatarUrl = session.address && profile?.hasImage
+    ? `${API_BASE}/profile/image/${session.address}?v=${revision}`
     : null
   useEffect(() => {
     setAvatarLoaded(false)

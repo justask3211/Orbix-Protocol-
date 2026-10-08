@@ -9,7 +9,7 @@ const MAX_DIM = 256
 const MAX_QUALITY = 0.85
 
 /** Read a File, resize via canvas to MAX_DIM x MAX_DIM, export as WebP blob. */
-async function resizeAndCompress(file: File): Promise<Blob> {
+export async function resizeAndCompress(file: File): Promise<Blob> {
   const img = new Image()
   const url = URL.createObjectURL(file)
   try {
@@ -25,10 +25,15 @@ async function resizeAndCompress(file: File): Promise<Blob> {
     const canvas = document.createElement('canvas')
     canvas.width = MAX_DIM
     canvas.height = MAX_DIM
-    const ctx = canvas.getContext('2d')!
+    const ctx = canvas.getContext('2d')
+    if (!ctx || !size) throw new Error('Image canvas is unavailable.')
     ctx.drawImage(img, sx, sy, size, size, 0, 0, MAX_DIM, MAX_DIM)
-    return new Promise<Blob>((resolve) => {
-      canvas.toBlob((blob) => resolve(blob!), 'image/webp', MAX_QUALITY)
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) reject(new Error('Could not export image.'))
+        else if (!['image/webp', 'image/png', 'image/jpeg'].includes(blob.type)) reject(new Error('Unsupported image export.'))
+        else resolve(blob)
+      }, 'image/webp', MAX_QUALITY)
     })
   } finally {
     URL.revokeObjectURL(url)
@@ -44,30 +49,42 @@ export function ProfileImageUpload({ address, token, hasImage, onUploaded }: {
   const [preview, setPreview] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [processing, setProcessing] = useState(false)
+  const [version, setVersion] = useState(() => Date.now())
+  const selection = useRef(0)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const imageUrl = hasImage
-    ? `${API_BASE}/profile/image/${address}?t=${Date.now()}`
+    ? `${API_BASE}/profile/image/${address}?v=${version}`
     : null
 
   const pickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = '' // Selecting the same file must trigger another change.
+    const picked = ++selection.current
+    setPreview(null)
     setErr(null)
+    if (file.size > 20 * 1024 * 1024) { setErr('Choose an image under 20 MB.'); return }
     if (!file.type.startsWith('image/')) {
       setErr('Please choose an image file.')
       return
     }
+    setProcessing(true)
     try {
       const blob = await resizeAndCompress(file)
-      const b64 = await new Promise<string>((resolve) => {
+      const b64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader()
+        reader.onerror = () => reject(new Error('Could not read resized image.'))
+        reader.onabort = () => reject(new Error('Image reading was cancelled.'))
         reader.onload = () => resolve(reader.result as string)
         reader.readAsDataURL(blob)
       })
-      setPreview(b64)
+      if (picked === selection.current) setPreview(b64)
     } catch (e: any) {
-      setErr(e.message ?? 'Could not process image.')
+      if (picked === selection.current) setErr(e.message ?? 'Could not process image.')
+    } finally {
+      if (picked === selection.current) setProcessing(false)
     }
   }
 
@@ -77,6 +94,8 @@ export function ProfileImageUpload({ address, token, hasImage, onUploaded }: {
     setErr(null)
     try {
       await center.uploadProfileImage(token, preview)
+      setVersion(Date.now())
+      window.dispatchEvent(new Event('orbix-profile-changed'))
       onUploaded()
       setPreview(null)
     } catch (e: any) {
@@ -108,8 +127,8 @@ export function ProfileImageUpload({ address, token, hasImage, onUploaded }: {
           aria-label="Choose profile image"
         />
         <button className="btn-ghost" style={{ fontSize: 11.5 }}
-                onClick={() => fileRef.current?.click()}>
-          {hasImage ? 'Change image' : 'Choose image'}
+                disabled={busy || processing} onClick={() => fileRef.current?.click()}>
+          {processing ? 'Preparing image…' : hasImage ? 'Change image' : 'Choose image'}
         </button>
         {preview && (
           <button className="btn-primary" style={{ fontSize: 11.5 }} onClick={upload} disabled={busy}>
