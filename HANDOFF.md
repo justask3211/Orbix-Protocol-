@@ -52,3 +52,16 @@ Foundry keystore 'vibes-test', password vibetest123, address 0x253db2d543b10c949
 
 ## Tooling ready
 - frontend-toolbox skill + MCPs (shadcn multi-registry, context7, playwright, iconify) — for building Orbix web presence. Playwright MCP needs `npx playwright install chrome` (done 2026-09-28). Dapp serves on :8301 (python3 -m http.server).
+
+### 2026-10-08 Center upgrade follow-up
+
+Eight ordered fixes are documented in `docs/sessions/2026-10-08-center-upgrade.md`.
+Avatar storage uses Pillow validation and atomic normalized WebP writes; finished
+rounds scroll to the personalized podium. V4 worlds use bounded local prediction,
+remote interpolation, displacement-based cadence, original held/pickup meshes
+and shared cartoon material styling. Creator economy explanations preserve the
+existing financial configuration. New room codes start at six digits; existing
+short codes remain valid. Admin polling preserves fee drafts and uses actual caps.
+Build output is mirrored in web/dist and deploy/site/center-dist. No Railway
+deployment was requested or performed. Consult the session note for measured
+checks and unproven physical-device/multiplayer/production-payment behavior.
