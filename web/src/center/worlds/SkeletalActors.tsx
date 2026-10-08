@@ -1,16 +1,17 @@
 import { useFrame, useLoader } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { AnimationAction, AnimationClip, AnimationMixer, Color, Frustum, Group, InstancedMesh, LoopOnce, LoopRepeat, Material, MathUtils, Matrix4, Mesh, MeshStandardMaterial, Object3D, Quaternion, SkinnedMesh, Sphere, Vector3 } from 'three'
+import { AnimationAction, AnimationClip, AnimationMixer, Color, Frustum, Group, InstancedMesh, LoopOnce, LoopRepeat, Material, MathUtils, Matrix4, Mesh, MeshStandardMaterial, Object3D, SkinnedMesh, Sphere, Vector3 } from 'three'
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import type { GameWorldProps } from './GameWorld'
+import { HeldItems, type GripBones } from './ItemMeshes'
 import { MotionTrack, type MotionPose } from './motion'
 import { stateGround } from './terrain'
 
 type Pose = MotionPose
 type Props = GameWorldProps & { poses: Map<string, Pose>; onReady?: () => void }
 type Body = Record<string, any>
-type Rig = { scene: Object3D; mixer: AnimationMixer; actions: Map<string, AnimationAction>; hand: Object3D | undefined; materials: Material[]; current: Record<'upper' | 'lower', string> }
+type Rig = { scene: Object3D; mixer: AnimationMixer; actions: Map<string, AnimationAction>; hand: Object3D | undefined; leftHand: Object3D | undefined; materials: Material[]; current: Record<'upper' | 'lower', string> }
 type Cue = { name: string; until: number; key: string; whole: boolean }
 const num = (value: unknown, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
 const TEAM_COLORS = ['#ffb275', '#78d9ec', '#b5db83', '#c3a2e8', '#ecd07f', '#ea9bb4']
@@ -42,7 +43,7 @@ function makeRig(gltf: GLTF, character: string, team: string): Rig {
     const tracks = clip.tracks.filter(track => lowerTrack(track.name) === (layer === 'lower'))
     if (tracks.length) actions.set(`${clip.name}:${layer}`, mixer.clipAction(new AnimationClip(`${clip.name}:${layer}`, clip.duration, tracks)))
   }
-  return { scene, mixer, actions, hand: scene.getObjectByName('hand_r'), materials, current: { upper: '', lower: '' } }
+  return { scene, mixer, actions, hand: scene.getObjectByName('hand_r'), leftHand: scene.getObjectByName('hand_l'), materials, current: { upper: '', lower: '' } }
 }
 
 function releaseRig(rig: Rig) {
@@ -87,7 +88,7 @@ function PoseMotion({ state, me, inputRef, poses }: Props) {
   return null
 }
 
-function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who: string; body: Body; full: GLTF; lod: GLTF; handOutputs: Map<string, Object3D> }) {
+function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who: string; body: Body; full: GLTF; lod: GLTF; handOutputs: Map<string, GripBones> }) {
   const elastic = useRef<Group>(null), squash = useRef(0)
   const container = useRef<Group>(null), health = useRef(num(body.hp, 100)), grounded = useRef(Boolean(body.onGround)), attack = useRef(num(body.lastAttackAt)), dodge = useRef(num(body.dodgeUntil)), loot = useRef(num(body.lootReadyAt))
   const clock = useRef({ server: num(props.state.serverTimeMs, Date.now()), received: performance.now() })
@@ -123,7 +124,7 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
     const selected = local || distance < 12 * 12 ? 0 : 1
     rigs[0].scene.visible = selected === 0; rigs[1].scene.visible = selected === 1
     const rig = rigs[selected]
-    if (rig.hand && visible) handOutputs.set(who, rig.hand)
+    if (rig.hand && visible) handOutputs.set(who, {right:rig.hand,left:rig.leftHand})
     else handOutputs.delete(who)
     let event: Cue | null = null
     if (num(body.lastAttackAt) > attack.current && now - num(body.lastAttackAt) < 1000) {
@@ -165,44 +166,6 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
   return <group ref={container} dispose={null}><group ref={elastic}><primitive object={rigs[0].scene} dispose={null} /><primitive object={rigs[1].scene} dispose={null} /></group></group>
 }
 
-/** Batched weapons use the animated wrist position; blade orientation follows the actual grip bone. */
-function Equipment({ handOutputs, ...props }: Props & { handOutputs: Map<string, Object3D> }) {
-  const entries = useMemo(() => Object.entries(props.state.bodies ?? {}).slice(0, 50) as [string, Body][], [props.state.bodies])
-  const mesh = useRef<InstancedMesh>(null), transform = useMemo(() => new Object3D(), []), grip = useMemo(() => new Vector3(), []), handQuaternion = useMemo(() => new Quaternion(), []), attachment = useMemo(() => new Object3D(), []), color = useMemo(() => new Color(), [])
-  useFrame(({ camera }) => {
-    if (!mesh.current) return
-    let count = 0
-    for (const [who, body] of entries) {
-      const hand = handOutputs.get(who), pose = props.poses.get(who), now = num(props.state.serverTimeMs, Date.now())
-      if (!hand || !pose || num(body.hp, 100) <= 0 || num(body.respawnAt) > now || who === props.me && props.cameraRef?.current.mode === 'first' || camera.position.distanceToSquared(hand.getWorldPosition(grip)) > 45 * 45) continue
-      hand.getWorldQuaternion(handQuaternion)
-      const weapon = body.weapon
-      if (!['gun', 'sword', 'spear'].includes(weapon)) continue
-      attachment.position.copy(grip)
-      if (weapon === 'gun') attachment.rotation.set(-num(body.aimPitch), pose.yaw, 0)
-      else attachment.quaternion.copy(handQuaternion)
-      attachment.updateMatrixWorld()
-      const part = (x: number, y: number, z: number, sx: number, sy: number, sz: number, tint: string, roll = 0) => {
-        transform.position.set(x, y, z); transform.rotation.set(0, 0, roll); transform.scale.set(sx, sy, sz); transform.updateMatrix(); transform.matrix.premultiply(attachment.matrixWorld)
-        mesh.current!.setMatrixAt(count, transform.matrix); color.set(tint); mesh.current!.setColorAt(count++, color)
-      }
-      if (weapon === 'gun') {
-        part(0, .035, .18, .10, .12, .34, '#304352'); part(0, .06, .48, .043, .043, .30, '#758995')
-        part(0, -.06, .07, .085, .20, .075, '#314556', -.17); part(0, .035, -.07, .095, .09, .16, '#536576')
-        part(0, .13, .2, .06, .055, .11, num(body.weaponLevel) ? '#a687d5' : '#84c6be')
-        if (now - num(body.lastAttackAt) < 110) part(0, .06, .67, .12, .10, .13, '#ffe5a0')
-      } else if (weapon === 'sword') {
-        part(0, .08, 0, .045, .19, .045, '#746348'); part(0, .22, 0, .24, .04, .06, '#c4ac73')
-        part(0, .63, 0, .105, .78, .03, '#cfdae3'); part(0, 1.03, 0, .065, .12, .025, '#ecf1f2', -.3)
-      } else {
-        part(0, .44, 0, .037, 1.75, .037, '#8d7455'); part(0, 1.32, 0, .07, .27, .025, '#d7e0df')
-      }
-    }
-    mesh.current.count = count; mesh.current.instanceMatrix.needsUpdate = true; if (mesh.current.instanceColor) mesh.current.instanceColor.needsUpdate = true
-  }, -1.4)
-  return <instancedMesh ref={mesh} args={[undefined, undefined, 50 * 7]} frustumCulled={false} castShadow><boxGeometry /><meshStandardMaterial roughness={.46} metalness={.32} /></instancedMesh>
-}
-
 function Indicators(props: Props) {
   const entries = useMemo(() => Object.entries(props.state.bodies ?? {}).slice(0, 50) as [string, Body][], [props.state.bodies])
   const bars = useRef<InstancedMesh>(null), marks = useRef<InstancedMesh>(null), shadows = useRef<InstancedMesh>(null), shields = useRef<InstancedMesh>(null), transform = useMemo(() => new Object3D(), []), color = useMemo(() => new Color(), [])
@@ -234,14 +197,14 @@ function Indicators(props: Props) {
 /** Actual animated skeletons with lower/upper animation layers, distance LOD and bounded authority reconciliation. */
 export default function SkeletalActors(props: Props) {
   const [full, lod] = useLoader(GLTFLoader, [`${import.meta.env.BASE_URL}center-models/orbix-ranger.glb`, `${import.meta.env.BASE_URL}center-models/orbix-ranger-lod.glb`])
-  const handOutputs = useMemo(() => new Map<string, Object3D>(), []), ready = useRef(props.onReady)
+  const handOutputs = useMemo(() => new Map<string, GripBones>(), []), ready = useRef(props.onReady)
   ready.current = props.onReady
   useEffect(() => { ready.current?.() }, [full, lod])
   const entries = Object.entries(props.state.bodies ?? {}).slice(0, 50) as [string, Body][]
   return <>
     <PoseMotion {...props} />
     {entries.map(([who, body]) => <RigActor key={who} {...props} who={who} body={body} full={full} lod={lod} handOutputs={handOutputs} />)}
-    <Equipment {...props} handOutputs={handOutputs} />
+    <HeldItems {...props} hands={handOutputs} />
     <Indicators {...props} />
   </>
 }

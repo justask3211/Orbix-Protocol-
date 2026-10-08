@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { CylinderGeometry, Group, MathUtils, MeshStandardMaterial, SphereGeometry, TorusGeometry, type BufferGeometry } from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+import { makeItemGeometry } from './ItemAssets'
 import type { GameWorldProps } from './GameWorld'
 
 type Vec3 = [number, number, number]
@@ -14,17 +15,18 @@ function Part({ geometry, material, position = [0, 0, 0], scale = [1, 1, 1], rot
 /** Original first-person gloves/equipment. Inventory and animation cues are server-confirmed. */
 export default function FirstPersonModel({ state, me, cameraRef, inputRef, reducedMotion }: GameWorldProps) {
   const root = useRef<Group>(null), left = useRef<Group>(null), right = useRef<Group>(null)
+  const shield = useRef<import('three').Mesh>(null)
   const gun = useRef<Group>(null), sword = useRef<Group>(null), spear = useRef<Group>(null), muzzle = useRef<Group>(null), foot = useRef<Group>(null)
   const received = useRef(performance.now()), body = state.bodies?.[me]
   const assets = useMemo(() => {
     const box = new RoundedBoxGeometry(1, 1, 1, 1, .12), joint = new SphereGeometry(1, 6, 4)
     const cylinder = new CylinderGeometry(1, 1, 1, 6, 1), ring = new TorusGeometry(1, .18, 4, 10)
     const material = (color: string, roughness: number, metalness = 0, emissive?: string) => new MeshStandardMaterial({ color, roughness, metalness, emissive, emissiveIntensity: emissive ? .9 : 0, depthTest: false, depthWrite: false })
-    return { box, joint, cylinder, ring, sleeve: material(SUITS[body?.character] || SUITS.fox, .87), glove: material('#343c43', .88), knuckle: material('#626d78', .58, .12), metal: material('#526470', .36, .62), dark: material('#25323c', .65, .3), warm: material('#baa074', .50, .55), blade: material('#c8d6df', .24, .82), glass: material('#68b6c5', .18, .45), flash: material('#ffe8ad', .25, .05, '#ffc658') }
+    return { shieldGeo: makeItemGeometry('shield'), shieldMaterial: new MeshStandardMaterial({vertexColors:true,roughness:.65,depthTest:false,depthWrite:false}), box, joint, cylinder, ring, sleeve: material(SUITS[body?.character] || SUITS.fox, .87), glove: material('#343c43', .88), knuckle: material('#626d78', .58, .12), metal: material('#526470', .36, .62), dark: material('#25323c', .65, .3), warm: material('#baa074', .50, .55), blade: material('#c8d6df', .24, .82), glass: material('#68b6c5', .18, .45), flash: material('#ffe8ad', .25, .05, '#ffc658') }
   }, [body?.character])
   useEffect(() => () => {
-    for (const geometry of [assets.box, assets.joint, assets.cylinder, assets.ring]) geometry.dispose()
-    for (const material of [assets.sleeve, assets.glove, assets.knuckle, assets.metal, assets.dark, assets.warm, assets.blade, assets.glass, assets.flash]) material.dispose()
+    for (const geometry of [assets.box, assets.joint, assets.cylinder, assets.ring, assets.shieldGeo]) geometry.dispose()
+    for (const material of [assets.shieldMaterial, assets.sleeve, assets.glove, assets.knuckle, assets.metal, assets.dark, assets.warm, assets.blade, assets.glass, assets.flash]) material.dispose()
   }, [assets])
   useEffect(() => { received.current = performance.now() }, [state.serverTimeMs])
   useFrame(({ camera, clock }, delta) => {
@@ -33,6 +35,7 @@ export default function FirstPersonModel({ state, me, cameraRef, inputRef, reduc
     root.current.visible = !!body && cameraRef?.current.mode === 'first' && number(body.hp, 100) > 0 && number(body.respawnAt) <= now
     if (!root.current.visible) return
     root.current.position.copy(camera.position); root.current.quaternion.copy(camera.quaternion)
+    if (shield.current) shield.current.visible = number(body.shieldUntil) > now
     const weapon = body.weapon, age = (now - number(body.lastAttackAt)) / 1000, style = body.lastAttackStyle
     const acceptedWeapon = body.lastAttackWeapon || weapon
     const duration = style === 'heavy' ? .62 : style === 'kick' ? .72 : acceptedWeapon === 'gun' ? .20 : .40
@@ -76,6 +79,7 @@ export default function FirstPersonModel({ state, me, cameraRef, inputRef, reduc
   </group>
   return <group ref={root} visible={false} dispose={null}>
     {[-1, 1].map(hand)}
+    <mesh ref={shield} geometry={a.shieldGeo} material={a.shieldMaterial} position={[-.26,-.20,-.57]} scale={.48} rotation={[0,.2,0]} visible={false} renderOrder={122} />
     <group ref={gun} position={[.255, -.245, -.53]} visible={false}>
       <Part geometry={a.box} material={a.dark} position={[0, .017, -.19]} scale={[.102, .13, .36]} />
       <Part geometry={a.box} material={a.metal} position={[0, .055, -.29]} scale={[.075, .051, .30]} />

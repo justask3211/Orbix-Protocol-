@@ -39,6 +39,7 @@ const modules = {
   'three/addons/utils/SkeletonUtils.js': skeletonUtils,
   './terrain': { stateGround: () => 0 },
   './motion': require('./motion-regression.cjs'),
+  './ItemMeshes': {HeldItems:()=>null},
 }
 const filename = fileURLToPath(new URL('web/src/center/worlds/SkeletalActors.tsx', root))
 const result = transformSync(filename, fs.readFileSync(filename, 'utf8'), { jsx: { runtime: 'automatic' }, target: 'es2022' })
@@ -57,7 +58,7 @@ const camera = new THREE.PerspectiveCamera(58, 1.5, .08, 180); camera.position.s
 const bindQuaternion = full.scene.getObjectByName('upperarm_r').quaternion.clone()
 for (let frame = 0; frame < 45; frame++) { state.serverTimeMs += 1000 / 60; state.tick++; for (const update of frames) update({ camera }, 1 / 60) }
 assert.equal(props.poses.get('player').moving, 0, 'Zero movement intent must remain idle')
-const hand = props.handOutputs.get('player')
+const hand = props.handOutputs.get('player')?.right
 assert.ok(hand, 'Visible actor must publish its animated wrist')
 let arm = hand
 while (arm && arm.name !== 'upperarm_r') arm = arm.parent
