@@ -54,6 +54,9 @@ ENGINES: dict[str, type[Engine]] = {
 
 
 def engine_for(config):
+    if getattr(config.rules, 'world_version', 2) == 4:
+        from center.games.terrain_arena import TerrainCatchEngine,TerrainBossEngine,TerrainCombatEngine
+        return {'token-catch':TerrainCatchEngine,'boss-raid':TerrainBossEngine,'combat-duel':TerrainCombatEngine}[config.template_id]
     if getattr(config.rules, 'world_version', 2) == 3:
         return {'token-catch':FieldCatchEngine,'boss-raid':FieldBossEngine,'combat-duel':FieldCombatEngine}[config.template_id]
     if getattr(config.rules, 'arena_mode', False):

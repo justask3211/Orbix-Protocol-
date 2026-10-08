@@ -5,13 +5,14 @@ import { isFeaturedGame } from './featuredGames'
 /** A bare room ID or a complete Orbix invite; never navigate to an external site. */
 export function roomPathFromInput(input: string): string | null {
   const value = input.trim()
+  if (/^[1-9]\d{2,9}$/.test(value)) return `/center/rooms/${value}`
   if (/^[a-f\d]{16}$/i.test(value)) return `/center/rooms/${value.toLowerCase()}`
   try {
     const url = new URL(value, window.location.origin)
     if (!['http:', 'https:'].includes(url.protocol)) return null
     if (url.origin !== window.location.origin && !['orbixcore.fun', 'www.orbixcore.fun'].includes(url.hostname)) return null
     if (url.username || url.password) return null
-    const match = url.pathname.match(/^\/center\/rooms\/([a-f\d]{16})\/?$/i)
+    const match = url.pathname.match(/^\/center\/rooms\/([a-f\d]{16}|[1-9]\d{2,9})\/?$/i)
     if (!match) return null
     const invite = url.searchParams.get('invite')
     if (invite && !/^[a-z\d_-]{1,128}$/i.test(invite)) return null

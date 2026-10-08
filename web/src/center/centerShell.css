@@ -116,3 +116,4 @@
   .ct-wallet-account{font-size:9px;padding:9px 5px;gap:3px}
   .ct-wallet-account>svg{display:none}
 }
+.ct-wallet-notice{position:fixed;top:90px;right:20px;z-index:1100;display:flex;align-items:center;gap:20px;max-width:calc(100vw - 40px);padding:15px 20px;border:1px solid #d8f98a;border-radius:16px;background:#233d2c;color:#edffd9;box-shadow:0 8px 35px #0005}.ct-wallet-notice button{border:0;background:none;color:inherit;font-size:22px;cursor:pointer}

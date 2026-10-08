@@ -5,11 +5,11 @@
 import { useState } from 'react'
 import { copyText, roomShareUrl, inviteShareUrl } from './share'
 
-export function SharePanel({ roomId, visibility }: { roomId: string; visibility: string }) {
-  const [invite] = useState<string | null>(null)
+export function SharePanel({ roomId, roomNumber, visibility, invite }: { roomId: string; roomNumber?: string; visibility: string; invite?: string }) {
   const [copiedWhat, setCopiedWhat] = useState<string | null>(null)
 
-  const shareUrl = roomShareUrl(roomId)
+  const shareId = roomNumber ?? roomId
+  const shareUrl = roomShareUrl(shareId)
 
   const doCopy = async (text: string, what: string) => {
     const ok = await copyText(text)
@@ -23,10 +23,11 @@ export function SharePanel({ roomId, visibility }: { roomId: string; visibility:
     <div className="share-panel">
       <div className="share-row">
         <span className="share-label">Room ID</span>
-        <code className="share-value mono" translate="no">{roomId}</code>
+        <code className="share-value mono" translate="no">{roomNumber ?? 'Loading…'}</code>
         <button
           className="share-copy"
-          onClick={() => doCopy(roomId, 'roomId')}
+          onClick={() => roomNumber && void doCopy(roomNumber, 'roomId')}
+          disabled={!roomNumber}
           aria-label="Copy room ID"
           title="Copy room ID"
         >
@@ -55,11 +56,11 @@ export function SharePanel({ roomId, visibility }: { roomId: string; visibility:
         <div className="share-row invite-row">
           <span className="share-label">Invite link</span>
           <code className="share-value mono" translate="no">
-            {inviteShareUrl(roomId, invite).slice(0, 52)}…
+            {inviteShareUrl(shareId, invite)}
           </code>
           <button
             className="share-copy"
-            onClick={() => doCopy(inviteShareUrl(roomId, invite), 'invite')}
+            onClick={() => doCopy(inviteShareUrl(shareId, invite), 'invite')}
             aria-label="Copy invite link"
             title="Copy invite link"
           >

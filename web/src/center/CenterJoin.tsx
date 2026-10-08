@@ -24,7 +24,7 @@ function RoomCard({ room, navigate }: { room: RoomSummary; navigate: (path: stri
       <div className="center-join-room-meta"><span><Users size={15} aria-hidden="true" />{room.players} {room.players === 1 ? 'player' : 'players'}</span><span>Public room</span></div>
       <dl><div><dt><Coins size={14} aria-hidden="true" />Entry</dt><dd>{tokenEntry ? 'Token entry required' : 'No token entry'}{tokenEntry && room.entryToken && <small title={room.entryToken}>Token {room.entryToken.slice(0, 6)}…{room.entryToken.slice(-4)}</small>}</dd></div><div><dt><ShieldCheck size={14} aria-hidden="true" />Rewards</dt><dd>{reward}<small>{room.mode === 'preview' ? 'Preview room' : 'Testnet room'} · check details before entry</small></dd></div></dl>
       {tokenEntry && room.entryAmount != null && <p className="center-join-entry-detail">Configured entry: {room.entryAmount.toLocaleString('en-US')} token units. Confirm the amount in the room.</p>}
-      <button className="center-join-button room" onClick={() => navigate(`/center/rooms/${room.roomId}`)}>{waiting ? 'Open lobby' : 'View room'}<ArrowUpRight size={17} aria-hidden="true" /></button>
+      <button className="center-join-button room" onClick={() => navigate(`/center/rooms/${room.roomNumber ?? room.roomId}`)}>{waiting ? 'Open lobby' : 'View room'}<ArrowUpRight size={17} aria-hidden="true" /></button>
       {!waiting && <p className="center-join-running-note">The match has started. Entry may be closed.</p>}
     </div>
   </article>
@@ -49,7 +49,7 @@ export function CenterJoin({ session, onConnect, navigate }: CenterJoinProps) {
   function openInvite(event: FormEvent) {
     event.preventDefault()
     const path = roomPathFromInput(invite)
-    if (!path) { setInviteError('Use a 16-character room ID or a complete Orbix invite link.'); inviteField.current?.focus(); return }
+    if (!path) { setInviteError('Use your numeric room number (for example 353) or a complete Orbix invite link.'); inviteField.current?.focus(); return }
     setInviteError(null)
     navigate(path)
   }

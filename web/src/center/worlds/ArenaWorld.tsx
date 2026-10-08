@@ -1,7 +1,12 @@
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { Color, Group, InstancedMesh, MathUtils, Object3D, PerspectiveCamera, Vector3 } from 'three'
 import type { GameWorldProps } from './GameWorld'
+import FieldEnvironment from './FieldEnvironment'
+import SkeletalActors from './SkeletalActors'
+import GuardianModel from './GuardianModel'
+import FirstPersonModel from './FirstPersonModel'
+import { stateGround } from './terrain'
 
 type Pose = { x: number; y: number; z: number; yaw: number; moving: number }
 type Poses = Map<string, Pose>
@@ -17,9 +22,9 @@ const num = (value: unknown, fallback = 0) => typeof value === 'number' && Numbe
 
 /** Projection respects the server's published static collision shapes. */
 function blocked(state: GameWorldProps['state'], x: number, z: number, margin = .32, y = 0) {
-  if ((state.crates ?? []).some((item: any) => item.hp > 0 && Math.abs(x - num(item.x)) < .4 + margin && Math.abs(z - num(item.z)) < .4 + margin)) return true
+  if ((state.crates ?? []).some((item: any) => item.hp > 0 && y < num(item.y) + 1.1 && Math.abs(x - num(item.x)) < .4 + margin && Math.abs(z - num(item.z)) < .4 + margin)) return true
   if (state.boss?.hp > 0 && Math.hypot(x - num(state.boss.x), z - num(state.boss.z)) < 1.2 + margin) return true
-  return (state.obstacles ?? []).some((item: any) => y < num(item.height, 1.6) && (item.radius ? Math.hypot(x - num(item.x), z - num(item.z)) < num(item.radius) + margin : Math.abs(x - num(item.x)) < num(item.width, 1) / 2 + margin && Math.abs(z - num(item.z)) < num(item.depth, 1) / 2 + margin))
+  return (state.obstacles ?? []).some((item: any) => y < num(item.baseY) + num(item.height, 1.6) && (item.radius ? Math.hypot(x - num(item.x), z - num(item.z)) < num(item.radius) + margin : Math.abs(x - num(item.x)) < num(item.width, 1) / 2 + margin && Math.abs(z - num(item.z)) < num(item.depth, 1) / 2 + margin))
 }
 
 /** Original articulated humanoids; all players share two body draw calls. */
@@ -109,16 +114,16 @@ function FollowCamera({ state, me, cameraRef, inputRef, poses }: GameWorldProps 
     const x = pose?.x ?? num(body?.x), z = pose?.z ?? num(body?.z), y = pose?.y ?? num(body?.y)
     const yaw = num(cameraRef?.current.yaw, Math.PI), pitch = MathUtils.clamp(num(cameraRef?.current.pitch, .20), -.5, .90), first = cameraRef?.current.mode === 'first'
     const distance = first ? .04 : size.width < 600 ? 5 : 5.7, flat = Math.cos(pitch), vertical = Math.sin(pitch)
-    target.set(x, y + (first ? 1.57 : 1.25), z)
+    target.set(x, y + (first ? Number(state.worldVersion) >= 4 ? 1.66 : 1.57 : 1.25), z)
     desired.set(target.x - Math.sin(yaw) * flat * distance - (first ? 0 : Math.cos(yaw) * .48), target.y + vertical * distance + (first ? 0 : .55), target.z - Math.cos(yaw) * flat * distance + (first ? 0 : Math.sin(yaw) * .48))
     if (!first) {
       const obstacles = [...(state.obstacles ?? []), ...(state.crates ?? []).filter((crate: any) => crate.hp > 0).map((crate: any) => ({ ...crate, width: .8, depth: .8, height: .8 }))]
       for (let step = 1; step <= 20; step++) {
         const t = step / 20, px = MathUtils.lerp(target.x, desired.x, t), pz = MathUtils.lerp(target.z, desired.z, t), py = MathUtils.lerp(target.y, desired.y, t)
-        if (obstacles.some((item: any) => py < num(item.height, 1.5) + .2 && (item.radius ? Math.hypot(px - num(item.x), pz - num(item.z)) < num(item.radius) + .25 : Math.abs(px - num(item.x)) < num(item.width, 1) / 2 + .25 && Math.abs(pz - num(item.z)) < num(item.depth, 1) / 2 + .25))) { desired.lerpVectors(target, desired, Math.max(.1, t - .07)); break }
+        if (obstacles.some((item: any) => py < num(item.baseY, num(item.y)) + num(item.height, 1.5) + .2 && (item.radius ? Math.hypot(px - num(item.x), pz - num(item.z)) < num(item.radius) + .25 : Math.abs(px - num(item.x)) < num(item.width, 1) / 2 + .25 && Math.abs(pz - num(item.z)) < num(item.depth, 1) / 2 + .25))) { desired.lerpVectors(target, desired, Math.max(.1, t - .07)); break }
       }
     }
-    desired.y = Math.max(.65, desired.y)
+    desired.y = Math.max(stateGround(state, desired.x, desired.z) + .65, desired.y)
     if (!initialized.current || camera.position.distanceTo(desired) > 12) { camera.position.copy(desired); initialized.current = true }
     else camera.position.lerp(desired, 1 - Math.exp(-Math.min(.08, delta) * (first ? 35 : 18)))
     look.set(camera.position.x + Math.sin(yaw) * flat * 15, camera.position.y - vertical * 15, camera.position.z + Math.cos(yaw) * flat * 15)
@@ -152,7 +157,7 @@ function GroundLoot({ state, reducedMotion }: Pick<GameWorldProps, 'state' | 're
     for (const [slot, mesh] of [coins.current, items.current, bombs.current].entries()) {
       if (!mesh) continue
       const collection = collections[slot]
-      for (let index = 0; index < collection.length; index++) { const drop = collection[index], visible = now >= num(drop.spawnAt) && now <= num(drop.expiresAt, Infinity), progress = MathUtils.clamp((now - num(drop.spawnAt)) / Math.max(1, num(drop.landAt) - num(drop.spawnAt)), 0, 1); transform.position.set(num(drop.x), .25 + (1 - progress) * 7 + (reducedMotion ? 0 : Math.sin(clock.elapsedTime * 2 + index) * .035), num(drop.z)); transform.rotation.set(drop.kind === 'coin' ? Math.PI / 2 : .25, reducedMotion ? .2 : clock.elapsedTime * 1.4 + index, 0); transform.scale.setScalar(visible ? drop.kind === 'bomb' ? .32 : .26 : 0); transform.updateMatrix(); mesh.setMatrixAt(index, transform.matrix); color.set(DROP_COLORS[drop.kind] || '#fff2ac'); mesh.setColorAt(index, color) }
+      for (let index = 0; index < collection.length; index++) { const drop = collection[index], visible = now >= num(drop.spawnAt) && now <= num(drop.expiresAt, Infinity), progress = MathUtils.clamp((now - num(drop.spawnAt)) / Math.max(1, num(drop.landAt) - num(drop.spawnAt)), 0, 1); transform.position.set(num(drop.x), num(drop.y) + .25 + (1 - progress) * 7 + (reducedMotion ? 0 : Math.sin(clock.elapsedTime * 2 + index) * .035), num(drop.z)); transform.rotation.set(drop.kind === 'coin' ? Math.PI / 2 : .25, reducedMotion ? .2 : clock.elapsedTime * 1.4 + index, 0); transform.scale.setScalar(visible ? drop.kind === 'bomb' ? .32 : .26 : 0); transform.updateMatrix(); mesh.setMatrixAt(index, transform.matrix); color.set(DROP_COLORS[drop.kind] || '#fff2ac'); mesh.setColorAt(index, color) }
       mesh.count = collection.length; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     }
   })
@@ -162,8 +167,8 @@ function GroundLoot({ state, reducedMotion }: Pick<GameWorldProps, 'state' | 're
 function SupplyDrop({ drop, state, reducedMotion }: { drop: Record<string, any>; state: GameWorldProps['state']; reducedMotion?: boolean }) {
   const group = useRef<Group>(null), canopy = useRef<Group>(null), received = useRef(performance.now())
   useEffect(() => { received.current = performance.now() }, [state.nowMs])
-  useFrame(({ clock }) => { const now = num(state.nowMs) + (state.finished ? 0 : Math.min(250, performance.now() - received.current)), progress = MathUtils.clamp((now - num(drop.spawnAt)) / Math.max(1, num(drop.landAt) - num(drop.spawnAt)), 0, 1); if (group.current) { group.current.position.y = (1 - progress) * 12; group.current.rotation.z = reducedMotion || progress === 1 ? 0 : Math.sin(clock.elapsedTime * 1.7) * .04 } if (canopy.current) canopy.current.visible = progress < 1 })
-  return <group ref={group} position={[num(drop.x), 12, num(drop.z)]}><mesh position={[0, .52, 0]}><boxGeometry args={[1.35, 1.04, 1.25]} /><meshStandardMaterial color="#e7636d" roughness={.75} /></mesh><mesh position={[0, 1.08, 0]} rotation={[drop.opened ? -.30 : 0, 0, 0]}><boxGeometry args={[1.48, .18, 1.38]} /><meshStandardMaterial color="#5293c4" /></mesh>{[-1, 1].map(side => <mesh key={side} position={[side * .48, .55, .637]}><boxGeometry args={[.10, .96, .025]} /><meshStandardMaterial color="#fff0b9" /></mesh>)}<mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .018, 0]}><ringGeometry args={[1.6, 1.7, 24]} /><meshBasicMaterial color="#f8d978" transparent opacity={.6} /></mesh><group ref={canopy}><mesh position={[0, 3.5, 0]} scale={[2, .62, 2]}><sphereGeometry args={[1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#fceab1" side={2} /></mesh>{[-1, 1].flatMap(x => [-1, 1].map(z => <mesh key={`${x}:${z}`} position={[x * .65, 2.2, z * .65]} rotation={[z * .2, 0, -x * .2]}><cylinderGeometry args={[.013, .013, 2.8, 4]} /><meshBasicMaterial color="#fbf3df" /></mesh>))}</group></group>
+  useFrame(({ clock }) => { const now = num(state.nowMs) + (state.finished ? 0 : Math.min(250, performance.now() - received.current)), progress = MathUtils.clamp((now - num(drop.spawnAt)) / Math.max(1, num(drop.landAt) - num(drop.spawnAt)), 0, 1); if (group.current) { group.current.position.y = num(drop.y) + (1 - progress) * 12; group.current.rotation.z = reducedMotion || progress === 1 ? 0 : Math.sin(clock.elapsedTime * 1.7) * .04 } if (canopy.current) canopy.current.visible = progress < 1 })
+  return <group ref={group} position={[num(drop.x), num(drop.y) + 12, num(drop.z)]}><mesh position={[0, .52, 0]}><boxGeometry args={[1.35, 1.04, 1.25]} /><meshStandardMaterial color="#e7636d" roughness={.75} /></mesh><mesh position={[0, 1.08, 0]} rotation={[drop.opened ? -.30 : 0, 0, 0]}><boxGeometry args={[1.48, .18, 1.38]} /><meshStandardMaterial color="#5293c4" /></mesh>{[-1, 1].map(side => <mesh key={side} position={[side * .48, .55, .637]}><boxGeometry args={[.10, .96, .025]} /><meshStandardMaterial color="#fff0b9" /></mesh>)}<mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .018, 0]}><ringGeometry args={[1.6, 1.7, 24]} /><meshBasicMaterial color="#f8d978" transparent opacity={.6} /></mesh><group ref={canopy}><mesh position={[0, 3.5, 0]} scale={[2, .62, 2]}><sphereGeometry args={[1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#fceab1" side={2} /></mesh>{[-1, 1].flatMap(x => [-1, 1].map(z => <mesh key={`${x}:${z}`} position={[x * .65, 2.2, z * .65]} rotation={[z * .2, 0, -x * .2]}><cylinderGeometry args={[.013, .013, 2.8, 4]} /><meshBasicMaterial color="#fbf3df" /></mesh>))}</group></group>
 }
 
 function ArenaBoss({ state }: Pick<GameWorldProps, 'state'>) {
@@ -176,7 +181,7 @@ function ArenaBoss({ state }: Pick<GameWorldProps, 'state'>) {
 
 function BossWarnings({ state }: Pick<GameWorldProps, 'state'>) {
   const attacks = Array.isArray(state.attacks) ? state.attacks : Array.isArray(state.boss?.attacks) ? state.boss.attacks : state.boss?.phase === 'windup' ? [{ id: 'windup', kind: 'slam', x: state.boss.attackX, z: state.boss.attackZ, radius: 2 }] : []
-  return <>{attacks.filter((attack: any) => num(attack.expiresAt, Infinity) >= num(state.nowMs)).slice(-12).map((attack: any) => <group key={attack.id} position={[num(attack.x), .045, num(attack.z)]} rotation={[0, num(attack.yaw), 0]}><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, attack.kind === 'beam' ? num(attack.radius, 25) / 2 : 0]}>{attack.kind === 'beam' ? <planeGeometry args={[num(attack.width, 2.5), num(attack.radius, 25)]} /> : <circleGeometry args={[num(attack.radius, 2), 32]} />}<meshBasicMaterial color={attack.kind === 'wave' ? '#ffba68' : '#ff6d6b'} transparent opacity={.33} depthWrite={false} /></mesh>{attack.kind !== 'beam' && <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[Math.max(.1, num(attack.radius, 2) - .10), num(attack.radius, 2), 32]} /><meshBasicMaterial color="#fff0aa" transparent opacity={.8} depthWrite={false} /></mesh>}</group>)}</>
+  return <>{attacks.filter((attack: any) => num(attack.expiresAt, Infinity) >= num(state.nowMs)).slice(-12).map((attack: any) => <group key={attack.id} position={[num(attack.x), num(attack.y) + .045, num(attack.z)]} rotation={[0, num(attack.yaw), 0]}><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, attack.kind === 'beam' ? num(attack.radius, 25) / 2 : 0]}>{attack.kind === 'beam' ? <planeGeometry args={[num(attack.width, 2.5), num(attack.radius, 25)]} /> : <circleGeometry args={[num(attack.radius, 2), 32]} />}<meshBasicMaterial color={attack.kind === 'wave' ? '#ffba68' : '#ff6d6b'} transparent opacity={.33} depthWrite={false} /></mesh>{attack.kind !== 'beam' && <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[Math.max(.1, num(attack.radius, 2) - .10), num(attack.radius, 2), 32]} /><meshBasicMaterial color="#fff0aa" transparent opacity={.8} depthWrite={false} /></mesh>}</group>)}</>
 }
 
 function Projectiles({ state }: Pick<GameWorldProps, 'state'>) {
@@ -193,11 +198,11 @@ function Cover({ item, boss }: { item: Record<string, any>; boss: boolean }) {
 }
 
 /** Perspective world renders only the authoritative public match state. */
-export default function ArenaWorld(props: GameWorldProps) {
-  const { state, game } = props, poses = useMemo(() => new Map<string, Pose>(), [])
+export default function ArenaWorld(props: GameWorldProps & { onAssetsReady?: () => void }) {
+  const { state, game } = props, detailed = Number(state.worldVersion) >= 4, poses = useMemo(() => new Map<string, Pose>(), [])
   const width = num(state.bounds?.width, 40), depth = num(state.bounds?.depth, 40), boss = game === 'boss-raid', duel = game === 'combat-duel'
   const floor = boss ? '#9aa08e' : duel ? '#d6c6a3' : '#a8cba0', border = boss ? '#d1c9db' : '#ecdebc', crates = (state.crates ?? []).filter((crate: any) => crate.hp > 0), events = (state.events ?? []).slice(-12)
-  return <><mesh position={[0, -.17, 0]}><boxGeometry args={[width + 1, .32, depth + 1]} /><meshStandardMaterial color={floor} roughness={1} /></mesh><mesh position={[0, -.5, 0]}><boxGeometry args={[width + 55, .5, depth + 55]} /><meshStandardMaterial color={boss ? '#a0a2a2' : '#b4cca3'} roughness={1} /></mesh>
+  return <>{detailed ? <FieldEnvironment state={state} game={game} reducedMotion={props.reducedMotion} /> : <><mesh position={[0, -.17, 0]}><boxGeometry args={[width + 1, .32, depth + 1]} /><meshStandardMaterial color={floor} roughness={1} /></mesh><mesh position={[0, -.5, 0]}><boxGeometry args={[width + 55, .5, depth + 55]} /><meshStandardMaterial color={boss ? '#a0a2a2' : '#b4cca3'} roughness={1} /></mesh>
     {/* Flat surface patches and distant hills decorate the map without introducing fake colliders. */}
     {[-1, 1].flatMap(x => [-1, 1].map(z => <mesh key={`grass:${x}:${z}`} rotation={[-Math.PI / 2, 0, .2 * x]} position={[x * width * .28, .007, z * depth * .28]}><circleGeometry args={[Math.min(width, depth) * .15, 9]} /><meshStandardMaterial color={boss ? '#899586' : duel ? '#cbbb91' : '#92ba8d'} roughness={1} /></mesh>))}
     {[0, 1].map(axis => <mesh key={`path:${axis}`} rotation={[-Math.PI / 2, 0, axis * Math.PI / 2]} position={[0, .009, 0]}><planeGeometry args={[Math.min(width, depth) * .08, Math.max(width, depth)]} /><meshStandardMaterial color={boss ? '#b3afa0' : '#d2c5a2'} roughness={1} /></mesh>)}
@@ -206,9 +211,10 @@ export default function ArenaWorld(props: GameWorldProps) {
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .008, 0]}><ringGeometry args={[boss ? 4.8 : 3.8, boss ? 4.95 : 3.9, 48]} /><meshBasicMaterial color={boss ? '#c0b4da' : '#eee3ba'} transparent opacity={.4} /></mesh>
     {(state.obstacles ?? []).slice(0, 40).map((item: any) => <Cover key={item.id || `${item.x}:${item.z}`} item={item} boss={boss} />)}
     {[-1, 1].flatMap(side => [-1, 1].map(end => <group key={`${side}:${end}`} position={[side * (width / 2 + 5), 0, end * (depth / 2 + 1)]}><mesh position={[0, 1.2, 0]}><cylinderGeometry args={[.2, .3, 2.4, 6]} /><meshStandardMaterial color="#9f7c68" /></mesh><mesh position={[0, 3.3, 0]} scale={[1.9, 2.3, 1.9]}><icosahedronGeometry args={[1, 0]} /><meshStandardMaterial color={boss ? '#a8a0b9' : '#7daf86'} /></mesh></group>))}
-    {crates.slice(0, 40).map((crate: any) => <group key={crate.id} position={[num(crate.x), 0, num(crate.z)]}><mesh position={[0, .4, 0]}><boxGeometry args={[.8, .8, .8]} /><meshStandardMaterial color="#cf9b72" roughness={.9} /></mesh>{[-1, 1].map(side => <mesh key={side} position={[0, .4, .411]} rotation={[0, 0, side * .7]}><boxGeometry args={[.10, .95, .025]} /><meshStandardMaterial color="#f3d3a2" /></mesh>)}</group>)}
+</>}
+    {crates.slice(0, 40).map((crate: any) => <group key={crate.id} position={[num(crate.x), num(crate.y), num(crate.z)]}><mesh position={[0, .4, 0]}><boxGeometry args={[.8, .8, .8]} /><meshStandardMaterial color="#cf9b72" roughness={.9} /></mesh>{[-1, 1].map(side => <mesh key={side} position={[0, .4, .411]} rotation={[0, 0, side * .7]}><boxGeometry args={[.10, .95, .025]} /><meshStandardMaterial color="#f3d3a2" /></mesh>)}</group>)}
     {(state.airdrops ?? []).slice(0, 30).map((drop: any) => <SupplyDrop key={drop.id} drop={drop} state={state} reducedMotion={props.reducedMotion} />)}
-    <ArenaCharacters {...props} poses={poses} /><FollowCamera {...props} poses={poses} /><FirstPersonHands {...props} /><GroundLoot state={state} reducedMotion={props.reducedMotion} /><ArenaBoss state={state} /><BossWarnings state={state} /><Projectiles state={state} />
-    {events.filter((event: any) => ['pickup-bomb', 'push', 'boss-slam', 'boss-wave', 'attack', 'hit', 'scatter', 'crate-break'].includes(event.kind) && num(state.nowMs) - num(event.at) < 450).map((event: any) => <mesh key={event.id} rotation={[-Math.PI / 2, 0, 0]} position={[num(event.x), .065, num(event.z)]}><ringGeometry args={[.65, .8, 20]} /><meshBasicMaterial color={event.kind.startsWith('boss') || event.kind === 'pickup-bomb' ? '#ff806f' : '#fff1a4'} transparent opacity={.65} depthWrite={false} /></mesh>)}
+    <Suspense fallback={null}>{detailed ? <SkeletalActors {...props} poses={poses} onReady={props.onAssetsReady} /> : <ArenaCharacters {...props} poses={poses} />}</Suspense><FollowCamera {...props} poses={poses} />{detailed ? <FirstPersonModel {...props} /> : <FirstPersonHands {...props} />}<GroundLoot state={state} reducedMotion={props.reducedMotion} />{detailed ? <GuardianModel state={state} reducedMotion={props.reducedMotion} /> : <ArenaBoss state={state} />}<BossWarnings state={state} /><Projectiles state={state} />
+    {events.filter((event: any) => ['pickup-bomb', 'push', 'boss-slam', 'boss-wave', 'attack', 'hit', 'scatter', 'crate-break'].includes(event.kind) && num(state.nowMs) - num(event.at) < 450).map((event: any) => <mesh key={event.id} rotation={[-Math.PI / 2, 0, 0]} position={[num(event.x), stateGround(state, num(event.x), num(event.z)) + .065, num(event.z)]}><ringGeometry args={[.65, .8, 20]} /><meshBasicMaterial color={event.kind.startsWith('boss') || event.kind === 'pickup-bomb' ? '#ff806f' : '#fff1a4'} transparent opacity={.65} depthWrite={false} /></mesh>)}
   </>
 }

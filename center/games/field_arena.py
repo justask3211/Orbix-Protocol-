@@ -93,10 +93,13 @@ class FieldArenaEngine(ArenaEngine):
         self._event('scatter',who,x=body['x'],z=body['z'])
 
     def _can_walk_body(self,x,z,body):
-        if any(c['hp']>0 and body.get('y',0)<1.1 and abs(x-c['x'])<.85 and abs(z-c['z'])<.85 for c in self.crates):return False
+        if any(c['hp']>0 and body.get('y',0)<c.get('y',0)+1.1 and abs(x-c['x'])<.85 and abs(z-c['z'])<.85 for c in self.crates):return False
         if self.boss and self.boss['hp']>0 and math.hypot(x,z)<1.8:return False
-        return not any(body.get('y',0)<o['height'] and abs(x-o['x'])<o['width']/2+.32
+        return not any(body.get('y',0)<o.get('baseY',0)+o['height'] and abs(x-o['x'])<o['width']/2+.32
                        and abs(z-o['z'])<o['depth']/2+.32 for o in self.obstacles)
+
+    def _ground(self,x,z):
+        return 0.
 
     @staticmethod
     def _segment_rect(a,b,obstacle,padding=0):
@@ -116,8 +119,9 @@ class FieldArenaEngine(ArenaEngine):
 
     def _clear_line(self,a,b):
         # Loot and melee cannot reach through walls. Low cover can be jumped over.
-        height=min(a.get('y',0),b.get('y',0))+.9
-        return not any(o['height']>height and self._segment_rect(a,b,o) for o in self.obstacles)
+        height=min(a.get('y',self._ground(a['x'],a['z'])),b.get('y',self._ground(b['x'],b['z'])))+.9
+        if self.version>=4 and any(self._ground(a['x']+(b['x']-a['x'])*i/12,a['z']+(b['z']-a['z'])*i/12)>height for i in range(1,12)):return False
+        return not any(o.get('baseY',0)+o['height']>height and self._segment_rect(a,b,o) for o in self.obstacles)
 
     def _schedule_airdrops(self):
         budget,count=self.rules.loot_budget,self.rules.airdrop_count
@@ -170,7 +174,7 @@ class FieldArenaEngine(ArenaEngine):
         item=next((d for d in self.drops if d['id']==identifier),None)
         if not item:return ActionResult(False,'LOOT_ALREADY_TAKEN')
         if item['landAt']>self.elapsed:return ActionResult(False,'LOOT_NOT_LANDED')
-        if self._distance(body,item)>3 or abs(body['y'])>2 or not self._clear_line(body,item):return ActionResult(False,'LOOT_OUT_OF_REACH')
+        if self._distance(body,item)>3 or abs(body['y']-item.get('y',0))>2 or not self._clear_line(body,item):return ActionResult(False,'LOOT_OUT_OF_REACH')
         if body['lootReadyAt']>now*1000:return ActionResult(False,'LOOT_COOLDOWN')
         body['lootReadyAt']=int(now*1000)+100
         self.drops.remove(item)
@@ -193,7 +197,7 @@ class FieldArenaEngine(ArenaEngine):
     def _down(self,target,seconds,attacker=None):
         body=self.bodies[target];body['hp']=0
         body['respawnAt']=body['downedUntil']=int(self.last_tick*1000)+seconds*1000
-        body['blocking']=False;body['moving']=False;body['y']=body['vy']=0
+        body['blocking']=False;body['moving']=False;body['y']=self._ground(body['x'],body['z']);body['vy']=0
         self.inputs.pop(target,None)
         self._event('knockout',attacker,target,body['x'],body['z'])
 
@@ -214,6 +218,7 @@ class FieldArenaEngine(ArenaEngine):
             if body['respawnAt'] and now_ms>=body['respawnAt']:
                 body.update(hp=body['maxHp'],respawnAt=0,downedUntil=0,y=0.,vy=0.,blocking=False)
                 spawn=self.spawn_points[who];body.update(x=spawn['x'],z=spawn['z'],stunnedUntil=int(now_ms)+400)
+                body['y']=self._ground(body['x'],body['z'])
                 self._event('respawn',who,x=body['x'],z=body['z'])
             active=self._alive(who,now_ms) and body['stunnedUntil']<=now_ms
             inp=self.inputs.get(who,{})
@@ -221,19 +226,23 @@ class FieldArenaEngine(ArenaEngine):
             dx,dz=(inp.get('dx',0),inp.get('dz',0)) if leased else (0,0)
             body['moving']=bool(dx or dz)
             body['sprinting']=bool(leased and inp.get('sprint') and not body['blocking'])
-            if active and (body['y']>0 or body['vy']>0):
-                body['vy']-=18*STEP;body['y']=max(0,body['y']+body['vy']*STEP)
-                if body['y']==0:body['vy']=0
+            floor=self._ground(body['x'],body['z'])
+            grounded=abs(body['y']-floor)<.001 and body['vy']==0
+            if active and (body['y']>floor or body['vy']>0):
+                body['vy']-=18*STEP;body['y']=max(floor,body['y']+body['vy']*STEP)
+                if body['y']==floor:body['vy']=0
             if active:
                 scale=STEP*(8 if body['sprinting'] else self.speed)*(.5 if body['blocking'] else 1)
                 x,z=self._clamp(body['x']+dx*scale,self.width),self._clamp(body['z']+dz*scale,self.depth)
                 if self._can_walk_body(x,body['z'],body):body['x']=x
                 if self._can_walk_body(body['x'],z,body):body['z']=z
+                new_floor=self._ground(body['x'],body['z'])
+                if self.version>=4 and (grounded or body['y']<new_floor):body['y']=new_floor;body['vy']=0
                 # A jump cannot finish inside a collider after clearing its top.
                 if not self._can_walk_body(body['x'],body['z'],body):
                     for obstacle in self.obstacles:
                         if abs(body['x']-obstacle['x'])<obstacle['width']/2+.32 and abs(body['z']-obstacle['z'])<obstacle['depth']/2+.32:
-                            body['y']=obstacle['height'];body['vy']=0
+                            body['y']=obstacle.get('baseY',0)+obstacle['height'];body['vy']=0
         if self.template_id=='token-catch':
             self._schedule_airdrops()
         if self.elapsed>=self.next_drop:
@@ -265,7 +274,7 @@ class FieldArenaEngine(ArenaEngine):
                 if not self._alive(who,self.last_tick*1000):continue
                 distance=self._distance(body,attack);kind=attack['kind']
                 hit=distance<attack['radius']
-                if kind=='wave':hit=distance<attack['radius'] and body['y']<.7
+                if kind=='wave':hit=distance<attack['radius'] and body['y']-self._ground(body['x'],body['z'])<.7
                 elif kind=='beam':
                     dx,dz=body['x']-attack['x'],body['z']-attack['z']
                     along=dx*math.sin(attack['yaw'])+dz*math.cos(attack['yaw'])
@@ -304,9 +313,9 @@ class FieldArenaEngine(ArenaEngine):
             bullet['x']+=math.sin(bullet['yaw'])*math.cos(bullet.get('pitch',0))*28*STEP
             bullet['z']+=math.cos(bullet['yaw'])*math.cos(bullet.get('pitch',0))*28*STEP
             bullet['y']+=math.sin(bullet.get('pitch',0))*28*STEP
-            if self.elapsed>=bullet['expiresAt'] or abs(bullet['x'])>20 or abs(bullet['z'])>20 or bullet['y']<0:continue
-            if any(o['height']>min(previous['y'],bullet['y']) and self._segment_rect(previous,bullet,o) for o in self.obstacles):continue
-            crate=next((c for c in self.crates if c['hp']>0 and self._segment_distance(previous,bullet,c)[0]<.8 and bullet['y']<1.4),None)
+            if self.elapsed>=bullet['expiresAt'] or abs(bullet['x'])>20 or abs(bullet['z'])>20 or bullet['y']<self._ground(bullet['x'],bullet['z']):continue
+            if any(o.get('baseY',0)+o['height']>min(previous['y'],bullet['y']) and self._segment_rect(previous,bullet,o) for o in self.obstacles):continue
+            crate=next((c for c in self.crates if c['hp']>0 and self._segment_distance(previous,bullet,c)[0]<.8 and bullet['y']<c.get('y',0)+1.4),None)
             if crate:
                 crate['hp']=max(0,crate['hp']-bullet['damage'])
                 if not crate['hp']:
@@ -355,7 +364,7 @@ class FieldArenaEngine(ArenaEngine):
             if not finite(pitch) or abs(pitch)>1.1:return ActionResult(False,'INVALID_AIM')
             body.update(yaw=yaw,aimPitch=pitch)
         if kind=='jump':
-            on_surface=body['y']==0 or any(abs(body['y']-o['height'])<.01 for o in self.obstacles)
+            on_surface=abs(body['y']-self._ground(body['x'],body['z']))<.001 or any(abs(body['y']-(o.get('baseY',0)+o['height']))<.01 for o in self.obstacles)
             if not on_surface or body['vy']!=0:return ActionResult(False,'ALREADY_AIRBORNE')
             if body['jumpReadyAt']>now*1000:return ActionResult(False,'COOLDOWN')
             body['vy']=7.5;body['jumpReadyAt']=int(now*1000)+700

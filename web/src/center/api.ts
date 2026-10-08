@@ -19,6 +19,8 @@ export type TemplateList = { templates: TemplateMeta[]; count: number }
 
 export type RoomSummary = {
   roomId: string
+  roomNumber?: string
+  joinCode?: string
   name: string
   templateId: string
   status: string
@@ -31,10 +33,12 @@ export type RoomSummary = {
   entryAmount?: number | null
 }
 
-export type Participant = { who: string; role: string; ready: boolean }
+export type Participant = { who: string; role: string; ready: boolean; connected?: boolean }
 
 export type RoomDetail = {
   roomId: string
+  roomNumber?: string
+  joinCode?: string
   status: string
   visibility: string
   mode: string
@@ -54,6 +58,8 @@ export type RoomDetail = {
   deadline?: number
   serverTimeMs?: number
   communitySettings?: { muteChat: boolean; hidePlayers: boolean; hideGuesses: boolean }
+  rematch?: {supported:boolean;requiresFreshRoom:boolean;reason?:string}
+  settlement?: Settlement | null
 }
 
 export type Allocation = {
@@ -77,7 +83,7 @@ export type Settlement = {
   escrow: string
   chainId: number
   allocations: Allocation[]
-  results: { who: string; score: number }[]
+  results: { who: string; score: number; rank?: number; eligible?: boolean }[]
 }
 
 export type VaultState = {
@@ -134,6 +140,7 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string |
 }
 
 export const center = {
+  getProfiles: (addresses: string[]) => request<Record<string,{name:string;hue?:number;showAddress?:boolean}>>('/profiles/batch', {method:'POST',body:JSON.stringify({addresses})}),
   chooseCharacter:(roomId:string,token:string,character:string)=>request<{characters:Record<string,string>}>(`/rooms/${roomId}/character`,{method:'POST',body:JSON.stringify({character})},token),
   health: () => request<{ ok: boolean; preview: boolean }>('/health/live'),
   templates: () => request<TemplateList>('/templates'),
@@ -186,6 +193,8 @@ export const center = {
   closeRoom: (roomId: string, token: string) =>
     request<{ status: string }>(`/rooms/${roomId}/close`, { method: 'POST' }, token),
   room: (roomId: string, token?: string) => request<RoomDetail>(`/rooms/${roomId}`, {}, token),
+  resolveRoomCode: (code: string, token?: string, invite?: string) => request<{roomId:string;roomNumber:string}>(`/rooms/resolve/${encodeURIComponent(code)}${invite ? `?invite=${encodeURIComponent(invite)}` : ''}`, {}, token),
+  rematch: (roomId: string, token: string, config?: Record<string, unknown>) => request<{roomId:string;roomNumber:string;roundId:string;previousRoundId:string;readinessReset:boolean}>(`/rooms/${roomId}/rematch`, {method:'POST',body:JSON.stringify(config ? {config} : {})}, token),
   chooseTeam: (roomId: string, token: string, team: string) => request<{teams: Record<string, string>}>(`/rooms/${roomId}/team`, {method: 'POST', body: JSON.stringify({team})}, token),
   invite: (roomId: string, token: string) => request<{ invite: string; shareUrl: string }>(`/rooms/${roomId}/invites`, { method: 'POST' }, token),
   join: (roomId: string, token: string, invite?: string) =>
@@ -195,7 +204,7 @@ export const center = {
   start: (roomId: string, token: string) =>
     request<{ roundId: string; commitHash: string; deadline: number }>(`/rooms/${roomId}/start`, { method: 'POST' }, token),
   cancel: (roomId: string, token: string) => request<{ status: string }>(`/rooms/${roomId}/cancel`, { method: 'POST' }, token),
-  results: (roomId: string) => request<{ roundId: string; state: string; results: { who: string; score: number }[]; entitlements: Allocation[] }>(`/rooms/${roomId}/results`),
+  results: (roomId: string) => request<{ roundId: string; state: string; results: { who: string; score: number; rank?: number; eligible?: boolean }[]; entitlements: Allocation[] }>(`/rooms/${roomId}/results`),
   fairness: (roundId: string) => request<Record<string, unknown>>(`/rounds/${roundId}/fairness`),
 
   // ---- claims

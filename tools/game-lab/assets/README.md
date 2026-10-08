@@ -1,5 +1,14 @@
 # Free starter character assets
 
+The arenas now use the reviewed **Orbix Ranger** skeletal GLB pipeline. See
+[CHARACTER_PIPELINE.md](CHARACTER_PIPELINE.md) for source licenses, deliberate
+retargeting, animation names, reproducible tools and runtime ownership rules.
+Its main character is about 1.73 MB with 20 clips; the distant LOD has 3,123
+triangles. Exact final hashes and budgets are in
+`web/public/center-models/orbix-ranger.manifest.json`.
+
+The older Kenney experiment below remains a historical authoring starter.
+
 One small [Kenney Animated Characters Protagonists](https://kenney.nl/assets/animated-characters-protagonists)
 pack is installed in the local development cache:
 

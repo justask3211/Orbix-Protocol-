@@ -2,22 +2,37 @@
 // The generate path reveals the private key exactly once with a copy button
 // and an unmissable warning; localStorage restores it on every later visit.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SessionState, GeneratedWallet } from './session'
 import { hasInjected, shortAddress } from './session'
 import { copyText } from './share'
 import { useModalFocus } from './useModalFocus'
 
-export function WalletModal({ session, onClose }: { session: SessionState; onClose: () => void }) {
+export function WalletModal({ session, onClose, onConnected }: { session: SessionState; onClose: () => void; onConnected?: () => void }) {
   const [generated, setGenerated] = useState<GeneratedWallet | null>(null)
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
   const [dismissError, setDismissError] = useState<string | null>(null)
+  const mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   const dismiss = () => {
     if (generated && !copied) { setDismissError('Copy and save your recovery key before closing.'); return }
     onClose()
   }
   const dialog = useModalFocus(dismiss)
+  const connect = async (method: () => Promise<boolean>) => {
+    if (busy || session.signingIn) return
+    setBusy(true)
+    setDismissError(null)
+    try {
+      const verified = await method()
+      if (verified && mounted.current) { onConnected?.(); onClose() }
+    } catch {
+      // The session reports the server or wallet failure; retain this dialog for retry.
+    } finally {
+      if (mounted.current) setBusy(false)
+    }
+  }
 
   const doGenerate = () => {
     const w = session.generate()
@@ -44,7 +59,7 @@ export function WalletModal({ session, onClose }: { session: SessionState; onClo
             <h3>Connect a wallet</h3>
             <p className="wl-sub">Choose your wallet for Orbix. Signing in proves ownership with a message; it does not send a transaction.</p>
 
-            <button className="wl-option primary" disabled={busy || session.signingIn} onClick={() => { setBusy(true); void session.connectInjected().finally(() => setBusy(false)) }}>
+            <button className="wl-option primary" disabled={busy || session.signingIn} onClick={() => { void connect(session.connectInjected) }}>
               <span className="wl-icon wl-icon-metamask" aria-hidden="true">
                 <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
                   <path d="M23 3.5l-8.2 6.1 1.5-3.6L23 3.5z" fill="#E2761B"/>
@@ -81,7 +96,6 @@ export function WalletModal({ session, onClose }: { session: SessionState; onClo
               <span className="wl-arrow" aria-hidden="true">→</span>
             </button>
 
-            {session.error && <p className="err">{session.error}</p>}
             {busy && <p className="muted">Waiting for your wallet…</p>}
           </>
         ) : (
@@ -98,16 +112,17 @@ export function WalletModal({ session, onClose }: { session: SessionState; onClo
                 <button className="btn-primary" onClick={copyKey}>{copied ? 'Copied ✓' : 'Copy key'}</button>
                 <button
                   className="btn-ghost"
-                  disabled={!copied}
-                  onClick={() => { void session.signIn().then(onClose) }}
+                  disabled={!copied || busy || session.signingIn}
+                  onClick={() => { void connect(session.signIn) }}
                   title={copied ? undefined : 'Copy the key first'}
                 >
-                  I saved it — continue
+                  {busy || session.signingIn ? 'Signing in…' : 'I saved it — continue'}
                 </button>
               </div>
             </div>
           </>
         )}
+        {session.error && <p className="err" role="alert">{session.error}</p>}
       </div>
     </div>
   )

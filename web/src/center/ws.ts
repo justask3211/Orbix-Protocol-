@@ -149,6 +149,7 @@ export type RoomChannel = {
   act: (payload: Record<string, unknown>) => void
   setReady: (ready: boolean) => void
   disconnect: () => void
+  reset: () => void
 }
 
 /** React wrapper around RoomSocket: patches in, results, ack and rejects handled once. */
@@ -158,6 +159,7 @@ export function useRoomChannel(
     onSettlement?: (payload: Record<string, unknown>) => void
     onPatch?: (payload: Record<string, unknown>) => void
     onRoundStarted?: (info: { roundId?: string; commitHash?: string | null; deadline?: number }) => void
+    onRematch?: () => void
     onRejected?: (code: string) => void
     onReconnectTicket?: () => Promise<string>
   },
@@ -181,6 +183,12 @@ export function useRoomChannel(
     switch (frame.type) {
       case 'session.ready':
         setState(frame.state ? { ...frame.state, roundId: frame.roundId, __deadline: frame.deadline, _serverOffsetMs: (frame.serverTimeMs ?? Date.now()) - Date.now() } : null)
+        break
+      case 'room.rematch':
+        seqRef.current = 0
+        setState(null)
+        setLastError(null)
+        handlersRef.current.onRematch?.()
         break
       case 'round.started':
         // The round begins: adopt the server's public state wholesale and reset the
@@ -242,7 +250,8 @@ export function useRoomChannel(
     socketRef.current = null
     setStatus('idle')
   }, [])
+  const reset = useCallback(() => { setState(null); setLastError(null); seqRef.current = 0 }, [])
 
   useEffect(() => () => socketRef.current?.close(), [])
-  return useMemo(() => ({ status, state, lastError, connect, act, setReady, disconnect }), [status, state, lastError, connect, act, setReady, disconnect])
+  return useMemo(() => ({ status, state, lastError, connect, act, setReady, disconnect, reset }), [status, state, lastError, connect, act, setReady, disconnect, reset])
 }

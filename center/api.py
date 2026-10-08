@@ -29,7 +29,7 @@ from center import settlement as st
 from center.pricing import ADMIN_ADDRESS, FeeSchedule, SETTING_KEY, caps as pricing_caps
 from center.room import PROTOCOL_VERSION, Hub, RoomRuntime, Scheduler
 from center.schema import TEMPLATE_META, RoomConfig, normalise_keys, parse_rules
-from center.store import Store
+from center.store import ConflictError, Store
 from center.community import CommunityService, CommunityError
 from center.privacy import visible_state
 from center.entry_gate import EntryGateVerifier, EntryGateError, DEPLOYED_GATE
@@ -166,6 +166,10 @@ class JoinBody(BaseModel):
 
 class StartBody(BaseModel):
     pass
+
+
+class RematchBody(BaseModel):
+    config: dict | None = None
 
 
 # --------------------------------------------------------------------- app factory
@@ -502,10 +506,11 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             if row:
                 unit0 = vault.unit_for(config.access.vault_mode, config.access.token)
                 return {
-                    "roomId": row["id"], "status": row["status"], "visibility": row["visibility"],
+                    "roomId": row["id"], "roomNumber": row["join_code"], "joinCode": row["join_code"],
+                    "status": row["status"], "visibility": row["visibility"],
                     "intentId": intent, "charged": 0, "balanceAfter": vault.balance_of(who, unit0),
                     "balanceLabel": vault.label(unit0), "replayed": True,
-                    "shareUrl": f"/center/rooms/{row['id']}",
+                    "shareUrl": f"/center/rooms/{row['join_code']}",
                 }
 
         charged = 0
@@ -528,13 +533,14 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         balance_after = vault.balance_of(who, unit)
         return {
             "roomId": rt.room_id,
+            "roomNumber": rt.join_code, "joinCode": rt.join_code,
             "status": rt.status,
             "visibility": config.visibility,
             "intentId": intent,
             "charged": charged,
             "balanceAfter": balance_after,
             "balanceLabel": vault.label(unit),
-            "shareUrl": f"/center/rooms/{rt.room_id}",
+            "shareUrl": f"/center/rooms/{rt.join_code}",
         }
 
     @app.get(f"{API_PREFIX}/rooms")
@@ -545,6 +551,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             "rooms": [
                 {
                     "roomId": r["id"], "name": r["config"]["name"], "templateId": r["template_id"],
+                    "roomNumber": r["join_code"], "joinCode": r["join_code"],
                     "status": r["status"], "visibility": r["visibility"], "mode": r["mode"],
                     "players": len([p for p in store.participants(r["id"]) if p["role"] == "player"]),
                     "rewards": r["config"]["rewards"]["kind"],
@@ -573,6 +580,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             expiring = "closing" if (close_at and now >= close_at - 60) else None
             mine.append({
                 "roomId": row["id"],
+                "roomNumber": row["join_code"], "joinCode": row["join_code"],
                 "name": cfg.get("name", ""),
                 "templateId": row.get("template_id", ""),
                 "status": row["status"],
@@ -585,6 +593,21 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                 "active": row["status"] not in ("closed", "cancelled"),
             })
         return {"rooms": mine}
+
+    @app.get(f"{API_PREFIX}/rooms/resolve/{{join_code}}")
+    def resolve_room_code(join_code: str, invite: str | None = None,
+                          who: str | None = Depends(optional_wallet)) -> dict:
+        # An easy room alias is navigation, not admission or proof of token entry.
+        # Private aliases are deliberately indistinguishable from missing codes.
+        row = store.resolve_room_code(join_code) if re.fullmatch(r"[1-9][0-9]{2,8}", join_code) else None
+        denied = not row or room_archived(store, row["id"])
+        if row and row["visibility"] == "private":
+            admitted = who == admin or who == row["owner"] or any(
+                p["who"] == who for p in store.participants(row["id"]))
+            denied = denied or not (who and (admitted or store.invite_valid(row["id"], invite)))
+        if denied:
+            raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "no such room"})
+        return {"roomId": row["id"], "roomNumber": row["join_code"], "joinCode": row["join_code"]}
 
     @app.get(f"{API_PREFIX}/rooms/{{room_id}}")
     def get_room(room_id: str, who: str | None = Depends(optional_wallet)) -> dict:
@@ -599,21 +622,34 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         presentation_owner=who if who==admin else row['owner']
         rt = runtime_for(room_id)
         timing = row["config"].get("timing", {}) if isinstance(row["config"], dict) else {}
+        connected_players = hub.connected_players(room_id)
+        settlement = rt.settlement_frame() if admitted else None
+        settlement_payload = dict(settlement["payload"]) if settlement else None
+        if settlement_payload and who not in {admin, row["owner"]}:
+            # Keep only this wallet's original claim receipts; do not anonymize
+            # addresses inside a proof/contract payload or leak others' claim codes.
+            settlement_payload["allocations"] = [a for a in settlement_payload.get("allocations", [])
+                                                  if a.get("winner") == who]
+            settlement_payload["results"] = visible_state(settlement_payload.get("results", []), settings, who, row["owner"])
         return {
             "roomId": row["id"], "status": row["status"], "visibility": row["visibility"],
+            "roomNumber": row["join_code"], "joinCode": row["join_code"],
             "mode": row["mode"], "owner": row["owner"], "config": config,
             "timing": timing,
             "communitySettings": settings,
             "gameStatus": game_availability(store,row['template_id'])['status'],
             "maintenanceMessage": game_availability(store,row['template_id']).get('message',''),
             "archived": room_archived(store,room_id),
+            "rematch": rt.rematch_capability(),
+            "settlement": settlement_payload,
             "characters": visible_state((store.get_setting(f'characters:{room_id}') or {}).get('characters',{}),settings,who,presentation_owner),
             "publicState": app_community_filter(rt, rt.engine.public_state(), who) if rt.engine and (row["visibility"] != "private" or admitted) else None,
             "roundId": rt.round_id, "deadline": rt.deadline(), "serverTimeMs": int(time.time() * 1000),
             "teams": visible_state((store.get_setting(f"teams:{room_id}") or {}).get("teams", {}), settings, who, presentation_owner),
             "pricingSnapshot": FeeSchedule.from_dict(store.get_setting(f"pricing:{room_id}")).as_dict(),
             "participants": visible_state([
-                {"who": p["who"], "role": p["role"], "ready": bool(p["ready"])}
+                {"who": p["who"], "role": p["role"], "ready": bool(p["ready"]),
+                 "connected": p["who"] in connected_players}
                 for p in members
             ] if row["visibility"] != "private" or admitted else [], settings, who, presentation_owner),
         }
@@ -718,7 +754,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(403, detail={"code": "FORBIDDEN", "message": "only the host may issue invites"})
         code = secrets.token_urlsafe(9)
         store.add_invite(room_id, code)
-        return {"invite": code, "shareUrl": f"/center/rooms/{room_id}?invite={code}"}
+        return {"invite": code, "shareUrl": f"/center/rooms/{row['join_code']}?invite={code}"}
 
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/join")
     def join_room(room_id: str, body: JoinBody, who: str = Depends(require_wallet)) -> dict:
@@ -746,7 +782,56 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     def ready(room_id: str, body: dict | None = None, who: str = Depends(require_wallet)) -> dict:
         rt = runtime_for(room_id)
         ready_flag = bool((body or {}).get("ready", True))
-        return rt.set_ready(who, ready_flag)
+        try:
+            return rt.set_ready(who, ready_flag)
+        except ValueError as exc:
+            raise HTTPException(403, detail={"code": str(exc), "message": str(exc)})
+
+    @app.post(f"{API_PREFIX}/rooms/{{room_id}}/rematch")
+    async def rematch(room_id: str, body: RematchBody | None = None, who: str = Depends(require_wallet)) -> dict:
+        rt = runtime_for(room_id)
+        require_room_active(room_id)
+        require_game_live(rt.config.template_id)
+        if who != rt.owner:
+            raise HTTPException(403, detail={"code": "FORBIDDEN", "message": "only the host may prepare a rematch"})
+        config = validate_config(body.config) if body and body.config is not None else None
+        try:
+            result = await rt.prepare_rematch(config)
+        except ValueError as exc:
+            code = str(exc)
+            message = ("Token-funded, paid-entry and onchain rooms need a fresh room and independent funding."
+                       if code == "FRESH_FUNDED_ROOM_REQUIRED" else code)
+            raise HTTPException(409, detail={"code": code, "message": message})
+        except ConflictError:
+            raise HTTPException(409, detail={"code": "ROOM_CHANGED", "message": "refresh the room before trying again"})
+        return result
+
+    @app.get(f"{API_PREFIX}/rooms/{{room_id}}/history")
+    def room_history(room_id: str, who: str | None = Depends(optional_wallet)) -> dict:
+        rt = runtime_for(room_id)
+        if rt.config.visibility == "private" and not (who == admin or who == rt.owner or any(
+                p["who"] == who for p in store.participants(room_id))):
+            raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "no such room"})
+        from center.games import engine_for
+        rounds = []
+        settings = community.public_settings(room_id)
+        for rnd in store.rounds_for_room(room_id):
+            result = []
+            if rnd.get("ended_at") is not None and rnd.get("snapshot") and rnd.get("config"):
+                cfg = RoomConfig(**rnd["config"])
+                engine = engine_for(cfg).restore(cfg, rnd["round_id"], rnd["seed"], rnd["snapshot"])
+                result = [{"who": player, "score": engine.scores().get(player, 0)} for player in engine.ranking()]
+            entitlements = store.entitlements_for_round(rnd["round_id"])
+            if who not in {admin, rt.owner}:
+                entitlements = [e for e in entitlements if e["winner"] == who]
+            record = {"roundId": rnd["round_id"], "state": rnd["state"], "startedAt": rnd["started_at"],
+                      "endedAt": rnd.get("ended_at"), "configHash": rnd.get("config_hash"),
+                      "commitHash": rnd["commit_hash"], "merkleRoot": rnd.get("merkle_root"),
+                      "allocationsHash": rnd.get("allocations_hash"), "transcriptHash": rnd.get("transcript_hash"),
+                      "results": result if who == admin else visible_state(result, settings, who, rt.owner),
+                      "entitlements": entitlements}
+            rounds.append(record)
+        return {"roomId": room_id, "roomNumber": rt.join_code, "joinCode": rt.join_code, "rounds": rounds}
 
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/start")
     async def start(room_id: str, who: str = Depends(require_wallet)) -> dict:
@@ -782,6 +867,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "no such round"})
         return {
             "roundId": round_id, "commitHash": rnd["commit_hash"], "seed": rnd["seed"] if rnd.get("ended_at") is not None else None,
+            "configHash": rnd.get("config_hash"),
             "merkleRoot": rnd["merkle_root"], "allocationsHash": rnd["allocations_hash"],
             "transcriptHash": rnd["transcript_hash"], "settlementDeadline": rnd["settlement_deadline"],
         }
@@ -1073,10 +1159,12 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                 return
             runtimes[room_id] = rt
 
-            await hub.register(conn_id, room_id, who, ws)
+            role = next(p["role"] for p in store.participants(room_id) if p["who"] == who)
+            await hub.register(conn_id, room_id, who, ws, role=role)
             pump = asyncio.create_task(hub.pump(conn_id))
             await ws.send_text(json.dumps({
                 "v": PROTOCOL_VERSION, "type": "session.ready", "roomId": room_id,
+                "roomNumber": rt.join_code, "joinCode": rt.join_code,
                 "serverTimeMs": int(time.time() * 1000), "status": rt.status,
                 "commitHash": rt.commit,
                 "roundId": rt.round_id, "deadline": rt.deadline(),
@@ -1115,7 +1203,13 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                         "payload": {"state": app_community_filter(rt, {**rt.engine.public_state(), **(rt.engine.private_state(who) if hasattr(rt.engine, "private_state") else {})}, who) if rt.engine else None},
                     }))
                 elif mtype == "participant.ready":
-                    rt.set_ready(who, bool(msg.get("ready", True)))
+                    try:
+                        rt.set_ready(who, bool(msg.get("ready", True)))
+                    except (ValueError, CommunityError) as exc:
+                        await ws.send_text(json.dumps({"v": PROTOCOL_VERSION, "type": "error",
+                                                      "payload": {"code": getattr(exc, "code", str(exc)),
+                                                                  "message": str(exc)}}))
+                        continue
                     await hub.broadcast(room_id, {"v": PROTOCOL_VERSION, "type": "participant.ready", "payload": {"who": who, "ready": bool(msg.get("ready", True))}})
                 elif mtype == "action":
                     payload = msg.get("payload") or {}

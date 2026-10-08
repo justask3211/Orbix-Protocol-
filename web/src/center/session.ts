@@ -71,10 +71,10 @@ export type SessionState = {
   token: string | null
   signingIn: boolean
   error: string | null
-  connectInjected: () => Promise<void>
+  connectInjected: () => Promise<boolean>
   generate: () => GeneratedWallet | null
   restoreGenerated: () => void
-  signIn: () => Promise<void>
+  signIn: () => Promise<boolean>
   signOut: () => void
   forget: () => void
 }
@@ -104,11 +104,13 @@ export function useSession(): SessionState {
       const { nonce, message } = await center.nonce(addr)
       const signature = await sign(message)
       const { token: fresh } = await center.verify(addr, nonce, signature)
+      if (typeof fresh !== 'string' || !fresh) throw new Error('Sign-in could not be verified. Please try again.')
       localStorage.setItem(TOKEN_STORAGE, fresh)
       localStorage.setItem(WALLET_KIND, wKind)
       setAddress(addr)
       setKind(wKind)
       setToken(fresh)
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       throw err
@@ -121,19 +123,20 @@ export function useSession(): SessionState {
     const eth = (window as any).ethereum
     if (!eth) {
       setError('No browser wallet found. Install MetaMask, or use "Generate new wallet".')
-      return
+      return false
     }
     try {
       const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' })
       const addr = accounts[0]
-      localStorage.setItem(WALLET_KIND, 'injected')
-      await signInWith(
+      if (!addr) throw new Error('Your wallet did not provide an account. Choose an account and try again.')
+      return await signInWith(
         (msg) => eth.request({ method: 'personal_sign', params: [msg, addr] }),
         addr,
         'injected',
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Wallet connection rejected.')
+      return false
     }
   }, [signInWith])
 
@@ -159,14 +162,13 @@ export function useSession(): SessionState {
   const signIn = useCallback(async () => {
     const acct = loadStoredAccount()
     if (acct) {
-      await signInWith((msg) => acct.signMessage({ message: msg }), acct.address, 'generated')
-      return
+      return await signInWith((msg) => acct.signMessage({ message: msg }), acct.address, 'generated')
     }
     if (hasInjected()) {
-      await connectInjected()
-      return
+      return await connectInjected()
     }
     setError('Generate a wallet first — it takes one tap and you get a recovery key.')
+    return false
   }, [signInWith, connectInjected])
 
   // AUTO SIGN-IN: a generated wallet keeps its private key in localStorage, so we
