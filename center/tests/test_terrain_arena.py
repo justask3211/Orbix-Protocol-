@@ -92,3 +92,18 @@ def test_last_ammo_shot_keeps_confirmed_animation_weapon_after_inventory_changes
     published=game.public_state()['bodies'][A]
     assert published['weapon']=='hands' and published['lastAttackWeapon']=='gun'
     assert published['lastAttackKind']=='attack'
+
+
+def test_prediction_metadata_is_accepted_input_only_and_preserves_authority():
+    game=world(); body=game.bodies[A]
+    assert game.act(A,{'kind':'move','seq':1,'dx':1,'dz':0,'sprint':True,'x':9999},100.1).ok
+    public=game.public_state()['bodies'][A]
+    assert public['inputSeq']==1 and public['inputDx']==1 and public['inputDz']==0
+    assert public['inputAt']==pytest.approx(100100) and public['inputUntil']==pytest.approx(100350)
+    assert public['x']<20 and body['x']<20
+    assert not game.act(A,{'kind':'move','seq':1,'dx':-1,'dz':0},100.2).ok
+    assert game.public_state()['bodies'][A]['inputDx']==1
+    snapshot=game.snapshot()
+    clone=type(game)(game.config,game.round_id,game.seed,game.participants)
+    clone._load(snapshot)
+    assert clone.public_state()==game.public_state()

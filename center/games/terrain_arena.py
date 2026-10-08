@@ -62,11 +62,13 @@ class TerrainArenaEngine(FieldArenaEngine):
     def public_state(self):
         state=super().public_state()
         state.update(worldVersion=4,terrain={'kind':'field-v1','theme':self.terrain_theme})
-        for body in state['bodies'].values():
+        for who,body in state['bodies'].items():
             surface=self._ground(body['x'],body['z'])
             for cover in self.obstacles:
                 if abs(body['x']-cover['x'])<cover['width']/2+.32 and abs(body['z']-cover['z'])<cover['depth']/2+.32:
                     surface=max(surface,cover.get('baseY',0)+cover['height'])
+            accepted=self.inputs.get(who,{})
+            body.update(inputDx=accepted.get('dx',0),inputDz=accepted.get('dz',0),inputAt=accepted.get('at',0),inputUntil=accepted.get('until',0))
             body['groundHeight']=surface
             body['onGround']=abs(body['y']-surface)<.05 and body['vy']==0
         return state

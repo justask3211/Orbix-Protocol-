@@ -4,6 +4,8 @@
  */
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
+const require = createRequire(import.meta.url)
 import { fileURLToPath } from 'node:url'
 import * as THREE from '../../web/node_modules/three/build/three.module.js'
 import { GLTFLoader } from '../../web/node_modules/three/examples/jsm/loaders/GLTFLoader.js'
@@ -23,10 +25,10 @@ const frames = [], effects = []
 const jsx = (type, props) => {
   if (type === 'group') {
     const group = new THREE.Group()
-    for (const child of Array.isArray(props.children) ? props.children : [props.children]) if (child?.props?.object) group.add(child.props.object)
+    for (const child of Array.isArray(props.children) ? props.children : [props.children]) if (child?.props?.object || child?.object) group.add(child.props?.object || child.object)
     if (props.ref) props.ref.current = group
   }
-  return { type, props }
+  return { type, props, object: props.ref?.current }
 }
 const modules = {
   react: { useMemo: fn => fn(), useEffect: fn => effects.push(fn), useRef: current => ({ current }) },
@@ -36,6 +38,7 @@ const modules = {
   'three/addons/loaders/GLTFLoader.js': { GLTFLoader },
   'three/addons/utils/SkeletonUtils.js': skeletonUtils,
   './terrain': { stateGround: () => 0 },
+  './motion': require('./motion-regression.cjs'),
 }
 const filename = fileURLToPath(new URL('web/src/center/worlds/SkeletalActors.tsx', root))
 const result = transformSync(filename, fs.readFileSync(filename, 'utf8'), { jsx: { runtime: 'automatic' }, target: 'es2022' })

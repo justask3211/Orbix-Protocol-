@@ -8,7 +8,7 @@ import GuardianModel from './GuardianModel'
 import FirstPersonModel from './FirstPersonModel'
 import { stateGround } from './terrain'
 
-type Pose = { x: number; y: number; z: number; yaw: number; moving: number }
+type Pose = { x: number; y: number; z: number; yaw: number; moving: number; speed?: number }
 type Poses = Map<string, Pose>
 const TEAM_COLORS = ['#ff997c', '#74d6f6', '#b5ed78', '#c4a5f6', '#ffdc75', '#f9aad9', '#8dd3ac', '#93aaf4', '#cdeef6', '#dfab78', '#ebaebe', '#72e2ca']
 const CHARACTERS: Record<string, { coat: string; skin: string; boots: string; hair: string }> = {
@@ -125,7 +125,8 @@ function FollowCamera({ state, me, cameraRef, inputRef, poses }: GameWorldProps 
     }
     desired.y = Math.max(stateGround(state, desired.x, desired.z) + .65, desired.y)
     if (!initialized.current || camera.position.distanceTo(desired) > 12) { camera.position.copy(desired); initialized.current = true }
-    else camera.position.lerp(desired, 1 - Math.exp(-Math.min(.08, delta) * (first ? 35 : 18)))
+    else if (first) camera.position.copy(desired)
+    else camera.position.lerp(desired, 1 - Math.exp(-Math.min(.08, delta) * 28))
     look.set(camera.position.x + Math.sin(yaw) * flat * 15, camera.position.y - vertical * 15, camera.position.z + Math.cos(yaw) * flat * 15)
     camera.lookAt(look)
     if (camera instanceof PerspectiveCamera) { const fov = first ? 72 : inputRef?.current.sprint ? 64 : 58; if (Math.abs(camera.fov - fov) > .03) { camera.fov = MathUtils.damp(camera.fov, fov, 5, delta); camera.updateProjectionMatrix() } }

@@ -4,9 +4,10 @@ import { AnimationAction, AnimationClip, AnimationMixer, Color, Frustum, Group, 
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import type { GameWorldProps } from './GameWorld'
+import { MotionTrack, type MotionPose } from './motion'
 import { stateGround } from './terrain'
 
-type Pose = { x: number; y: number; z: number; yaw: number; moving: number }
+type Pose = MotionPose
 type Props = GameWorldProps & { poses: Map<string, Pose>; onReady?: () => void }
 type Body = Record<string, any>
 type Rig = { scene: Object3D; mixer: AnimationMixer; actions: Map<string, AnimationAction>; hand: Object3D | undefined; materials: Material[]; current: Record<'upper' | 'lower', string> }
@@ -54,61 +55,43 @@ function releaseRig(rig: Rig) {
 
 function selectAction(rig: Rig, name: string, layer: 'lower' | 'upper', once: boolean, eventKey: string, speed = 1) {
   const key = `${name}:${layer}`, identity = `${key}:${eventKey}`, action = rig.actions.get(key) || rig.actions.get(`Idle:${layer}`)
-  if (!action || rig.current[layer] === identity) return
+  if (!action) return
+  action.setEffectiveTimeScale(speed)
+  if (rig.current[layer] === identity) return
   const previousKey = rig.current[layer].split(':').slice(0, 2).join(':'), prior = rig.actions.get(previousKey)
   if (prior && prior !== action) prior.fadeOut(.15)
   action.reset().setLoop(once ? LoopOnce : LoopRepeat, once ? 1 : Infinity).setEffectiveTimeScale(speed).setEffectiveWeight(1)
+  action.paused = false; action.enabled = true
+  if (layer === 'upper' && ['Idle','Run','Sprint'].includes(name)) { const lower = rig.actions.get(`${name}:lower`); if (lower) action.syncWith(lower) }
   action.clampWhenFinished = once; action.fadeIn(.15).play(); rig.current[layer] = identity
 }
 
-function blocked(state: Body, x: number, z: number, y: number) {
-  if ((state.crates ?? []).some((item: Body) => item.hp > 0 && y < num(item.y) + 1.1 && Math.abs(x - num(item.x)) < .85 && Math.abs(z - num(item.z)) < .85)) return true
-  if (state.boss?.hp > 0 && Math.hypot(x - num(state.boss.x), z - num(state.boss.z)) < 1.8) return true
-  return (state.obstacles ?? []).some((item: Body) => y < num(item.baseY) + num(item.height, 1.6) - .05 && (item.radius ? Math.hypot(x - num(item.x), z - num(item.z)) < num(item.radius) + .32 : Math.abs(x - num(item.x)) < num(item.width, 1) / 2 + .32 && Math.abs(z - num(item.z)) < num(item.depth, 1) / 2 + .32))
-}
-
-function support(state: Body, x: number, z: number, bodyY: number) {
-  let floor = stateGround(state, x, z)
-  for (const obstacle of state.obstacles ?? []) {
-    const top = num(obstacle.baseY) + num(obstacle.height)
-    if (bodyY >= top - .08 && Math.abs(x - num(obstacle.x)) < num(obstacle.width) / 2 + .32 && Math.abs(z - num(obstacle.z)) < num(obstacle.depth) / 2 + .32) floor = Math.max(floor, top)
-  }
-  return floor
-}
-
 function PoseMotion({ state, me, inputRef, poses }: Props) {
-  const received = useRef(performance.now())
+  const tracks = useRef(new Map<string, MotionTrack>()), round = useRef(state.roundId)
   const entries = useMemo(() => Object.entries(state.bodies ?? {}).slice(0, 50) as [string, Body][], [state.bodies])
-  const alive = useMemo(() => new Set(entries.map(([who]) => who)), [entries])
-  useEffect(() => { received.current = performance.now() }, [state])
   useFrame((_, rawDelta) => {
-    const delta = Math.min(.06, rawDelta), age = Math.min(250, performance.now() - received.current), serverTime = num(state.serverTimeMs, Date.now()) + age
+    const now = performance.now(), delta = Math.min(.06, rawDelta)
+    if (round.current !== state.roundId) { tracks.current.clear(); poses.clear(); round.current = state.roundId }
     for (const [who, body] of entries) {
+      let track = tracks.current.get(who)
+      if (!track) { track = new MotionTrack(); tracks.current.set(who, track) }
       let pose = poses.get(who)
       if (!pose) { pose = { x: num(body.x), y: num(body.y), z: num(body.z), yaw: num(body.yaw), moving: 0 }; poses.set(who, pose) }
-      const local = who === me, down = num(body.respawnAt) > serverTime || num(body.hp, 100) <= 0
-      const intent = local && inputRef?.current.active && !down && num(body.stunnedUntil) <= serverTime && !state.finished && state._canAct !== false ? inputRef.current : null
-      const speed = (intent?.sprint ? 8 : num(body.speed, 5)) * (body.blocking ? .5 : 1)
-      let x = MathUtils.clamp(num(body.x) + (intent?.dx || 0) * speed * age / 1000, -num(state.bounds?.width, 40) / 2 + .55, num(state.bounds?.width, 40) / 2 - .55)
-      let z = MathUtils.clamp(num(body.z) + (intent?.dz || 0) * speed * age / 1000, -num(state.bounds?.depth, 40) / 2 + .55, num(state.bounds?.depth, 40) / 2 - .55)
-      if (blocked(state, x, num(body.z), num(body.y))) x = num(body.x)
-      if (blocked(state, x, z, num(body.y))) z = num(body.z)
-      const floor = support(state, x, z, num(body.y)), time = Math.min(.12, age / 1000)
-      const y = local ? body.onGround ? floor : Math.max(floor, num(body.y) + num(body.vy) * time - 9 * time * time) : num(body.y)
-      const gap = Math.hypot(x - pose.x, z - pose.z)
-      if (gap > 3) { pose.x = x; pose.z = z; pose.y = y }
-      else { pose.x = MathUtils.damp(pose.x, x, local ? 19 : 12, delta); pose.z = MathUtils.damp(pose.z, z, local ? 19 : 12, delta); pose.y = MathUtils.damp(pose.y, y, 24, delta) }
-      pose.moving = MathUtils.damp(pose.moving, (gap > .025 || body.moving || intent && (intent.dx !== 0 || intent.dz !== 0)) && !down ? 1 : 0, 12, delta)
-      const facing = local && inputRef?.current.yaw !== undefined ? inputRef.current.yaw : num(body.yaw)
-      pose.yaw += Math.atan2(Math.sin(facing - pose.yaw), Math.cos(facing - pose.yaw)) * Math.min(1, delta * 18)
+      const input = who === me ? inputRef?.current : undefined
+      track.receive(body, state, now, input)
+      track.update(pose, state, now, delta, input)
     }
-    for (const who of poses.keys()) if (!alive.has(who)) poses.delete(who)
+    const alive = new Set(entries.map(([who]) => who))
+    for (const who of poses.keys()) if (!alive.has(who)) { poses.delete(who); tracks.current.delete(who) }
   }, -2)
   return null
 }
 
 function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who: string; body: Body; full: GLTF; lod: GLTF; handOutputs: Map<string, Object3D> }) {
+  const elastic = useRef<Group>(null), squash = useRef(0)
   const container = useRef<Group>(null), health = useRef(num(body.hp, 100)), grounded = useRef(Boolean(body.onGround)), attack = useRef(num(body.lastAttackAt)), dodge = useRef(num(body.dodgeUntil)), loot = useRef(num(body.lootReadyAt))
+  const clock = useRef({ server: num(props.state.serverTimeMs, Date.now()), received: performance.now() })
+  useEffect(() => { clock.current = { server: num(props.state.serverTimeMs, Date.now()), received: performance.now() } }, [props.state.serverTimeMs])
   const cue = useRef<Cue | null>(null), selection = useRef(0), accumulated = useRef(0)
   const rigs = useMemo(() => [makeRig(full, body.character || 'fox', body.team || ''), makeRig(lod, body.character || 'fox', body.team || '')], [full, lod, body.character, body.team])
   const lifetime = useMemo(() => ({ mounted: false, released: false }), [rigs])
@@ -131,7 +114,8 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
     if (!container.current) return
     const pose = props.poses.get(who)
     if (!pose) return
-    const now = num(props.state.serverTimeMs, Date.now()), local = who === props.me, down = num(body.hp, 100) <= 0 || num(body.respawnAt) > now
+    if (clock.current.server !== num(props.state.serverTimeMs, Date.now())) clock.current = { server: num(props.state.serverTimeMs, Date.now()), received: performance.now() }
+    const now = clock.current.server + Math.min(250, performance.now() - clock.current.received), local = who === props.me, down = num(body.hp, 100) <= 0 || num(body.respawnAt) > now
     const distance = camera.position.distanceToSquared(sphere.center.set(pose.x, pose.y + 1, pose.z))
     frustum.setFromProjectionMatrix(projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse))
     const visible = !(local && props.cameraRef?.current.mode === 'first') && distance < 65 * 65 && frustum.intersectsSphere(sphere)
@@ -151,7 +135,14 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
     if (num(body.hp, 100) < health.current && !down) event = { name: 'Hit', until: now + 250, key: `hit-${props.state.tick}-${body.hp}`, whole: false }
     const onGround = body.onGround !== undefined ? Boolean(body.onGround) : num(body.y) <= num(body.groundHeight) + .08
     if (!onGround && grounded.current && !down) event = { name: 'JumpStart', until: now + 280, key: `jump-${props.state.tick}`, whole: true }
+    if (onGround && !grounded.current && !down) { squash.current = .12 }
     if (onGround && !grounded.current && !down) event = { name: 'JumpLand', until: now + 160, key: `land-${props.state.tick}`, whole: true }
+    if (elastic.current) {
+      squash.current *= Math.exp(-Math.min(rawDelta, .06) * 17)
+      const stretch = props.reducedMotion || down ? 0 : !onGround ? .035 : -squash.current
+      elastic.current.scale.set(1 - stretch * .5, 1 + stretch, 1 - stretch * .5)
+      elastic.current.rotation.x = props.reducedMotion || down ? 0 : MathUtils.damp(elastic.current.rotation.x, -Math.min(.055, num(pose.speed) * .007), 20, rawDelta)
+    }
     attack.current = num(body.lastAttackAt); dodge.current = num(body.dodgeUntil); loot.current = num(body.lootReadyAt); health.current = num(body.hp, 100); grounded.current = onGround
     if (event) cue.current = event
     if (cue.current && now >= cue.current.until) cue.current = null
@@ -163,15 +154,15 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
     if (!onGround) { lower = 'JumpLoop'; upper = 'JumpLoop' }
     if (cue.current) { upper = cue.current.name; if (cue.current.whole) lower = upper; once = true; key = cue.current.key; speed = upper === 'Dodge' ? 3 : upper === 'JumpStart' ? 4 : upper === 'JumpLand' ? 5 : upper === 'Interact' ? 4 : upper === 'SwordAttack' ? 2.5 : 1.5 }
     if (down) { lower = upper = 'Death'; once = true; key = `down-${num(body.respawnAt)}`; speed = 1.5 }
-    selectAction(rig, lower, 'lower', once && lower === upper, once && lower === upper ? key : '', lower === upper ? speed : 1)
-    selectAction(rig, upper, 'upper', once || upper === 'Guard' || upper === 'PistolAim', key, speed)
+    selectAction(rig, lower, 'lower', once && lower === upper, once && lower === upper ? key : '', once && lower === upper ? speed : ['Run','Sprint'].includes(lower) ? MathUtils.clamp(num(pose.speed) / (lower === 'Sprint' ? 8.57 : 5.12), 0, 1.5) : 1)
+    selectAction(rig, upper, 'upper', once || upper === 'Guard' || upper === 'PistolAim', key, !once && ['Run','Sprint'].includes(upper) ? MathUtils.clamp(num(pose.speed) / (upper === 'Sprint' ? 8.57 : 5.12), 0, 1.5) : speed)
     accumulated.current += Math.min(rawDelta, .1)
     if (!visible) { accumulated.current = 0; return }
     if (selected === 1 && accumulated.current < .05 && selected === selection.current) return
     rig.mixer.update(Math.min(accumulated.current, .15)); accumulated.current = 0; selection.current = selected
     container.current.updateMatrixWorld(true)
   }, -1.5)
-  return <group ref={container} dispose={null}><primitive object={rigs[0].scene} dispose={null} /><primitive object={rigs[1].scene} dispose={null} /></group>
+  return <group ref={container} dispose={null}><group ref={elastic}><primitive object={rigs[0].scene} dispose={null} /><primitive object={rigs[1].scene} dispose={null} /></group></group>
 }
 
 /** Batched weapons use the animated wrist position; blade orientation follows the actual grip bone. */

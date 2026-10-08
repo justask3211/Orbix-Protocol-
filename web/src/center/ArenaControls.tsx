@@ -4,7 +4,8 @@ import type { StageProps } from './stages'
 import './arenaPlay.css'
 
 const GameWorld = lazy(() => import('./worlds/GameWorld'))
-export type ArenaInput = { dx: number; dz: number; active: boolean; sprint?: boolean; yaw?: number }
+export type SentArenaInput = { dx: number; dz: number; sprint?: boolean; active: boolean; seq: number; at: number }
+export type ArenaInput = { dx: number; dz: number; active: boolean; sprint?: boolean; yaw?: number; changedAt?: number; jumpAt?: number; history?: SentArenaInput[] }
 export type ArenaInputRef = RefObject<ArenaInput>
 export type ArenaCamera = { yaw: number; pitch: number; mode: 'third' | 'first' }
 export type ArenaCameraRef = RefObject<ArenaCamera>
@@ -71,7 +72,9 @@ export function ArenaPlay(props: StageProps) {
     const length = Math.max(1, Math.hypot(side, forward))
     side /= length; forward /= length
     const yaw = camera.current.yaw
-    input.current = { dx: Math.sin(yaw) * forward - Math.cos(yaw) * side, dz: Math.cos(yaw) * forward + Math.sin(yaw) * side, active: enabledRef.current && !document.hidden, sprint: sprintHeld.current || held.current.has('shift'), yaw }
+    const previous = input.current
+    input.current = { ...previous, dx: Math.sin(yaw) * forward - Math.cos(yaw) * side, dz: Math.cos(yaw) * forward + Math.sin(yaw) * side, active: enabledRef.current && !document.hidden, sprint: sprintHeld.current || held.current.has('shift'), yaw }
+    if (previous.dx !== input.current.dx || previous.dz !== input.current.dz || previous.sprint !== input.current.sprint || previous.active !== input.current.active) input.current.changedAt = performance.now()
   }
   const sendMovement = () => {
     if (!enabledRef.current || document.hidden) return
@@ -82,7 +85,9 @@ export function ArenaPlay(props: StageProps) {
       return
     }
     lastSend.current = Date.now()
-    actRef.current({ kind: 'move', dx: input.current.dx, dz: input.current.dz, yaw: camera.current.yaw, aimPitch: -camera.current.pitch, sprint: Boolean(input.current.sprint), seq: ++seq.current })
+    const sequence = ++seq.current
+    input.current.history = [...(input.current.history ?? []), { dx: input.current.dx, dz: input.current.dz, sprint: input.current.sprint, active: input.current.active, seq: sequence, at: performance.now() }].slice(-64)
+    actRef.current({ kind: 'move', dx: input.current.dx, dz: input.current.dz, yaw: camera.current.yaw, aimPitch: -camera.current.pitch, sprint: Boolean(input.current.sprint), seq: sequence })
   }
   const action = (kind: string, extra: Record<string, unknown> = {}) => {
     if (!enabledRef.current || document.hidden || Date.now() - lastAction.current < 90) return
@@ -92,12 +97,13 @@ export function ArenaPlay(props: StageProps) {
       if (kind === 'jump' || kind === 'dodge') return
       if (kind === 'punch') kind = 'attack'
     }
+    if (kind === 'jump') input.current.jumpAt = performance.now()
     actRef.current({ kind, yaw: camera.current.yaw, aimPitch: -camera.current.pitch, ...extra })
   }
   const releaseAll = () => {
     const moving = Boolean(input.current.dx || input.current.dz || input.current.sprint)
     held.current.clear(); stick.current = { x: 0, y: 0, pointer: -1 }; sprintHeld.current = false; fireHeld.current = false
-    input.current = { dx: 0, dz: 0, active: false, sprint: false, yaw: camera.current.yaw }
+    input.current = { ...input.current, dx: 0, dz: 0, active: false, sprint: false, yaw: camera.current.yaw, changedAt: performance.now() }
     setStickView({ x: 0, y: 0 })
     if (pendingMove.current !== null) { clearTimeout(pendingMove.current); pendingMove.current = null }
     if (enabledRef.current && moving) actRef.current({ kind: 'move', dx: 0, dz: 0, sprint: false, yaw: camera.current.yaw, seq: ++seq.current })
@@ -157,7 +163,7 @@ export function ArenaPlay(props: StageProps) {
   }, [me])
   useEffect(() => { if (!enabled) releaseAll() }, [enabled])
   const rotateCamera = (x: number, y: number) => {
-    camera.current.yaw -= x * .005
+    camera.current.yaw = Math.atan2(Math.sin(camera.current.yaw - x * .005), Math.cos(camera.current.yaw - x * .005))
     // Keep yaw bounded for the validated movement protocol, including long mouse-look sessions.
     camera.current.yaw = Math.atan2(Math.sin(camera.current.yaw), Math.cos(camera.current.yaw))
     camera.current.pitch = Math.max(-.55, Math.min(.85, camera.current.pitch + y * .004))
