@@ -9,12 +9,15 @@ import { shortAddress } from './session'
 import { useModalFocus } from './useModalFocus'
 
 type Profile = { name: string; bio: string; hue: number; showAddress: boolean; hasImage?: boolean }
+const knownProfiles = new Map<string, Profile>()
 
 const HUES = [0, 30, 60, 90, 140, 180, 220, 270, 310, 340]
 
 export function useProfile(address: string | null, token: string | null) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [loadedAddress, setLoadedAddress] = useState<string | null>(null)
   const [revision, setRevision] = useState(() => Date.now())
   useEffect(() => {
     const refresh = () => setRevision(previous => Math.max(Date.now(), previous + 1))
@@ -24,16 +27,18 @@ export function useProfile(address: string | null, token: string | null) {
 
   useEffect(() => {
     let active = true
-    setProfile(null)
+    setLoadedAddress(address)
+    setProfile(address ? knownProfiles.get(address.toLowerCase()) ?? null : null)
+    setError(null)
     if (!address) { setLoading(false); return }
     setLoading(true)
     center.getProfile(address).then((p: any) => {
-      if (active) setProfile(p)
-    }).catch(() => { if (active) setProfile(null) }).finally(() => { if (active) setLoading(false) })
+      if (active) { knownProfiles.set(address.toLowerCase(), p); setProfile(p) }
+    }).catch(() => { if (active) setError('Could not load your saved profile. Retry before editing.') }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [address, token, revision])
 
-  return { profile, setProfile, loading, revision }
+  return { profile: loadedAddress === address ? profile : null, setProfile, loading, revision, error, retry: () => setRevision(v => v + 1) }
 }
 
 export function ProfileAvatar({ name, hue, size = 32, onClick, hasWallet }: {
@@ -157,4 +162,3 @@ export function ProfileModal({ session, profile, onClose, onSave }: {
     </div>
   )
 }
-

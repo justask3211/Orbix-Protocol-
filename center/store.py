@@ -164,8 +164,33 @@ class Store:
         self._conn.executescript(SCHEMA)
         self._migrate_admin_audit()
         self._conn.commit()
+        self._migrate_profiles()
         self._migrate_round_metadata()
         self._migrate_room_codes()
+
+    def _migrate_profiles(self) -> None:
+        """Upgrade legacy tables and recover images saved before metadata failed."""
+        import re
+        from center.avatars import avatar_path
+        from PIL import Image
+        with self.tx() as cx:
+            cx.execute("BEGIN IMMEDIATE")
+            columns = {row[1] for row in cx.execute("PRAGMA table_info(profiles)")}
+            if "has_avatar" not in columns:
+                cx.execute("ALTER TABLE profiles ADD COLUMN has_avatar INTEGER NOT NULL DEFAULT 0")
+            for path in avatar_path("0x" + "0" * 40).parent.glob("*.webp"):
+                if not re.fullmatch(r"[0-9a-f]{40}", path.stem):
+                    continue
+                try:
+                    with Image.open(path) as image:
+                        if image.format != "WEBP" or image.size != (256, 256):
+                            continue
+                        image.verify()
+                except (OSError, ValueError):
+                    continue
+                cx.execute("INSERT INTO profiles(address,has_avatar,updated_at) VALUES (?,1,?) "
+                           "ON CONFLICT(address) DO UPDATE SET has_avatar=1",
+                           ("0x" + path.stem, time.time()))
 
     def _migrate_round_metadata(self) -> None:
         """Keep the config and input boundary attached to each historical match."""

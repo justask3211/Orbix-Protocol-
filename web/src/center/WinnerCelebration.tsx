@@ -135,7 +135,7 @@ export default function WinnerCelebration({ winners, me = '', teamMode = false, 
     <ol className={`wc-podium wc-count-${podium.length}`} aria-label="Final placements">
       {order.map(winner => {
         const own = winner.wallet.toLowerCase() === me.toLowerCase()
-        const avatar = winner.avatar && !winner.avatar.includes('\\') && (winner.avatar.startsWith('/center/') || winner.avatar.startsWith('/api/center/v1/profiles/')) ? winner.avatar : undefined
+        const avatar = winner.avatar && !winner.avatar.includes('\\') && (winner.avatar.startsWith('/center/') || winner.avatar.startsWith('/api/center/v1/profile/image/')) ? winner.avatar : undefined
         return <li key={`${winner.wallet}:${winner.rank}`} className={`wc-place wc-place-${winner.rank}${own ? ' wc-mine' : ''}`}>
           <span className="wc-rank" aria-label={`Rank ${winner.rank}`}>{winner.rank === 1 ? '♛' : winner.rank}<small>{winner.rank === 1 ? '1ST' : winner.rank === 2 ? '2ND' : '3RD'}</small></span>
           <div className="wc-person"><span className="wc-avatar" aria-hidden="true">{personName(winner).slice(0, 2).toUpperCase()}{avatar && <img src={avatar} alt="" loading="lazy" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true }} />}</span><div><strong>{personName(winner)}</strong><small>{own ? 'YOU' : teamMode ? 'CREW' : shortWallet(winner.wallet)}</small></div></div>

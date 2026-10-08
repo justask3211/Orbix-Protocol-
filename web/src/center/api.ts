@@ -60,6 +60,7 @@ export type RoomDetail = {
   communitySettings?: { muteChat: boolean; hidePlayers: boolean; hideGuesses: boolean }
   rematch?: {supported:boolean;requiresFreshRoom:boolean;reason?:string}
   settlement?: Settlement | null
+  settlementAccess?: 'available' | 'session-required' | 'admission-required' | 'pending'
 }
 
 export type Allocation = {

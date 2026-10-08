@@ -124,7 +124,7 @@ function ProfileTopButton({ session, onOpen }: { session: ReturnType<typeof useS
   if (!session.token) return null
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }}>
+    <div className="ct-profile-control" style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }}>
       {profile?.name && <span style={{ fontSize: 12, color: '#c9c6c0', fontWeight: 600 }}>{profile.name}</span>}
       {avatarUrl && avatarLoaded ? (
         <button onClick={onOpen} className="pf-avatar" style={{ padding: 0, overflow: 'hidden' }}
@@ -1069,7 +1069,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   const placement = settlement ? localPlacement(settlement.results, me, state.teams, state.teamRankings) : undefined
   useEffect(() => {
     if (!finished) { scrolledResult.current = null; return }
-    if (!settlement || expanded || podium.length > 0 && presentedRound !== currentRound || scrolledResult.current === currentRound) return
+    if (expanded || settlement && podium.length > 0 && presentedRound !== currentRound || scrolledResult.current === currentRound) return
     // Wait for the expanded view's overflow cleanup and the result anchor layout.
     const frame = requestAnimationFrame(() => {
       const element = resultElement.current
@@ -1304,7 +1304,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       {isHost && finished && room && <section className="ct-rematch-panel"><div><span>KEEP THE CREW TOGETHER</span><h2>One more round?</h2><p>{room.rematch?.supported ? 'Keep this room and its players. Each match gets its own result, and everyone confirms readiness again.' : 'This room uses a financial entry or funded reward. A fresh room and funding are required for the next match.'}</p></div><div className="ct-actions">{room.rematch?.supported ? <><button className="btn-primary" disabled={busy} onClick={() => void playAgain()}>Play again · same settings</button><button className="btn-ghost" disabled={busy} onClick={() => setEditingRematch(true)}>Edit next match</button></> : <button className="btn-primary" onClick={() => go(`/center/create/${templateId}?from=${roomId}`)}>Prepare a fresh room</button>}</div></section>}
       {editingRematch && room && <Suspense fallback={<p role="status">Opening next-match settings…</p>}><RematchSettings room={room} onClose={() => setEditingRematch(false)} onSave={playAgain} /></Suspense>}
       {finished && <section ref={resultElement} className="ct-round-results" tabIndex={-1} aria-label="Round results">
-      {!settlement && <p role="status">Round complete. Confirming final placements…</p>}
+      {!settlement && <div role="status"><h2>Round complete</h2><p>{room?.settlementAccess === 'session-required' ? 'Sign in with the wallet you used for this round to view your results and rewards. Your session may have expired.' : room?.settlementAccess === 'admission-required' ? 'Results and rewards are available to admitted players. This wallet did not join this round.' : 'The server is finalizing placements. You can retry while settlement completes.'}</p><button className="btn-ghost" onClick={() => void refresh()}>Retry results</button></div>}
       {settlement && podium.length > 0 && <Suspense fallback={<p role="status">Raising the winners’ podium…</p>}><WinnerCelebration winners={podium} me={me} localPlacement={placement} onPresented={onPodiumPresented} teamMode={templateId === 'boss-raid'} /></Suspense>}
       {settlement && (
         <section className="ct-panel">
@@ -1419,6 +1419,16 @@ export function CenterApp() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [route])
 
+  const headerElement = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const element = headerElement.current
+    if (!element) return
+    const measure = () => document.documentElement.style.setProperty('--ct-header-height', `${element.getBoundingClientRect().height}px`)
+    const observer = new ResizeObserver(measure)
+    observer.observe(element); measure()
+    return () => observer.disconnect()
+  }, [])
+
   const body = useMemo(() => {
     switch (route.name) {
       case 'create':
@@ -1441,7 +1451,7 @@ export function CenterApp() {
   return (
     <div className="ct-app">
       <a className="ct-skip-link" href="#center-main">Skip to content</a>
-      <header className="ct-topbar">
+      <header className="ct-topbar" ref={headerElement}>
         <a className="ct-brand" href="/center" onClick={(e) => { e.preventDefault(); go('/center') }}>
           <span className="ct-brand-orbit" aria-hidden="true"><i /></span>
           <span className="brand-text">
@@ -1486,13 +1496,7 @@ export function CenterApp() {
 
 
 function ProfileModalWrapper({ session, onClose }: { session: ReturnType<typeof useSession>; onClose: () => void }) {
-  const [profile, setProfile] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    if (session.address) {
-      center.getProfile(session.address).then(setProfile).catch(() => setProfile(null)).finally(() => setLoading(false))
-    }
-  }, [session.address])
-  if (loading) return null
-  return <ProfileModal session={session} profile={profile} onClose={onClose} onSave={() => {}} />
+  const {profile, loading, error, retry, setProfile} = useProfile(session.address, session.token)
+  if (loading || error || !profile) return <div className="wl-backdrop"><div className="wl-modal pf-modal" role="dialog" aria-modal="true" aria-label="Profile unavailable"><button className="wl-close" onClick={onClose} aria-label="Close">✕</button><h3>Your profile</h3>{profile && <p>{profile.name}<br/>{profile.bio}</p>}<p role={error ? 'alert' : 'status'}>{error ?? 'Loading your saved profile…'}</p>{error && <button className="btn-primary" onClick={retry}>Retry profile</button>}</div></div>
+  return <ProfileModal key={session.address} session={session} profile={profile} onClose={onClose} onSave={setProfile} />
 }

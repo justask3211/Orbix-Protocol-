@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, RefreshCw, Sparkles } from 'lucide-react'
 import { FOUR_STAGE_VIEWS } from './GamePlayStages'
 import { FEATURED_GAMES } from './featuredGames'
+import { localPlacement } from './resultPresentation'
 import './practice.css'
 const WinnerCelebration = lazy(() => import('./WinnerCelebration'))
 
@@ -18,6 +19,24 @@ export function PracticeArena({templateId,navigate}:{templateId:string;navigate:
   const [practice,setPractice] = useState<Practice|null>(null)
   const [error,setError] = useState<string|null>(null)
   const [retry,setRetry] = useState(0)
+  const resultElement = useRef<HTMLElement>(null)
+  const scrolled = useRef<string | null>(null)
+  const [presented, setPresented] = useState<string | null>(null)
+  const practiceId = practice?.practiceId
+  const finished = Boolean(practice?.state.finished)
+  const placements = practice?.state.finalPlacements ?? []
+  const hasPodium = placements.some((row: any) => row.rank <= 3)
+  useEffect(() => {
+    if (!finished) { scrolled.current = null; return }
+    if (!practiceId || hasPodium && presented !== practiceId || scrolled.current === practiceId) return
+    const frame = requestAnimationFrame(() => {
+      if (!resultElement.current) return
+      scrolled.current = practiceId
+      resultElement.current.focus({preventScroll:true})
+      resultElement.current.scrollIntoView({block:'start',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'})
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [practiceId, finished, hasPodium, presented])
   const latest = useRef<Practice|null>(null)
   const pending = useRef(false)
   const generation = useRef(0)
@@ -80,7 +99,6 @@ export function PracticeArena({templateId,navigate}:{templateId:string;navigate:
     {error && <p role="alert" className="ct-error">{error}</p>}
     {!practice && !error && <section className="ct-practice-loader" role="status"><span aria-hidden="true">✦</span><h2>Preparing your playground</h2><p>Loading a small world and its controls…</p></section>}
     {practice && Stage && <Stage state={{...practice.state,_practice:true,roundId:practice.practiceId,_roomId:practice.practiceId,_roundId:practice.practiceId,__deadline:practice.deadline,_serverOffsetMs:practice.serverTimeMs-Date.now(),_canAct:!practice.state.finished,_connection:'open',_actionError:actionError.current}} act={act} me={practice.me} players={practice.players} finished={Boolean(practice.state.finished)}/>}
-    {practice?.state.finished && <aside className="ct-practice-result"><strong>Practice complete</strong><p>Try another character, restart, or create a multiplayer room from the game center.</p></aside>}
-    {practice?.state.finished && <Suspense fallback={<p role="status">Preparing practice results…</p>}><WinnerCelebration winners={(practice.state.finalPlacements ?? []).filter((row: any) => row.rank <= 3).slice(0,3).map((row: any) => ({wallet:row.who,name:row.who===practice.me?'You':'Practice bot',rank:row.rank,score:row.score,character:practice.state.bodies?.[row.who]?.character}))} me={practice.me} title="Practice honors" rewardNote="Practice scores have no token payouts, entry payments or claims." /></Suspense>}
+    {practice?.state.finished && <section ref={resultElement} className="ct-round-results" tabIndex={-1} aria-label="Practice results"><aside className="ct-practice-result"><strong>Practice complete</strong><p>Try another character, restart, or create a multiplayer room from the game center.</p></aside><Suspense fallback={<p role="status">Preparing practice results…</p>}><WinnerCelebration winners={placements.filter((row: any) => row.rank <= 3).slice(0,3).map((row: any) => ({wallet:row.who,name:row.who===practice.me?'You':'Practice bot',rank:row.rank,score:row.score,character:practice.state.bodies?.[row.who]?.character}))} me={practice.me} localPlacement={localPlacement(placements,practice.me,practice.state.teams,practice.state.teamRankings)} onPresented={() => setPresented(practice.practiceId)} rewardNote="Practice scores have no token payouts, entry payments or claims." /></Suspense></section>}
   </main>
 }
