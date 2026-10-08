@@ -33,6 +33,7 @@ import { bindRoomOnChain, payJoinToken as payJoinTokenGated } from './gate'
 import { TxPreview } from './funds'
 import { SharePanel } from './SharePanel'
 import { ProfileAvatar, ProfileModal } from './ProfilePanel'
+import { CreatorTokenFees, RoomRewardsGuide } from './CreatorEconomy'
 import { localPlacement } from './resultPresentation'
 import { useProfile } from './ProfilePanel'
 import { copyText } from './share'
@@ -306,7 +307,7 @@ function WizardStepper({ current, onChange, disabled }: { current: number; onCha
   return (
     <nav className="wz-stepper" aria-label="Create-room steps">
       {WIZARD_STEPS.map((st) => (
-        <button type="button" key={st.n} disabled={disabled} onClick={() => onChange(st.n)} aria-current={st.n === current ? 'step' : undefined} className={`wz-step${st.n < current ? ' done' : st.n === current ? ' on' : ''}`}>
+        <button type="button" key={st.n} disabled={disabled} onClick={() => onChange(st.n)} aria-label={`${st.n} ${st.label}`} aria-current={st.n === current ? 'step' : undefined} className={`wz-step${st.n < current ? ' done' : st.n === current ? ' on' : ''}`}>
           <span className="wz-num">{st.n < current ? '✓' : st.n}</span>
           <span className="wz-label">{st.label}</span>
         </button>
@@ -768,6 +769,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
           <ArcadeNumber label={sourceOnchain ? 'Creator vault fee (token base units)' : 'Play fee (preview credits)'} value={draft.requiredAmount} minimum={0} error={feeErrors.requiredAmount} onChange={value => set('requiredAmount',value)} help={sourceOnchain ? 'Retains the original onchain vault token. Confirm independent funding before starting this new room.' : 'Deducted from your preview-credit ledger when you publish.'} />
           <ArcadeNumber label={sourceOnchain ? "Joiner vault fee (token base units)" : "Joiner fee per player (preview credits)"} value={draft.entryToken ? 0 : draft.joinerFee} minimum={0} error={feeErrors.joinerFee} onChange={value => set('joinerFee',draft.entryToken ? 0 : value)} help={draft.entryToken ? 'Token entry is enabled; no extra preview joiner fee is charged.' : 'Each player pays this unless you absorb it.'} />
           <ArcadeToggle label={sourceOnchain ? "I cover joiner vault fees" : "I cover preview joiner fees"} description={sourceOnchain ? "The creator pays the applicable vault fees in the retained token." : "The creator pays the applicable preview-credit joiner fees."} checked={draft.absorbsJoinerFee} onChange={checked => set('absorbsJoinerFee',checked)} />
+          <CreatorTokenFees token={draft.entryToken} amount={draft.entryAmount} payoutMode={draft.payoutMode} payoutAddress={draft.payoutAddress} creatorAddress={session.address}>
           <label>
             <span>Join token contract (any ERC-20, optional)</span>
             <input
@@ -797,10 +799,11 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
                 </label>
               )}
               {draft.payoutMode === 'burn' && (
-                <div className="wz-why">Tokens will be sent to 0x…dEaD. This is irreversible — the supply shrinks with every join.</div>
+                <div className="wz-why">Tokens go to 0x…dEaD and become unavailable. This is irreversible; it does not guarantee a reduction in the token’s reported total supply.</div>
               )}
             </>
           )}
+          </CreatorTokenFees>
           <ArcadeChoices label="When does your lobby open?" value={draft.openMode ?? 'now'} onChange={value => set('openMode',value as 'now' | 'schedule')} options={[{value:'now',label:'Right now',description:'Invite players as soon as you publish.'},{value:'schedule',label:'Schedule it',description:'Set a start time for your community.'}]} />
           {draft.openMode === 'schedule' && (
             <label>
@@ -814,7 +817,9 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
             </label>
           )}
           <ArcadeNumber label="Auto-close after (hours, 0 = never)" minimum={0} maximum={168} value={draft.closeAfterHours ?? 0} onChange={value => set('closeAfterHours',value)} error={feeErrors.closeAfterHours} />
+          <RoomRewardsGuide funded={Boolean(sourceFunding)}>
           {sourceFunding ? <div className="wz-why"><strong>Original funded prize configuration retained</strong><p>This new room needs its own confirmed prize inventory. Previous match deposits and claims stay with the original room. Fund the new room before starting.</p></div> : draft.templateId==='token-catch' && Number(draft.rules.world_version)>=3 ? <ArcadeNumber label="Total airdrop loot pool (preview units)" minimum={1} maximum={10000} value={Number(draft.rules.loot_budget)} onChange={value=>setRule('loot_budget',value)} error={ruleErrors.loot_budget} help="The complete pool is split across the scheduled airdrops. Every collector receives their final collected share as preview points. These are game units, not a wallet transfer."/> : <ArcadeNumber label={draft.templateId==='boss-raid' ? 'Total crew prize pool (preview points)' : 'Winner points (preview)'} minimum={0} value={draft.rewardPoints} onChange={value => set('rewardPoints',value)} error={feeErrors.rewardPoints} help={draft.templateId === 'boss-raid' ? 'This is the complete prize pool. The podium percentages split it between qualifying crews, then the chosen member rule divides each crew share. Game points are separate from wallet tokens.' : 'Game points are separate from wallet tokens. Set to 0 for no preview points.'} />}
+          </RoomRewardsGuide>
         </div>
 
         <div className="wz-why" style={{ marginTop: 14 }}>

@@ -1,0 +1,51 @@
+import { useState, type ReactNode } from 'react'
+import { ArrowRight, BadgeCheck, Coins, Flame, Gift, KeyRound, Layers, Link, Receipt, ShieldCheck, Sparkles, Trophy, Wallet, type LucideIcon } from 'lucide-react'
+import './creatorEconomy.css'
+
+type Step = {icon:LucideIcon;title:string;detail:string}
+function Flow({steps,label}:{steps:Step[];label:string}) {
+  return <ol className="ec-flow" aria-label={label}>{steps.map((step,index)=><li key={step.title}><span className="ec-step-icon"><step.icon size={22} aria-hidden="true"/><small>{index+1}</small></span><strong>{step.title}</strong><p>{step.detail}</p>{index<steps.length-1&&<ArrowRight className="ec-flow-arrow" size={18} aria-hidden="true"/>}</li>)}</ol>
+}
+const short = (address?:string|null) => address ? `${address.slice(0,6)}…${address.slice(-4)}` : 'Creator wallet'
+export function CreatorTokenFees({token,amount,payoutMode,payoutAddress,creatorAddress,children}:{token:string;amount:number;payoutMode?:string;payoutAddress?:string;creatorAddress?:string|null;children:ReactNode}) {
+  const destination = payoutMode==='burn'?'Burn address · 0x…dEaD':payoutMode==='custom'?short(payoutAddress):short(creatorAddress)
+  return <section className="ec-section ec-entry" aria-labelledby="creator-token-fees-title">
+    <header className="ec-heading"><span className="ec-kicker"><Coins size={16}/> YOUR COMMUNITY, YOUR TOKEN</span><h3 id="creator-token-fees-title">Creator token fees</h3><p>Choose any ERC-20 on the room’s chain. Each joiner pays from their own wallet; you choose the destination.</p><span className="ec-current">{token?`${amount} tokens per joiner`:'Optional · leave the contract empty for free token entry'}</span></header>
+    <Flow label="How creator token fees work" steps={[
+      {icon:Link,title:'Choose a token',detail:'Paste its contract address. You do not need to have created or held the token.'},
+      {icon:Coins,title:'Set the entry amount',detail:'Choose whole token units per joiner. The gate reads the token’s decimals.'},
+      {icon:Wallet,title:'Joiners approve + pay',detail:'Their wallet authorizes the gate, then confirms the join payment.'},
+      {icon:payoutMode==='burn'?Flame:Receipt,title:'Your chosen payout',detail:token?destination:'Creator wallet, another address, or the burn address.'},
+    ]}/>
+    <div className="ec-fields">{children}</div>
+    <div className="ec-transfer" aria-label="Entry payment flow"><span><Wallet size={20}/><b>Joiner’s wallet</b><small>{token?`${amount} chosen tokens`:'Chosen ERC-20 + amount'}</small></span><ArrowRight aria-hidden="true"/><span><ShieldCheck size={20}/><b>Creator token gate</b><small>Checks the room’s entry rules</small></span><ArrowRight aria-hidden="true"/><span>{payoutMode==='burn'?<Flame size={20}/>:<Wallet size={20}/>}<b>{destination}</b><small>{payoutMode==='burn'?'Irreversible transfer':'Receives the entry payment'}</small></span></div>
+    <div className="ec-contract-strip"><span className="ec-kicker">WHAT THE JOINER’S WALLET WILL SHOW</span><ol><li><span>01</span><div><b>Approve the token</b><code>approve(gate, amount)</code><small>On the token contract. Skipped if allowance already covers entry.</small></div></li><li><span>02</span><div><b>Pay and join</b><code>join(roomId)</code><small>On the gate. Transfers the entry amount to {destination}.</small></div></li></ol><p>Publishing a token-entry room also asks the creator to bind its entry rules on-chain. Entry payments and reward funding are separate.</p></div>
+  </section>
+}
+
+type RewardType='points'|'token'|'nft'|'eth'|'key'
+const REWARDS:Record<RewardType,{title:string;icon:LucideIcon;setup:string;winner:string;steps:Step[]}>={
+  points:{title:'Preview points',icon:Sparkles,setup:'Set the points or total game pool below. The server applies the game’s verified placement rules.',winner:'Confirmed game points in room results. These are separate from wallet balances.',steps:[{icon:Coins,title:'Set points',detail:'Choose the pool using the room’s settings.'},{icon:Trophy,title:'Play the round',detail:'Server-confirmed outcomes determine allocations.'},{icon:Receipt,title:'See the result',detail:'Points appear with final placements.'}]},
+  token:{title:'Creator token',icon:Coins,setup:'In a funded setup, choose the ERC-20 contract, token base-unit amount and prize slots. Approve and deposit the pool before entry.',winner:'Token entitlement, claim deadline and transaction status. Receipt confirmation proves the payout.',steps:[{icon:Link,title:'Token + amount',detail:'Choose the contract and allocations.'},{icon:Wallet,title:'Approve + fund',detail:'Deposit real tokens in the reward pool.'},{icon:Trophy,title:'Settle + claim',detail:'Winners receive eligible claims under the chosen mode.'}]},
+  nft:{title:'NFT',icon:Gift,setup:'In a funded setup, choose ERC-721 or ERC-1155, the collection contract, token ID and any quantity. Approve the NFT contract and deposit each prize.',winner:'The collection and token ID, eligibility, deadline and transfer receipt.',steps:[{icon:Gift,title:'Choose the NFT',detail:'Collection, ID and quantity identify the prize.'},{icon:ShieldCheck,title:'Approve + deposit',detail:'Fund the pool with the actual NFT.'},{icon:Wallet,title:'Transfer to winner',detail:'The claim’s confirmed receipt proves delivery.'}]},
+  eth:{title:'ETH',icon:Wallet,setup:'In a funded setup, choose a native-currency amount in wei, allocations and a deadline; fund the pool with the transaction value.',winner:'Native-currency claim amount and receipt status on the selected chain.',steps:[{icon:Coins,title:'Set the amount',detail:'Specify native currency in wei.'},{icon:Wallet,title:'Fund the pool',detail:'Confirm the deposit transaction and chain.'},{icon:Receipt,title:'Claim + receipt',detail:'A confirmed transfer establishes the payout.'}]},
+  key:{title:'Private-key wallet',icon:KeyRound,setup:'For a separately managed reward, create a fresh wallet, fund it and register only its derived address. Arrange private off-chain key delivery to the recipient.',winner:'Private delivery of the recovery key, followed by importing the wallet and checking its funded balance.',steps:[{icon:KeyRound,title:'Fresh wallet',detail:'Create and fund a dedicated reward address.'},{icon:Link,title:'Register address',detail:'Only the derived address belongs in public records.'},{icon:Wallet,title:'Private delivery',detail:'The recipient imports the key and can sweep the wallet.'}]},
+}
+const MODES={
+  auto:{title:'Auto',icon:Wallet,detail:'The settlement authority submits a push transaction. The winner sees funds received only after its receipt is confirmed.',steps:['Confirmed allocations','Authority submits push','Winner checks receipt']},
+  code:{title:'Code',icon:KeyRound,detail:'The eligible wallet receives a signed, wallet-bound code. Redeem it before the deadline and confirm the receipt.',steps:['Wallet-bound code','Winner redeems','Receipt confirmed']},
+  merkle:{title:'Merkle',icon:Layers,detail:'The creator commits the allocation root. An eligible wallet submits its allocation and proof; the contract verifies membership.',steps:['Allocation root','Wallet + proof','Contract verifies']},
+  open:{title:'Open',icon:Gift,detail:'The first configured number of eligible claimants can claim before expiry. This mode does not reserve a prize for the match winner.',steps:['Set claim capacity','First eligible claims','Capacity exhausted']},
+}
+export function RoomRewardsGuide({funded,children}:{funded:boolean;children:ReactNode}) {
+  const [reward,setReward]=useState<RewardType>(funded?'token':'points'),[mode,setMode]=useState<keyof typeof MODES>('code')
+  const selected=REWARDS[reward],claim=MODES[mode]
+  return <section className="ec-section ec-rewards" aria-labelledby="room-rewards-title">
+    <header className="ec-heading"><span className="ec-kicker"><Trophy size={16}/> FROM GREAT PLAY TO A CLEAR RESULT</span><h3 id="room-rewards-title">Room rewards</h3><p>Explore each reward’s setup and what the recipient sees. Reward funding is independent of token entry fees.</p><span className="ec-current">This room uses {funded?'the original funded prize configuration':'preview points'}</span></header>
+    <div className="ec-reward-types" role="group" aria-label="Explore reward types">{(Object.keys(REWARDS) as RewardType[]).map(type=>{const item=REWARDS[type];return <button key={type} type="button" aria-pressed={reward===type} onClick={()=>setReward(type)}><item.icon size={24} aria-hidden="true"/><b>{item.title}</b><small>{type==='points'?'Configure below':type==='key'?'Separate delivery':'Requires funded setup'}</small></button>})}</div>
+    <div className="ec-reward-guide" aria-live="polite"><h4><selected.icon size={20}/>{selected.title}</h4><Flow label={`${selected.title} reward flow`} steps={selected.steps}/><div className="ec-two-sides"><p><b>Creator sets</b>{selected.setup}</p><p><b>Recipient sees</b>{selected.winner}</p></div></div>
+    <div className="ec-current-settings"><h4><BadgeCheck size={18}/> Current room reward settings</h4>{children}</div>
+    <div className="ec-claim-guide"><header><h4>How a funded prize is claimed</h4><p>These explain the reward contract’s modes. Exploring a mode here does not change this room’s configuration.</p></header><div className="ec-mode-options" role="group" aria-label="Explore reward claim modes">{(Object.keys(MODES) as (keyof typeof MODES)[]).map(key=>{const item=MODES[key];return <button type="button" key={key} aria-pressed={mode===key} onClick={()=>setMode(key)}><item.icon size={18}/>{item.title}</button>})}</div><p className="ec-mode-detail" aria-live="polite">{claim.detail}</p><ol className="ec-claim-strip">{claim.steps.map((step,index)=><li key={step}><span>{index+1}</span>{step}{index<2&&<ArrowRight size={16} aria-hidden="true"/>}</li>)}</ol></div>
+    <p className="ec-footnote">{funded?'Confirm fresh inventory for this new room. Existing deposits and claims stay with the original match.':'Publishing this wizard creates a preview-point room. Token, NFT and ETH prizes require a separate funded contract setup; key-wallet delivery is handled off-chain.'}</p>
+  </section>
+}
