@@ -9,3 +9,4 @@ eth-abi==6.0.0
 eth-utils==6.0.0
 eth-hash==0.8.0
 pycryptodome==3.23.0
+Pillow==12.3.0

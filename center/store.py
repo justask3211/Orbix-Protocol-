@@ -269,8 +269,11 @@ class Store:
 
     def set_profile_avatar(self, address: str, has_avatar: bool) -> None:
         with self.tx() as cx:
-            cx.execute("UPDATE profiles SET has_avatar = ? WHERE address = ?",
-                       (int(has_avatar), address.lower()))
+            cx.execute(
+                "INSERT INTO profiles (address, has_avatar, updated_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(address) DO UPDATE SET has_avatar=excluded.has_avatar, updated_at=excluded.updated_at",
+                (address.lower(), int(has_avatar), time.time()),
+            )
 
     def has_avatar(self, address: str) -> bool:
         with self.tx() as cx:

@@ -1043,7 +1043,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         if not profile:
             return {"address": address.lower(), "name": "", "bio": "", "hue": 0, "showAddress": True}
         result = {"name": profile["name"], "bio": profile["bio"], "hue": profile["hue"],
-                  "showAddress": profile["showAddress"]}
+                  "showAddress": profile["showAddress"], "hasImage": store.has_avatar(address)}
         if profile["showAddress"]:
             result["address"] = address.lower()
         return result
@@ -1071,59 +1071,37 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         if not isinstance(addresses, list) or len(addresses) > 100:
             raise HTTPException(422, detail={"code": "BAD_INPUT", "message": "addresses must be a list (max 100)"})
         profiles = store.get_profiles_bulk(addresses)
-        return {addr: {"name": p["name"], "hue": p["hue"], "showAddress": p["showAddress"]}
+        return {addr: {"name": p["name"], "hue": p["hue"], "showAddress": p["showAddress"], "hasImage": store.has_avatar(addr)}
                 for addr, p in profiles.items()}
 
     # ------------------------------------------------------------------ profile images
 
     @app.post(f"{API_PREFIX}/profile/image")
-    async def upload_profile_image(body: dict, who: str = Depends(require_wallet)) -> dict:
-        """Upload a profile image. Accepts base64-encoded JPEG/PNG (max 2MB raw).
-        Server-side: decodes, validates, resizes to 256x256 WebP for storage.
-        Serves at GET /profile/image/{{address}}. Stored in /data/avatars/."""
-        import base64 as b64
-        import struct
-
-        if not (flags.real_burn and flags.vault_token and flags.vault_address):
-            raise HTTPException(409, detail={"code": "FUNDED_DISABLED", "message": "image uploads require funded mode"})
-
-        data_b64 = body.get("image", "")
-        if not data_b64 or not data_b64.startswith("data:image/"):
-            raise HTTPException(422, detail={"code": "BAD_IMAGE", "message": "expected data:image/... base64 string"})
+    def upload_profile_image(body: dict, who: str = Depends(require_wallet)) -> dict:
+        from center.avatars import prepare_avatar, write_avatar
         try:
-            header, encoded = data_b64.split(",", 1)
-            raw = b64.b64decode(encoded)
-        except Exception:
-            raise HTTPException(422, detail={"code": "BAD_IMAGE", "message": "invalid base64"})
-        if len(raw) > 2 * 1024 * 1024:
-            raise HTTPException(422, detail={"code": "TOO_LARGE", "message": "image must be under 2MB"})
-
-        # The frontend converts to WebP via canvas before upload, so we accept any
-        # image magic bytes here — the validation is "it decoded as base64 and is
-        # under 2MB". The frontend guarantees WebP format via canvas.toBlob().
-        # Store as-is.
-        avatars_dir = os.environ.get("CENTER_AVATARS_DIR", "/data/avatars")
-        os.makedirs(avatars_dir, exist_ok=True)
-        filename = f"{who.lower().removeprefix('0x')}.webp"
-        filepath = os.path.join(avatars_dir, filename)
-        with open(filepath, "wb") as f:
-            f.write(raw)
-
-        # update profile with the avatar flag
+            data = prepare_avatar(body.get("image"))
+        except ValueError as error:
+            raise HTTPException(422, detail={"code": "BAD_IMAGE", "message": str(error)})
+        version = write_avatar(who, data)
         store.set_profile_avatar(who.lower(), True)
-        return {"ok": True, "url": f"{API_PREFIX}/profile/image/{who.lower()}"}
+        return {"ok": True, "url": f"{API_PREFIX}/profile/image/{who.lower()}?v={version}"}
 
     @app.get(f"{API_PREFIX}/profile/image/{{address}}")
     def serve_profile_image(address: str):
-        """Serve the profile image. Returns 404 if not uploaded."""
-        from fastapi.responses import FileResponse
-        avatars_dir = os.environ.get("CENTER_AVATARS_DIR", "/data/avatars")
-        filename = f"{address.lower().removeprefix('0x')}.webp"
-        filepath = os.path.join(avatars_dir, filename)
-        if not os.path.exists(filepath):
+        from center.avatars import avatar_path
+        from fastapi.responses import Response
+        if not re.fullmatch(r"0x[0-9a-f]{40}", address.lower()):
+            raise HTTPException(422, detail={"code": "BAD_ADDRESS", "message": "invalid address"})
+        try:
+            # Read once: FileResponse stat/open can straddle an atomic overwrite.
+            data = avatar_path(address).read_bytes()
+        except FileNotFoundError:
             raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "no profile image"})
-        return FileResponse(filepath, media_type="image/webp",
-                            headers={"Cache-Control": "public, max-age=300"})
+        return Response(data, media_type="image/webp", headers={
+            "Cache-Control": "no-cache", "ETag": f'"{hashlib.sha256(data).hexdigest()}"',
+            "X-Content-Type-Options": "nosniff",
+        })
 
     # ------------------------------------------------------------------ websocket
 

@@ -8,13 +8,19 @@ import { ProfileImageUpload } from './ProfileImage'
 import { shortAddress } from './session'
 import { useModalFocus } from './useModalFocus'
 
-type Profile = { name: string; bio: string; hue: number; showAddress: boolean }
+type Profile = { name: string; bio: string; hue: number; showAddress: boolean; hasImage?: boolean }
 
 const HUES = [0, 30, 60, 90, 140, 180, 220, 270, 310, 340]
 
 export function useProfile(address: string | null, token: string | null) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(false)
+  const [revision, setRevision] = useState(() => Date.now())
+  useEffect(() => {
+    const refresh = () => setRevision(previous => Math.max(Date.now(), previous + 1))
+    window.addEventListener('orbix-profile-changed', refresh)
+    return () => window.removeEventListener('orbix-profile-changed', refresh)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -25,9 +31,9 @@ export function useProfile(address: string | null, token: string | null) {
       if (active) setProfile(p)
     }).catch(() => { if (active) setProfile(null) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [address, token])
+  }, [address, token, revision])
 
-  return { profile, setProfile, loading }
+  return { profile, setProfile, loading, revision }
 }
 
 export function ProfileAvatar({ name, hue, size = 32, onClick, hasWallet }: {
@@ -69,13 +75,14 @@ export function ProfileModal({ session, profile, onClose, onSave }: {
   const [showAddr, setShowAddr] = useState(profile?.showAddress ?? true)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [hasImage, setHasImage] = useState(false) // fetch from API in useEffect
+  const [hasImage, setHasImage] = useState(Boolean(profile?.hasImage))
   const dialog = useModalFocus(onClose)
 
   const save = async () => {
     setBusy(true); setErr(null)
     try {
       const res = await center.setProfile(session.token!, { name, bio, hue, showAddress: showAddr })
+      window.dispatchEvent(new Event('orbix-profile-changed'))
       onSave(res)
       onClose()
     } catch (e: any) {
