@@ -28,3 +28,14 @@ npm run build passed. Canvas error/crop regression passed. Local Chromium
 verified actual PNG selection/crop/export/POST, header avatar, reload and modal
 reopen. Concurrent writes, strict bad-input rejection, limits and auth tested.
 Production volume permissions/availability remain untested; no live upload made.
+
+## Task 2 — finish navigation and greeting
+
+A stable result anchor receives focus and scroll once per round after expanded
+play closes and the lazy celebration DOM mounts. Waiting for lazy mounting
+fixes a browser-reproduced layout race where scrolling a short fallback left
+the later podium below the viewport. Reduced motion uses instant scrolling.
+Greetings address the winner or show the local server rank (including #9),
+with crew placement for raids and the complete server-ranked results below.
+No client winner/score calculation was added. Seven presentation regressions
+and fourteen verified-podium cases pass; 505 Python tests and tsc/build pass.
