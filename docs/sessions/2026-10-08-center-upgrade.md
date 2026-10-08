@@ -163,3 +163,48 @@ Evidence: five minimum-length/boundary/collision/migration/concurrency checks
 failed on the old allocator, then passed after the fix. A legacy 123 API link
 resolves before and after database reopen. 508 Python tests, tsc -b --noEmit and
 build passed. No production database migration was executed.
+
+## Task 8 — administrator operations
+
+Game settings reuse bannerArt.tsx's original SCENES via GameBanner, next to each
+server-listed game's availability flags and current maintenance note. Responsive
+layouts retain trial links for the supported player-facing lineup. The live room
+overview refreshes every five seconds while visible, supports pause/resume and
+manual refresh, and reports running/waiting/archived rooms and admitted players
+for the current page. Pagination and the disconnected-player limitation are
+explicit. Stale reads from an old session/page are ignored; failed polling keeps
+the last successful snapshot and exposes an error.
+
+Platform fee controls show current values, actual API caps, a draft preview and
+reset. The old panel looked for creatorFeeCap/joinerFeeCap, whereas the API returns
+creatorFee/joinerFee; this mismatch is corrected. Invalid/over-cap/unchanged saves
+are disabled. Background reads and flag updates preserve dirty fee drafts.
+Existing single-use nonce/message/signature proof helpers and server money flows
+are unchanged. Observation still occupies no player slot.
+
+Evidence: 508 Python tests, tsc -b --noEmit and build passed. A committed browser
+regression uses mock admin endpoints and a disposable wallet, tests polling,
+pause/resume, draft preservation, caps, banners and 1200/390/320px overflow, and
+recovers the wallet address from each distinct mutation signature. Phone card
+and fee screenshots reviewed. Real production administrator mutations and live
+funded payouts were not performed.
+
+## Final verification
+
+Latest source/build passed 508 Python tests across center/tests and the community
+suite, tsc -b --noEmit, and npm run build. All nine focused Node regression
+scripts passed: avatar conversion, result presentation, verified podium, movement,
+synthetic network jitter, item geometry/attachments/dissolve, actual rig/LOD
+animation lifecycle, rematch schema compatibility and wallet session completion.
+Final Chromium pass confirmed avatar upload/topbar/reload, finished-round scroll
+in both motion settings, wizard layouts, and V4 Duel/Boss Raid/Token Catch scenes
+with accepted held-key movement, jump and stop. Admin fixture tests verified the
+signed messages by recovering the disposable wallet's address. Both dist trees
+have identical file manifests (114 files). Tracked incidental bytecode changes
+were restored.
+
+Unproven: sustained human multiplayer/reconnect under real network variance,
+physical-phone frame rate/thermal behavior, every equipment pose in human play,
+production storage migration, production admin mutations and actual funded
+contract transactions. Synthetic RTT and software-rendered Chromium are not
+physical-device performance measurements. No Railway deployment was performed.
