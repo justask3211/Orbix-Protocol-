@@ -1,3 +1,4 @@
+import type { Appearance, Cosmetics } from './characters'
 // Orbix Center API client. One place that knows the wire format, so no component
 // hand-rolls a fetch and drifts from the backend contract.
 
@@ -50,6 +51,7 @@ export type RoomDetail = {
   timing?: { open_at?: number; close_at?: number }
   teams?: Record<string, string>
   characters?: Record<string,string>
+  appearances?: Record<string,Appearance>
   gameStatus?: 'live'|'maintenance'|'offline'
   maintenanceMessage?: string
   archived?: boolean
@@ -141,7 +143,7 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string |
 }
 
 export const center = {
-  getProfiles: (addresses: string[]) => request<Record<string,{name:string;hue?:number;showAddress?:boolean}>>('/profiles/batch', {method:'POST',body:JSON.stringify({addresses})}),
+  getProfiles: (addresses: string[]) => request<Record<string,{name:string;hue?:number;showAddress?:boolean;hasImage?:boolean;character?:string;cosmetics?:Cosmetics}>>('/profiles/batch', {method:'POST',body:JSON.stringify({addresses})}),
   chooseCharacter:(roomId:string,token:string,character:string)=>request<{characters:Record<string,string>}>(`/rooms/${roomId}/character`,{method:'POST',body:JSON.stringify({character})},token),
   health: () => request<{ ok: boolean; preview: boolean }>('/health/live'),
   templates: () => request<TemplateList>('/templates'),
@@ -220,6 +222,7 @@ export const center = {
   ledgerCsvUrl: () => `${API_BASE}/wallet/ledger.csv`,
   getProfile: (address: string) =>
     request<{ name: string; bio: string; hue: number; showAddress: boolean; address?: string }>(`/profile/${address}`),
+  setCharacter: (token:string, appearance:Appearance) => request<any>('/profile/character', {method:'POST', body:JSON.stringify(appearance)}, token),
   setProfile: (token: string, body: { name: string; bio: string; hue: number; showAddress: boolean }) =>
     request<{ name: string; bio: string; hue: number; showAddress: boolean }>('/profile', { method: 'POST', body: JSON.stringify(body) }, token),
   uploadProfileImage: (token: string, dataUrl: string) =>

@@ -650,7 +650,12 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             settlement_payload["allocations"] = [a for a in settlement_payload.get("allocations", [])
                                                   if a.get("winner") == who]
             settlement_payload["results"] = visible_state(settlement_payload.get("results", []), settings, who, row["owner"])
+        lobby_profiles = store.get_profiles_bulk([p['who'] for p in members])
+        chosen = (store.get_setting(f'characters:{room_id}') or {}).get('characters', {})
+        appearances = {p['who']: {'character': chosen.get(p['who'], lobby_profiles.get(p['who'], {}).get('character', 'blob')),
+                       'cosmetics': lobby_profiles.get(p['who'], {}).get('cosmetics', {})} for p in members}
         return {
+            "appearances": visible_state(appearances, settings, who, presentation_owner),
             "roomId": row["id"], "status": row["status"], "visibility": row["visibility"],
             "roomNumber": row["join_code"], "joinCode": row["join_code"],
             "mode": row["mode"], "owner": row["owner"], "config": config,
@@ -1062,9 +1067,9 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(422, detail={"code": "BAD_ADDRESS", "message": "invalid address"})
         profile = store.get_profile(address)
         if not profile:
-            return {"address": address.lower(), "name": "", "bio": "", "hue": 0, "showAddress": True}
+            return {"address": address.lower(), "name": "", "bio": "", "hue": 0, "showAddress": True, "character": "blob", "cosmetics": {}}
         result = {"name": profile["name"], "bio": profile["bio"], "hue": profile["hue"],
-                  "showAddress": profile["showAddress"], "hasImage": store.has_avatar(address)}
+                  "showAddress": profile["showAddress"], "hasImage": store.has_avatar(address), "character": profile["character"], "cosmetics": profile["cosmetics"]}
         if profile["showAddress"]:
             result["address"] = address.lower()
         return result
@@ -1085,6 +1090,16 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         result = store.set_profile(who, name, bio, hue, show_address)
         return {**result, "address": who.lower()}
 
+    @app.post(f"{API_PREFIX}/profile/character")
+    @profile_storage
+    def save_character(body: dict, who: str = Depends(require_wallet)) -> dict:
+        from center.characters import validate_customization
+        try:
+            character, cosmetics = validate_customization(body.get("character"), body.get("cosmetics", {}))
+        except ValueError as error:
+            raise HTTPException(422, detail={"code": "INVALID_CHARACTER", "message": str(error)})
+        return {**store.set_profile_character(who, character, cosmetics), "hasImage": store.has_avatar(who)}
+
     @app.post(f"{API_PREFIX}/profiles/batch")
     @profile_storage
     def get_profiles_bulk(body: dict) -> dict:
@@ -1094,7 +1109,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         if not isinstance(addresses, list) or len(addresses) > 100:
             raise HTTPException(422, detail={"code": "BAD_INPUT", "message": "addresses must be a list (max 100)"})
         profiles = store.get_profiles_bulk(addresses)
-        return {addr: {"name": p["name"], "hue": p["hue"], "showAddress": p["showAddress"], "hasImage": store.has_avatar(addr)}
+        return {addr: {"name": p["name"], "hue": p["hue"], "showAddress": p["showAddress"], "hasImage": store.has_avatar(addr), "character": p["character"], "cosmetics": p["cosmetics"]}
                 for addr, p in profiles.items()}
 
     # ------------------------------------------------------------------ profile images

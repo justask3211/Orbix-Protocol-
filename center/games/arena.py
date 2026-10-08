@@ -11,7 +11,8 @@ import math
 from center.games.base import ActionResult, Engine
 
 STEP = 1 / 30
-CHARACTERS = ('fox', 'robot', 'frog', 'cat')
+from center.characters import CHARACTERS as ORIGINAL_CHARACTERS
+CHARACTERS = ('fox', 'robot', 'frog', 'cat') + ORIGINAL_CHARACTERS
 WEAPONS = {'hands': (1.8, 8), 'sword': (2.6, 16), 'spear': (3.8, 12), 'gun': (12, 12)}
 
 
