@@ -7,7 +7,7 @@ type Input = {
   settlement: Result | null | undefined
   state: Record<string, any>
   players?: string[]
-  profiles?: Record<string, { name?: string }>
+  profiles?: Record<string, { name?: string; hasImage?: boolean }>
   characters?: Record<string, string>
 }
 const positiveRank = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 1
@@ -40,7 +40,7 @@ export function verifiedPodium({ templateId, settlement, state, players = [], pr
     seen.add(row.who)
     const rank = positiveRank(row.rank) ? row.rank : rows.findIndex(other => other.who === row.who) + 1
     if (!positiveRank(rank) || rank > 3) continue
-    podium.push({ wallet: row.who, name: profiles[row.who]?.name || undefined, rank, score: row.score, character: state.bodies?.[row.who]?.character || characters[row.who] })
+    podium.push({ wallet: row.who, name: profiles[row.who]?.name || undefined, avatar: profiles[row.who]?.hasImage ? `/api/center/v1/profile/image/${row.who}` : undefined, rank, score: row.score, character: state.bodies?.[row.who]?.character || characters[row.who] })
   }
   return podium.sort((left, right) => left.rank - right.rank).slice(0, 3)
 }

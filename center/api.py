@@ -11,6 +11,9 @@ import hashlib
 import hmac
 import base64
 import json
+import logging
+import sqlite3
+from functools import wraps
 import os
 import re
 import secrets
@@ -40,6 +43,21 @@ from center.vault import JsonRpc
 
 API_PREFIX = "/api/center/v1"
 SESSION_TTL = 60 * 60 * 24 * 30  # 30 days; a returning wallet re-signs silently anyway
+
+
+def profile_storage(operation):
+    """Keep storage failures observable and safe to retry without leaking SQL."""
+    @wraps(operation)
+    def guarded(*args, **kwargs):
+        try:
+            return operation(*args, **kwargs)
+        except (sqlite3.Error, OSError) as error:
+            logging.getLogger("center.storage").exception(
+                "profile_storage_failed", extra={"operation": operation.__name__, "retriable": True})
+            raise HTTPException(503, detail={"code": "PROFILE_STORAGE_UNAVAILABLE",
+                "message": "Profile storage is temporarily unavailable. Please retry.", "retriable": True},
+                headers={"Retry-After": "2"}) from error
+    return guarded
 
 
 def env_flag(name: str, default: bool = False) -> bool:
@@ -643,6 +661,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             "archived": room_archived(store,room_id),
             "rematch": rt.rematch_capability(),
             "settlement": settlement_payload,
+            "settlementAccess": "available" if settlement_payload else "session-required" if not who else "admission-required" if not admitted else "pending",
             "characters": visible_state((store.get_setting(f'characters:{room_id}') or {}).get('characters',{}),settings,who,presentation_owner),
             "publicState": app_community_filter(rt, rt.engine.public_state(), who) if rt.engine and (row["visibility"] != "private" or admitted) else None,
             "roundId": rt.round_id, "deadline": rt.deadline(), "serverTimeMs": int(time.time() * 1000),
@@ -1034,6 +1053,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     # ------------------------------------------------------------------ profiles
 
     @app.get(f"{API_PREFIX}/profile/{{address}}")
+    @profile_storage
     def get_profile(address: str) -> dict:
         """Public profile: name, bio, hue, and whether the address is shown.
         If showAddress is false, the raw address is not included in the response."""
@@ -1050,6 +1070,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         return result
 
     @app.post(f"{API_PREFIX}/profile")
+    @profile_storage
     def set_profile(body: dict, who: str = Depends(require_wallet)) -> dict:
         from center.profile import validate_name, validate_bio, ProfileError
         name = str(body.get("name", "")).strip()
@@ -1065,6 +1086,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         return {**result, "address": who.lower()}
 
     @app.post(f"{API_PREFIX}/profiles/batch")
+    @profile_storage
     def get_profiles_bulk(body: dict) -> dict:
         """Batch profile lookup for room pages. Returns profiles keyed by address.
         If a profile has showAddress=false, the raw address is omitted."""
@@ -1078,6 +1100,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     # ------------------------------------------------------------------ profile images
 
     @app.post(f"{API_PREFIX}/profile/image")
+    @profile_storage
     def upload_profile_image(body: dict, who: str = Depends(require_wallet)) -> dict:
         from center.avatars import prepare_avatar, write_avatar
         try:
@@ -1089,6 +1112,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         return {"ok": True, "url": f"{API_PREFIX}/profile/image/{who.lower()}?v={version}"}
 
     @app.get(f"{API_PREFIX}/profile/image/{{address}}")
+    @profile_storage
     def serve_profile_image(address: str):
         from center.avatars import avatar_path
         from fastapi.responses import Response

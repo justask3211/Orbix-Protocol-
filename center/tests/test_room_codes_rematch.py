@@ -465,3 +465,20 @@ def test_arena_rematch_transcript_does_not_include_previous_match_inputs(tmp_pat
         assert store.get_round(first['round_id']) == first
         store.close()
     asyncio.run(scenario())
+
+
+def test_finished_room_reports_access_without_exposing_allocations(tmp_path):
+    app = make_app(tmp_path)
+    rt = asyncio.run(finished_preview(app.state.store))
+    app.state.runtimes[rt.room_id] = rt
+    with TestClient(app) as client:
+        path = f'{API_PREFIX}/rooms/{rt.room_id}'
+        anonymous = client.get(path).json()
+        assert anonymous['settlement'] is None
+        assert anonymous['settlementAccess'] == 'session-required'
+        guest = Account.create()
+        visitor = client.get(path, headers=sign_in(client, guest)).json()
+        assert visitor['settlement'] is None
+        assert visitor['settlementAccess'] == 'admission-required'
+        expired = client.get(path, headers={'Authorization': 'Bearer expired'}).json()
+        assert expired['settlement'] is None and expired['settlementAccess'] == 'session-required'

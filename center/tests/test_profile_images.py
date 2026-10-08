@@ -68,3 +68,48 @@ def test_concurrent_overwrite_is_complete_and_revalidated(setup):
     second = client.get(f'{API_PREFIX}/profile/image/{address}')
     assert first.content != second.content and first.headers['etag'] != second.headers['etag']
     assert len(list(folder.iterdir())) == 1
+
+
+def test_real_legacy_database_migrates_backfills_and_restarts(tmp_path, monkeypatch):
+    import sqlite3
+    from eth_account import Account
+    from center.avatars import prepare_avatar, write_avatar
+    address = Account.from_key('0x' + 'aa' * 32).address.lower()
+    monkeypatch.setenv('CENTER_AVATARS_DIR', str(tmp_path / 'avatars'))
+    with sqlite3.connect(tmp_path / 'p.db') as cx:
+        cx.execute("CREATE TABLE profiles(address TEXT PRIMARY KEY,name TEXT NOT NULL DEFAULT '',"
+                   "bio TEXT NOT NULL DEFAULT '',hue INTEGER NOT NULL DEFAULT 0,"
+                   "show_address INTEGER NOT NULL DEFAULT 1,updated_at REAL NOT NULL)")
+        cx.execute('INSERT INTO profiles VALUES (?,?,?,?,?,?)', (address, 'Legacy name', 'Saved bio', 140, 0, 123.0))
+    write_avatar(address, prepare_avatar(image_data()))
+    for restart in range(2):
+        client = _client(tmp_path)
+        headers, who = _sign_in(client)
+        profile = client.get(f'{API_PREFIX}/profile/{who}')
+        assert profile.status_code == 200, profile.text
+        assert profile.json()['name'] == 'Legacy name'
+        assert profile.json()['bio'] == 'Saved bio'
+        assert profile.json()['hasImage'] is True
+        assert 'address' not in profile.json()
+        batch = client.post(f'{API_PREFIX}/profiles/batch', json={'addresses': [who]})
+        assert batch.status_code == 200 and batch.json()[who]['hasImage'] is True
+        assert batch.json()[who]['name'] == 'Legacy name'
+        assert client.post(f'{API_PREFIX}/profile/image', headers=headers,
+                           json={'image': image_data(color='blue')}).status_code == 200
+    with sqlite3.connect(tmp_path / 'p.db') as cx:
+        assert sum(r[1] == 'has_avatar' for r in cx.execute('PRAGMA table_info(profiles)')) == 1
+        assert cx.execute('SELECT name,bio,has_avatar FROM profiles').fetchone() == ('Legacy name', 'Saved bio', 1)
+
+
+def test_storage_failure_is_structured_retriable_and_logged(setup, monkeypatch, caplog):
+    import sqlite3
+    from center.store import Store
+    client, headers, address, _ = setup
+    def fail(*args):
+        raise sqlite3.OperationalError('private SQL details')
+    monkeypatch.setattr(Store, 'get_profile', fail)
+    response = client.get(f'{API_PREFIX}/profile/{address}')
+    assert response.status_code == 503
+    assert response.json()['detail']['retriable'] is True
+    assert 'private SQL' not in response.text
+    assert any(r.operation == 'get_profile' and r.retriable for r in caplog.records)
