@@ -126,3 +126,6 @@
   .ct-player-controls .ct-profile-control .pf-avatar{display:flex;min-width:32px;min-height:44px}
   .ct-player-controls .ct-profile-control>span{display:block;max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
+.pf-character-preview{height:270px;position:relative;background:radial-gradient(ellipse at center,#435875,#20283e);border-radius:20px;margin:15px 0}.pf-character-preview>button{position:absolute;bottom:8px;right:8px}.pf-character-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pf-character-grid button{display:grid;grid-template-columns:26px 1fr;gap:5px;text-align:left;padding:10px;color:#f5f3e9;background:#303750;border:1px solid;border-radius:12px;min-height:62px}.pf-character-grid button[aria-pressed=true]{outline:3px solid #e0f77c}.pf-character-grid small{grid-column:2;font-size:10px;color:#c9cfe2}.pf-cosmetics{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.pf-cosmetics select{min-height:44px;background:#303750;color:#fff;border:1px solid #717e9b;border-radius:8px;padding:8px}.pf-character-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border-radius:12px}.pf-character-badge small{font-size:10px}.ar-characters{flex-wrap:wrap}.ar-characters button{flex:1 0 100px}
+
+.ct-app .pf-modal h3{color:#fff5e5}.ct-app .pf-modal .wl-sub{color:#c6cee4}

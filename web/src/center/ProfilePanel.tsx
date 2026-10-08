@@ -2,13 +2,16 @@
 // Shows as a small avatar circle next to the wallet chip in the topbar.
 // Opens as a modal for editing.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { center } from './api'
 import { ProfileImageUpload } from './ProfileImage'
 import { shortAddress } from './session'
 import { useModalFocus } from './useModalFocus'
 
-type Profile = { name: string; bio: string; hue: number; showAddress: boolean; hasImage?: boolean }
+import { CHARACTERS, COSMETIC_OPTIONS, type Cosmetics } from './characters'
+const CharacterPreview = lazy(() => import('./CharacterPreview'))
+
+type Profile = { name: string; bio: string; hue: number; showAddress: boolean; hasImage?: boolean; character?: string; cosmetics?: Cosmetics }
 const knownProfiles = new Map<string, Profile>()
 
 const HUES = [0, 30, 60, 90, 140, 180, 220, 270, 310, 340]
@@ -68,12 +71,18 @@ export function ProfileAvatar({ name, hue, size = 32, onClick, hasWallet }: {
   )
 }
 
-export function ProfileModal({ session, profile, onClose, onSave }: {
+export function ProfileModal({ session, profile, onClose, onSave, readError, readLoading, onRetry }: {
   session: { address: string | null; token: string | null }
+  readError?: string | null
+  readLoading?: boolean
+  onRetry?: () => void
   profile: Profile | null
   onClose: () => void
   onSave: (p: Profile) => void
 }) {
+  const [tab, setTab] = useState<'profile'|'character'>('profile')
+  const [character, setCharacter] = useState(profile?.character ?? 'blob')
+  const [cosmetics, setCosmetics] = useState<Cosmetics>(profile?.cosmetics ?? {})
   const [name, setName] = useState(profile?.name ?? '')
   const [bio, setBio] = useState(profile?.bio ?? '')
   const [hue, setHue] = useState(profile?.hue ?? 200)
@@ -84,9 +93,10 @@ export function ProfileModal({ session, profile, onClose, onSave }: {
   const dialog = useModalFocus(onClose)
 
   const save = async () => {
+    if (readError || readLoading) return
     setBusy(true); setErr(null)
     try {
-      const res = await center.setProfile(session.token!, { name, bio, hue, showAddress: showAddr })
+      const res = tab === 'character' ? await center.setCharacter(session.token!, {character, cosmetics}) : await center.setProfile(session.token!, { name, bio, hue, showAddress: showAddr })
       window.dispatchEvent(new Event('orbix-profile-changed'))
       onSave(res)
       onClose()
@@ -104,6 +114,8 @@ export function ProfileModal({ session, profile, onClose, onSave }: {
         <h3>Your profile</h3>
         <p className="wl-sub">This is what other players see in game logs and player lists.</p>
 
+        <div role="tablist" aria-label="Profile sections"><button role="tab" aria-selected={tab==='profile'} className="btn-ghost" onClick={()=>setTab('profile')}>Profile</button><button role="tab" aria-selected={tab==='character'} className="btn-ghost" onClick={()=>setTab('character')}>Character</button></div>
+        {tab==='character' ? <section aria-label="Character customization"><Suspense fallback={<p role="status">Loading character preview…</p>}><CharacterPreview appearance={{character,cosmetics}}/></Suspense><div className="pf-character-grid">{CHARACTERS.map(item=><button key={item.id} aria-pressed={character===item.id} onClick={()=>setCharacter(item.id)} title={item.description} style={{borderColor:item.color}}><span aria-hidden>{item.face}</span><b>{item.name}</b><small>{item.description.split(' · ')[0]}</small></button>)}</div><div className="pf-cosmetics">{Object.entries(COSMETIC_OPTIONS).map(([kind,options])=><label className="pf-field" key={kind}><span id={`cosmetic-${kind}`}>{kind[0].toUpperCase()+kind.slice(1)}</span><select aria-labelledby={`cosmetic-${kind}`} value={cosmetics[kind as keyof Cosmetics]??options[0]} onChange={event=>setCosmetics(previous=>({...previous,[kind]:event.target.value}))}>{options.map(value=><option key={value} value={value}>{value[0].toUpperCase()+value.slice(1)}</option>)}</select></label>)}</div><p>Your character is cosmetic. Changes apply to your next round.</p></section> : <>
         <div className="pf-preview" style={{ ['--pf-hue' as string]: `${hue}` }}>
           <div className="pf-avatar-preview">{name?.[0]?.toUpperCase() || '?'}</div>
           <div>
@@ -154,9 +166,11 @@ export function ProfileModal({ session, profile, onClose, onSave }: {
           <span>Show my wallet address to other players</span>
         </label>
 
+        </>}
+        {readError && <p className="err" role="alert">{readError} <button className="btn-ghost" onClick={onRetry}>Retry profile</button></p>}
         {err && <p className="err" role="alert">{err}</p>}
-        <button className="btn-primary" style={{ width: '100%' }} onClick={save} disabled={busy}>
-          {busy ? 'Saving…' : 'Save profile'}
+        <button className="btn-primary" style={{ width: '100%' }} onClick={save} disabled={busy || Boolean(readError) || readLoading}>
+          {busy ? 'Saving…' : tab === 'character' ? 'Save character' : 'Save profile'}
         </button>
       </div>
     </div>

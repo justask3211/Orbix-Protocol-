@@ -1,7 +1,7 @@
 import { Component, Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { Material, Mesh, MeshStandardMaterial, Object3D, SkinnedMesh } from 'three'
 import './winnerCelebration.css'
-import { CARTOON_SUITS, CARTOON_PROPORTIONS, cartoonFinish } from './worlds/cartoonStyle'
+import { CARTOON_PROPORTIONS } from './worlds/cartoonStyle'
+import type { Cosmetics } from './characters'
 import { celebrationTitle } from './resultPresentation'
 
 export type PodiumWinner = {
@@ -11,6 +11,7 @@ export type PodiumWinner = {
   rank: number
   avatar?: string
   character?: string
+  cosmetics?: Cosmetics
   teamName?: string
 }
 export type WinnerCelebrationProps = {
@@ -32,42 +33,25 @@ const personName = (winner: PodiumWinner) => winner.teamName || winner.name || s
 
 // Three, Fiber, GLTF and the model are loaded only when the result panel enters view.
 const PodiumScene = lazy(async () => {
-  const [fiber, three, loader, skeleton] = await Promise.all([
+  const [fiber, three, loader, cute] = await Promise.all([
     import('@react-three/fiber'), import('three'),
-    import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/SkeletonUtils.js'),
+    import('three/addons/loaders/GLTFLoader.js'), import('./worlds/CuteCharacter'),
   ])
   function Champion({ winner, index, reducedMotion }: { winner: PodiumWinner; index: number; reducedMotion: boolean }) {
     const gltf = fiber.useLoader(loader.GLTFLoader, '/center/center-models/orbix-ranger.glb')
     const slot = Math.max(0, Math.min(2, winner.rank - 1))
     const owned = useMemo(() => {
-      const model = skeleton.clone(gltf.scene), materials: Material[] = []
-      const copies = new Map<string, Material>()
-      model.traverse((object: Object3D) => {
-        const mesh = object as Mesh
-        if (!mesh.isMesh) return
-        mesh.castShadow = mesh.receiveShadow = true
-        const tint = (source: Material) => {
-          const style = CARTOON_SUITS[winner.character || 'fox'] || CARTOON_SUITS.fox
-          const color = source.name === 'Orbix_Suit' ? style.suit : source.name === 'Orbix_Armor' ? style.armor : source.name === 'Orbix_Accent' ? COLORS[slot] : null
-          if (!color || !(source as MeshStandardMaterial).isMeshStandardMaterial) return source
-          let material = copies.get(source.uuid)
-          if (!material) { material = source.clone(); (material as MeshStandardMaterial).color.set(color); cartoonFinish(material as MeshStandardMaterial); copies.set(source.uuid, material); materials.push(material) }
-          return material
-        }
-        mesh.material = Array.isArray(mesh.material) ? mesh.material.map(tint) : tint(mesh.material)
-      })
-      const mixer = new three.AnimationMixer(model)
-      return { model, mixer, materials }
-    }, [gltf, slot, winner.character])
+      const character = cute.buildCuteCharacter(gltf, winner, false)
+      const model = character.scene, mixer = new three.AnimationMixer(model)
+      return {model, mixer, release:character.release, mounted:false}
+    }, [gltf, winner.character, JSON.stringify(winner.cosmetics)])
     useEffect(() => {
+      owned.mounted = true
       const idle = gltf.animations.find(animation => animation.name === 'Idle')
-      if (idle) { owned.mixer.clipAction(idle).reset().play(); owned.mixer.update(0) }
+      if (idle) { owned.mixer.clipAction(idle).reset().play(); owned.mixer.update(.35) }
       return () => {
-      owned.mixer.stopAllAction(); owned.mixer.uncacheRoot(owned.model)
-      owned.materials.forEach(material => material.dispose())
-      const skeletons = new Set<SkinnedMesh['skeleton']>()
-      owned.model.traverse(object => { const mesh = object as SkinnedMesh; if (mesh.isSkinnedMesh) skeletons.add(mesh.skeleton) })
-      skeletons.forEach(rig => rig.dispose())
+      owned.mounted = false
+      queueMicrotask(() => { if (!owned.mounted) { owned.mixer.stopAllAction(); owned.mixer.uncacheRoot(owned.model); owned.release() } })
       }
     }, [owned, gltf])
     fiber.useFrame((_, delta) => { if (!reducedMotion) owned.mixer.update(Math.min(delta, .06)) })

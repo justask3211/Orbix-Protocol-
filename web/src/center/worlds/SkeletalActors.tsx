@@ -1,52 +1,38 @@
 import { useFrame, useLoader } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { AnimationAction, AnimationClip, AnimationMixer, Color, Frustum, Group, InstancedMesh, LoopOnce, LoopRepeat, Material, MathUtils, Matrix4, Mesh, MeshStandardMaterial, Object3D, SkinnedMesh, Sphere, Vector3 } from 'three'
+import { AnimationAction, AnimationClip, AnimationMixer, Color, Frustum, Group, InstancedMesh, LoopOnce, LoopRepeat, Material, MathUtils, Matrix4, Object3D, Sphere, Vector3 } from 'three'
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
-import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import type { GameWorldProps } from './GameWorld'
-import { CARTOON_SUITS, CARTOON_TEAMS, CARTOON_PROPORTIONS, cartoonFinish } from './cartoonStyle'
+import { CARTOON_TEAMS, CARTOON_PROPORTIONS } from './cartoonStyle'
 import { HeldItems, type GripBones } from './ItemMeshes'
 import { MotionTrack, type MotionPose } from './motion'
 import { stateGround } from './terrain'
+import { buildCuteCharacter } from './CuteCharacter'
+import type { Cosmetics } from '../characters'
 
 type Pose = MotionPose
 type Props = GameWorldProps & { poses: Map<string, Pose>; onReady?: () => void }
 type Body = Record<string, any>
-type Rig = { scene: Object3D; mixer: AnimationMixer; actions: Map<string, AnimationAction>; hand: Object3D | undefined; leftHand: Object3D | undefined; materials: Material[]; current: Record<'upper' | 'lower', string> }
+type Rig = { scene: Object3D; mixer: AnimationMixer; actions: Map<string, AnimationAction>; hand: Object3D | undefined; leftHand: Object3D | undefined; materials: Material[]; current: Record<'upper' | 'lower', string>; release: () => void }
 type Cue = { name: string; until: number; key: string; whole: boolean }
 const num = (value: unknown, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
-const TEAM_COLORS = CARTOON_TEAMS, SUITS = CARTOON_SUITS
+const TEAM_COLORS = CARTOON_TEAMS
 const lowerTrack = (name: string) => /^(root|pelvis|thigh_[lr]|calf_[lr]|foot_[lr]|ball(?:_leaf)?_[lr])\./.test(name)
 
-function makeRig(gltf: GLTF, character: string, team: string): Rig {
-  const scene = clone(gltf.scene), materials: Material[] = [], materialCache = new Map<string, Material>()
-  const style = SUITS[character] || SUITS.fox, teamIndex = Math.max(0, Number(String(team).replace('team-', '')) - 1)
-  scene.traverse(object => {
-    if (!(object instanceof Mesh)) return
-    object.castShadow = true; object.receiveShadow = true
-    const material = (source: Material) => {
-      const tint = source.name === 'Orbix_Suit' ? style.suit : source.name === 'Orbix_Armor' ? style.armor : source.name === 'Orbix_Accent' ? team ? TEAM_COLORS[teamIndex % TEAM_COLORS.length] || style.accent : style.accent : null
-      if (!tint || !(source instanceof MeshStandardMaterial)) return source // Preserve skin and eyes; cached maps remain shared.
-      let owned = materialCache.get(source.uuid)
-      if (!owned) { owned = source.clone(); (owned as MeshStandardMaterial).color.set(tint); cartoonFinish(owned as MeshStandardMaterial); materialCache.set(source.uuid, owned); materials.push(owned) }
-      return owned
-    }
-    object.material = Array.isArray(object.material) ? object.material.map(material) : material(object.material)
-  })
-  const mixer = new AnimationMixer(scene), actions = new Map<string, AnimationAction>()
+function makeRig(gltf: GLTF, character: string, _team: string, cosmetics: Cosmetics = {}, distant = false): Rig {
+  const owned = buildCuteCharacter(gltf, {character, cosmetics}, distant)
+  const scene = owned.scene, mixer = new AnimationMixer(scene), actions = new Map<string, AnimationAction>()
   for (const clip of gltf.animations) for (const layer of ['lower', 'upper'] as const) {
     const tracks = clip.tracks.filter(track => lowerTrack(track.name) === (layer === 'lower'))
     if (tracks.length) actions.set(`${clip.name}:${layer}`, mixer.clipAction(new AnimationClip(`${clip.name}:${layer}`, clip.duration, tracks)))
   }
-  return { scene, mixer, actions, hand: scene.getObjectByName('hand_r'), leftHand: scene.getObjectByName('hand_l'), materials, current: { upper: '', lower: '' } }
+  return {scene, mixer, actions, hand: scene.getObjectByName('hand_r'), leftHand: scene.getObjectByName('hand_l'), materials: owned.materials, release: owned.release, current:{upper:'',lower:''}}
 }
 
 function releaseRig(rig: Rig) {
   rig.mixer.stopAllAction(); rig.mixer.uncacheRoot(rig.scene)
-  for (const material of rig.materials) material.dispose()
-  const skeletons = new Set<SkinnedMesh['skeleton']>()
-  rig.scene.traverse(object => { if (object instanceof SkinnedMesh) skeletons.add(object.skeleton) })
-  for (const skeleton of skeletons) skeleton.dispose() // Skeleton clones own their GPU bone textures, never source geometries/maps.
+  rig.release()
+
 }
 
 function selectAction(rig: Rig, name: string, layer: 'lower' | 'upper', once: boolean, eventKey: string, speed = 1) {
@@ -90,7 +76,7 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
   useEffect(() => { clock.current = { server: num(props.state.serverTimeMs, Date.now()), received: performance.now() } }, [props.state.serverTimeMs])
   const cue = useRef<Cue | null>(null), selection = useRef(0), accumulated = useRef(0)
   const gaitSpeed = useRef(0)
-  const rigs = useMemo(() => [makeRig(full, body.character || 'fox', body.team || ''), makeRig(lod, body.character || 'fox', body.team || '')], [full, lod, body.character, body.team])
+  const rigs = useMemo(() => [makeRig(full, body.character || 'blob', body.team || '', body.cosmetics), makeRig(lod, body.character || 'blob', body.team || '', body.cosmetics, true)], [full, lod, body.character, body.team, JSON.stringify(body.cosmetics)])
   const lifetime = useMemo(() => ({ mounted: false, released: false }), [rigs])
   const frustum = useMemo(() => new Frustum(), []), projection = useMemo(() => new Matrix4(), []), sphere = useMemo(() => new Sphere(new Vector3(), 2.5), [])
   useEffect(() => {

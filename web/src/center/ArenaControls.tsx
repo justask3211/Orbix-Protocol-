@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from 'react'
 import { Box, Camera, ChevronUp, Clock3, Crosshair, Gem, Hand, Info, Shield, Swords, Trophy, Zap } from 'lucide-react'
+import { CHARACTERS as ORIGINAL_CHARACTERS, type CharacterId } from './characters'
 import type { StageProps } from './stages'
 import './arenaPlay.css'
 
@@ -9,14 +10,9 @@ export type ArenaInput = { dx: number; dz: number; active: boolean; sprint?: boo
 export type ArenaInputRef = RefObject<ArenaInput>
 export type ArenaCamera = { yaw: number; pitch: number; mode: 'third' | 'first' }
 export type ArenaCameraRef = RefObject<ArenaCamera>
-export type ArenaCharacter = 'fox' | 'robot' | 'frog' | 'cat'
-const CHARACTERS: { id: ArenaCharacter; name: string; face: string; color: string }[] = [
-  { id: 'fox', name: 'Scout', face: '🧑‍🚀', color: '#ffac6f' },
-  { id: 'robot', name: 'Sentinel', face: '🤖', color: '#94ddea' },
-  { id: 'frog', name: 'Runner', face: '🥷', color: '#b9ea71' },
-  { id: 'cat', name: 'Striker', face: '🧑‍✈️', color: '#c8abef' },
-]
-export function CharacterPicker({ selected = 'fox', onChoose, disabled = false }: { selected?: string; onChoose: (character: ArenaCharacter) => void; disabled?: boolean }) {
+export type ArenaCharacter = CharacterId
+const CHARACTERS = ORIGINAL_CHARACTERS.map(character => ({...character}))
+export function CharacterPicker({ selected = 'blob', onChoose, disabled = false }: { selected?: string; onChoose: (character: ArenaCharacter) => void; disabled?: boolean }) {
   return <fieldset className="ar-characters" disabled={disabled}><legend>Choose your character</legend>{CHARACTERS.map(character => <button type="button" key={character.id} aria-pressed={selected === character.id} onClick={() => onChoose(character.id)} style={{ '--ar-character': character.color } as CSSProperties}><span aria-hidden>{character.face}</span><strong>{character.name}</strong><small>{selected === character.id ? 'Selected' : 'Choose'}</small></button>)}</fieldset>
 }
 const textInput = (target: EventTarget | null) => target instanceof HTMLElement && Boolean(target.closest('input,textarea,select,[contenteditable="true"]'))

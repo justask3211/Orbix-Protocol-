@@ -2,6 +2,7 @@
  * Run: node tools/tests/skeletal-actor-regression.mjs
  * The texture bitmap fixture replaces decoding only; no renderer/FPS claims are made.
  */
+import {buildCuteCharacter} from './original-character-regression.mjs'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
@@ -39,6 +40,7 @@ const modules = {
   three: THREE,
   'three/addons/loaders/GLTFLoader.js': { GLTFLoader },
   'three/addons/utils/SkeletonUtils.js': skeletonUtils,
+  './CuteCharacter': {buildCuteCharacter},
   './terrain': { stateGround: () => 0 },
   './motion': require('./motion-regression.cjs'),
   './ItemMeshes': {HeldItems:()=>null},
@@ -53,7 +55,7 @@ const { RigActor, PoseMotion, makeRig, releaseRig, selectAction } = new Function
 for (const model of [full,lod]) for (const character of Object.keys(styles.CARTOON_SUITS)) {
   const owned=makeRig(model,character,'team-2')
   owned.scene.traverse(object=>{
-    if(!object.isMesh)return
+    if(!object.isMesh || !object.visible)return
     for(const material of Array.isArray(object.material)?object.material:[object.material]){
       if(!['Orbix_Suit','Orbix_Armor','Orbix_Accent'].includes(material.name))continue
       assert.equal(material.map,null,'Only owned clothing drops the tactical texture')

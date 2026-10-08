@@ -99,3 +99,29 @@ def test_batch_profiles(tmp_path):
     p = r.json()
     assert p.get(a1, {}).get("name") == "User1"
     assert a2 not in p or p[a2].get("name") == ""
+
+
+@pytest.mark.parametrize('character', ['blob','knight','cat-blob','duckling','astronaut','toy-robot','pancake','jelly-ninja','sprout','marshmallow'])
+def test_customized_character_preserves_profile_and_restarts(tmp_path, character):
+    client = _client(tmp_path)
+    headers, address = _sign_in(client)
+    client.post(f'{api_mod.API_PREFIX}/profile', headers=headers, json={'name':'Saved player','bio':'Keep this'})
+    cosmetics = {'hat':'crown','glasses':'round','outfit':'dress','accessory':'scarf'}
+    response = client.post(f'{api_mod.API_PREFIX}/profile/character', headers=headers,
+                           json={'character':character,'cosmetics':cosmetics})
+    assert response.status_code == 200, response.text
+    assert response.json()['name'] == 'Saved player'
+    restarted = _client(tmp_path)
+    profile = restarted.get(f'{api_mod.API_PREFIX}/profile/{address}').json()
+    assert profile['character'] == character and profile['cosmetics'] == cosmetics
+    assert profile['bio'] == 'Keep this'
+    batch = restarted.post(f'{api_mod.API_PREFIX}/profiles/batch', json={'addresses':[address]}).json()
+    assert batch[address]['character'] == character and batch[address]['cosmetics'] == cosmetics
+
+
+@pytest.mark.parametrize('body', [{'character':'mario'}, {'character':'blob','cosmetics':{'hat':'attack-bonus'}}, {'character':'blob','cosmetics':{'speed':8}}, {'character':'blob','cosmetics':[]}, {'character':[]}])
+def test_invalid_cosmetics_rejected(tmp_path, body):
+    client = _client(tmp_path); headers, address = _sign_in(client)
+    response = client.post(f'{api_mod.API_PREFIX}/profile/character', headers=headers, json=body)
+    assert response.status_code == 422
+    assert client.get(f'{api_mod.API_PREFIX}/profile/{address}').json()['name'] == ''

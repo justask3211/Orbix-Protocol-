@@ -123,6 +123,8 @@ CREATE TABLE IF NOT EXISTS profiles (
     hue         INTEGER NOT NULL DEFAULT 0,
     show_address INTEGER NOT NULL DEFAULT 1,
     has_avatar   INTEGER NOT NULL DEFAULT 0,
+    character TEXT NOT NULL DEFAULT 'blob',
+    cosmetics_json TEXT NOT NULL DEFAULT '{}',
     updated_at  REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS admin_settings (
@@ -178,6 +180,9 @@ class Store:
             columns = {row[1] for row in cx.execute("PRAGMA table_info(profiles)")}
             if "has_avatar" not in columns:
                 cx.execute("ALTER TABLE profiles ADD COLUMN has_avatar INTEGER NOT NULL DEFAULT 0")
+            for column, declaration in (("character", "TEXT NOT NULL DEFAULT 'blob'"), ("cosmetics_json", "TEXT NOT NULL DEFAULT '{}'")):
+                if column not in columns:
+                    cx.execute(f"ALTER TABLE profiles ADD COLUMN {column} {declaration}")
             for path in avatar_path("0x" + "0" * 40).parent.glob("*.webp"):
                 if not re.fullmatch(r"[0-9a-f]{40}", path.stem):
                     continue
@@ -286,11 +291,19 @@ class Store:
 
     def get_profile(self, address: str) -> dict | None:
         with self.tx() as cx:
-            row = cx.execute("SELECT name, bio, hue, show_address FROM profiles WHERE address = ?",
+            row = cx.execute("SELECT name, bio, hue, show_address, character, cosmetics_json FROM profiles WHERE address = ?",
                              (address.lower(),)).fetchone()
             if not row:
                 return None
-            return {"name": row[0], "bio": row[1], "hue": row[2], "showAddress": bool(row[3])}
+            return {"name": row[0], "bio": row[1], "hue": row[2], "showAddress": bool(row[3]), "character": row[4], "cosmetics": json.loads(row[5])}
+
+    def set_profile_character(self, address: str, character: str, cosmetics: dict) -> dict:
+        with self.tx() as cx:
+            cx.execute("INSERT INTO profiles(address,character,cosmetics_json,updated_at) VALUES (?,?,?,?) "
+                       "ON CONFLICT(address) DO UPDATE SET character=excluded.character, "
+                       "cosmetics_json=excluded.cosmetics_json,updated_at=excluded.updated_at",
+                       (address.lower(), character, json.dumps(cosmetics), time.time()))
+        return self.get_profile(address)
 
     def set_profile_avatar(self, address: str, has_avatar: bool) -> None:
         with self.tx() as cx:
@@ -315,7 +328,7 @@ class Store:
                 "hue=excluded.hue, show_address=excluded.show_address, updated_at=excluded.updated_at",
                 (address.lower(), name, bio, hue, int(show_address), _t.time()),
             )
-        return {"name": name, "bio": bio, "hue": hue, "showAddress": show_address}
+        return self.get_profile(address)
 
     def _audit_head_hash(self, cx) -> str:
         row = cx.execute(
@@ -379,10 +392,10 @@ class Store:
         placeholders = ",".join("?" * len(lower))
         with self.tx() as cx:
             rows = cx.execute(
-                f"SELECT address, name, hue, show_address FROM profiles WHERE address IN ({placeholders})",
+                f"SELECT address, name, hue, show_address, character, cosmetics_json FROM profiles WHERE address IN ({placeholders})",
                 lower,
             ).fetchall()
-        return {r[0]: {"name": r[1], "hue": r[2], "showAddress": bool(r[3])} for r in rows}
+        return {r[0]: {"name": r[1], "hue": r[2], "showAddress": bool(r[3]), "character": r[4], "cosmetics": json.loads(r[5])} for r in rows}
 
     def verify_audit_chain(self) -> dict:
         """Recompute the whole hash chain oldest-first; any edit breaks it."""

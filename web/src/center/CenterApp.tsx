@@ -32,6 +32,7 @@ import { AdminPanel } from './AdminPanel'
 import { bindRoomOnChain, payJoinToken as payJoinTokenGated } from './gate'
 import { TxPreview } from './funds'
 import { SharePanel } from './SharePanel'
+import { CharacterBadge } from './CharacterBadge'
 import { ProfileAvatar, ProfileModal } from './ProfilePanel'
 import { CreatorTokenFees, RoomRewardsGuide } from './CreatorEconomy'
 import { localPlacement } from './resultPresentation'
@@ -912,7 +913,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   const resetChannel = useRef<() => void>(() => {})
   const [editingRematch, setEditingRematch] = useState(false)
   const [rematchNotice, setRematchNotice] = useState<string | null>(null)
-  const [winnerProfiles, setWinnerProfiles] = useState<Record<string, {name:string;hasImage?:boolean}>>({})
+  const [winnerProfiles, setWinnerProfiles] = useState<Record<string, {name:string;hasImage?:boolean;character?:string;cosmetics?:import('./characters').Cosmetics}>>({})
 
   const refresh = useCallback(async () => {
     if (refreshPending.current || adminObserver && !session.token) return
@@ -1156,7 +1157,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
         <div className="ct-players">
           {(room?.participants ?? []).map((p) => (
             <span key={p.who} className={`who-chip${p.ready ? ' ready' : ''}`} style={{ ['--hue' as string]: playerHue(p.who) }}>
-              {shortAddress(p.who)} {p.role === 'host' ? '· host' : ''} {p.ready ? '· ready' : ''}
+              <CharacterBadge appearance={room?.appearances?.[p.who]}/> {shortAddress(p.who)} {p.role === 'host' ? '· host' : ''} {p.ready ? '· ready' : ''}
             </span>
           ))}
           {(room?.participants ?? []).length === 0 && <span className="muted">Nobody yet.</span>}
@@ -1229,7 +1230,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
             const teamIds = rules.arena_mode ? Array.from({length:Math.max(2,Math.ceil(Number((room?.config?.admission as {player_cap?:number})?.player_cap ?? 12) / teamSize))},(_,i) => `team-${i + 1}`) : ['a','b']
             return <div className="ct-team-picker"><strong>Choose your crew · up to {teamSize} players</strong><p>Choose a squad card or let the lobby assign you. Crews rank by boss damage; the published podium shares determine prizes.</p><div className="ct-team-grid">{teamIds.map((team,index) => {const members=Object.entries(room?.teams ?? {}).filter(([,t])=>t===team);return <button key={team} className={`ct-squad-card${room?.teams?.[me]===team?' is-selected':''}`} aria-pressed={room?.teams?.[me]===team} disabled={!amPlayer || busy || members.length>=teamSize && room?.teams?.[me]!==team} onClick={async () => { if (!session.token) return; try { await center.chooseTeam(roomId,session.token,team);await refresh() } catch(err) {setError(explainError(err))} }}><span className="ct-squad-banner">✦ <strong>Crew {index+1}</strong><small>{members.length}/{teamSize} slots</small></span><span className="ct-squad-slots">{Array.from({length:teamSize},(_,slot)=><i key={slot} title={members[slot]?.[0]}>{members[slot]?'●':'+'}</i>)}</span><span>{room?.teams?.[me]===team?'Your squad':members.length>=teamSize?'Squad full':'Join this squad'}</span></button>})}</div></div>
           })()}
-          {['token-catch','boss-raid','combat-duel'].includes(templateId) && (templateId === 'combat-duel' || (room?.config?.rules as {arena_mode?:boolean})?.arena_mode) && room?.status !== 'running' && !finished && <CharacterPicker selected={room?.characters?.[me] ?? 'fox'} disabled={!amPlayer || busy || !session.token} onChoose={async character => {
+          {['token-catch','boss-raid','combat-duel'].includes(templateId) && (templateId === 'combat-duel' || (room?.config?.rules as {arena_mode?:boolean})?.arena_mode) && room?.status !== 'running' && !finished && <CharacterPicker selected={room?.appearances?.[me]?.character ?? 'blob'} disabled={!amPlayer || busy || !session.token} onChoose={async character => {
             if (!session.token || !amPlayer) return
             setBusy(true)
             try { await center.chooseCharacter(roomId,session.token,character); await refresh() } catch (err) { setError(explainError(err)) } finally { setBusy(false) }
@@ -1497,6 +1498,6 @@ export function CenterApp() {
 
 function ProfileModalWrapper({ session, onClose }: { session: ReturnType<typeof useSession>; onClose: () => void }) {
   const {profile, loading, error, retry, setProfile} = useProfile(session.address, session.token)
-  if (loading || error || !profile) return <div className="wl-backdrop"><div className="wl-modal pf-modal" role="dialog" aria-modal="true" aria-label="Profile unavailable"><button className="wl-close" onClick={onClose} aria-label="Close">✕</button><h3>Your profile</h3>{profile && <p>{profile.name}<br/>{profile.bio}</p>}<p role={error ? 'alert' : 'status'}>{error ?? 'Loading your saved profile…'}</p>{error && <button className="btn-primary" onClick={retry}>Retry profile</button>}</div></div>
-  return <ProfileModal key={session.address} session={session} profile={profile} onClose={onClose} onSave={setProfile} />
+  if (!profile && (loading || error || !profile)) return <div className="wl-backdrop"><div className="wl-modal pf-modal" role="dialog" aria-modal="true" aria-label="Profile unavailable"><button className="wl-close" onClick={onClose} aria-label="Close">✕</button><h3>Your profile</h3><p role={error ? 'alert' : 'status'}>{error ?? 'Loading your saved profile…'}</p>{error && <button className="btn-primary" onClick={retry}>Retry profile</button>}</div></div>
+  return <ProfileModal key={session.address} session={session} profile={profile} readError={error} readLoading={loading} onRetry={retry} onClose={onClose} onSave={setProfile} />
 }

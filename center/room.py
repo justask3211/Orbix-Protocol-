@@ -389,8 +389,13 @@ class RoomRuntime:
         if getattr(self.engine,'arena',False):
             from center.games.arena import CHARACTERS
             chosen=(self.store.get_setting(f'characters:{self.room_id}') or {}).get('characters',{})
-            for p,character in chosen.items():
-                if p in self.engine.bodies and character in CHARACTERS:self.engine.bodies[p]['character']=character
+            for p, body in self.engine.bodies.items():
+                profile = self.store.get_profile(p) or {}
+                if getattr(self.engine, 'version', 2) >= 4:
+                    body['character'] = chosen.get(p, profile.get('character', 'blob'))
+                    body['cosmetics'] = profile.get('cosmetics', {})
+                elif chosen.get(p) in CHARACTERS:
+                    body['character'] = chosen[p]
         duration = float(getattr(self.config.rules, "duration_seconds", 120))
         if self.config.template_id == "reaction-duel":
             duration = self.config.rules.rounds * (self.config.rules.choice_window_seconds + self.config.rules.reveal_window_seconds)
