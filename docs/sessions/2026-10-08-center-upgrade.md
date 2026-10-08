@@ -39,3 +39,48 @@ Greetings address the winner or show the local server rank (including #9),
 with crew placement for raids and the complete server-ranked results below.
 No client winner/score calculation was added. Seven presentation regressions
 and fourteen verified-podium cases pass; 505 Python tests and tsc/build pass.
+
+## Task 3 — motion diagnosis and implementation
+
+The V4 PoseMotion extrapolator reset age on every state object (including
+non-position patches), then damped toward that changing target. There was no
+remote snapshot buffer. Body moving flags kept feet running into walls; run
+playback ignored actual speed and a selected action never updated its timeScale.
+Combat/jump cues read a frozen snapshot clock. Camera damping added local lag,
+and unrestricted camera turns eventually failed server-facing validation.
+The actual GLTF binds and in-place root motion passed inspection: the rig was
+not the source of horizontal movement jitter.
+
+New motion.ts continuously integrates immediate local normalized direction,
+keeps a bounded 64-input send history, replays newer inputs from acknowledged
+positions and eases small corrections at a bounded rate. V4 public snapshots
+now include accepted input direction/lease/timestamp alongside existing inputSeq.
+Only presentation metadata changed server-side; 30 Hz simulation, 10 Hz
+broadcasts, speed, gravity, collisions, health, inventory and money rules stay
+server-owned. Respawn/large corrections snap; late snapshots are ignored;
+input prediction stops after 250 ms without a fresh authority sample. Opponents
+use a 100 ms snapshot buffer with at most 150 ms bounded extrapolation.
+Collision margins and support match published solids; decorative vista is ignored.
+
+Jump receives one bounded speculative impulse and returns to server support on
+rejection. Yaw wraps to a valid angle. First-person camera follows the predicted
+root immediately; third-person follow settles faster. Animation cues use a
+running presentation clock, locomotion layers share phase, and cadence tracks
+actual displacement (including zero at a wall). Measured the bundled GLTF's
+stance-foot velocity: Run median 5.12 and Sprint 8.57 units/second, used to calibrate
+playback to presented speed. Landing compression, airborne stretch and mild lean
+are cosmetic and removed for reduced motion; rig/LOD/source meshes remain intact.
+
+Evidence: nine netcode regressions, actual GLTF/StrictMode/Kick/lifecycle test,
+and synthetic 120 ms RTT plus 0–35 ms snapshot jitter at 30/60/144 Hz passed.
+The jitter fixture initially reproduced a 0.256-unit backward correction;
+bounded reconciliation removed it. Final minimum per-frame forward movement
+was 0.1167/0.0583/0.0243 units; max reference-position error 0.132/0.131/0.116.
+These are deterministic local simulations, not network or device measurements.
+506 Python tests, tsc -b --noEmit and production build passed. Actual target-device
+FPS, extended human multiplayer under loss/jitter and perfect contact on every
+retargeted animation remain unproven. No claim of eliminating every possible
+authority correction is made.
+
+API reference checks: [Three AnimationAction](https://threejs.org/docs/pages/AnimationAction.html)
+and [Fiber hooks](https://r3f.docs.pmnd.rs/api/hooks); runtime dependencies unchanged.
