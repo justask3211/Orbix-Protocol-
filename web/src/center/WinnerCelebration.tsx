@@ -1,6 +1,7 @@
 import { Component, Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Material, Mesh, MeshStandardMaterial, Object3D, SkinnedMesh } from 'three'
 import './winnerCelebration.css'
+import { celebrationTitle } from './resultPresentation'
 
 export type PodiumWinner = {
   wallet: string
@@ -17,6 +18,8 @@ export type WinnerCelebrationProps = {
   me?: string
   teamMode?: boolean
   title?: string
+  localPlacement?: number
+  onPresented?: () => void
   reducedMotion?: boolean
   rewardNote?: string
 }
@@ -99,11 +102,12 @@ class PodiumBoundary extends Component<{ children: ReactNode; fallback: ReactNod
   render() { return this.state.failed ? this.props.fallback : this.props.children }
 }
 
-export default function WinnerCelebration({ winners, me = '', teamMode = false, title, reducedMotion, rewardNote }: WinnerCelebrationProps) {
+export default function WinnerCelebration({ winners, me = '', teamMode = false, title, localPlacement, onPresented, reducedMotion, rewardNote }: WinnerCelebrationProps) {
   const panel = useRef<HTMLElement>(null)
   const [visible, setVisible] = useState(false), [unavailable, setUnavailable] = useState(false)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const podium = useMemo(() => [...winners].filter(winner => Number.isFinite(winner.rank) && winner.rank >= 1 && winner.rank <= 3).sort((left, right) => left.rank - right.rank).slice(0, 3), [winners])
+  useEffect(() => { onPresented?.() }, [onPresented])
   const motion = reducedMotion ?? prefersReducedMotion
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -123,7 +127,7 @@ export default function WinnerCelebration({ winners, me = '', teamMode = false, 
   const order = podium.length === 3 ? [podium[1], podium[0], podium[2]] : podium
   return <section ref={panel} className={`wc-celebration${motion ? ' wc-reduced-motion' : ''}`} aria-label={teamMode ? 'Winning crews podium' : 'Winners podium'}>
     <div className="wc-confetti" aria-hidden="true">{Array.from({ length: 16 }, (_, index) => <i key={index} style={{ '--confetti-index': index } as React.CSSProperties} />)}</div>
-    <header className="wc-heading"><span className="wc-eyebrow">{teamMode ? 'CREW HONORS' : 'ROUND COMPLETE'} <span aria-hidden="true">✦</span></span><h2>{title || (mine ? 'You made the podium!' : 'Congratulations, champions!')}</h2><p>{mine ? `Well played, ${personName(mine)}. Your finish is confirmed.` : 'Great moves. A round worth celebrating.'}</p></header>
+    <header className="wc-heading"><span className="wc-eyebrow">{teamMode ? 'CREW HONORS' : 'ROUND COMPLETE'} <span aria-hidden="true">✦</span></span><h2>{title || celebrationTitle(personName(podium[0]), localPlacement ?? mine?.rank)}</h2><p>{localPlacement ? 'Your finish is confirmed. Full results and reward status follow below.' : mine ? `Well played, ${personName(mine)}. Your finish is confirmed.` : 'Great moves. A round worth celebrating.'}</p></header>
     <div className="wc-model-stage" aria-hidden="true">
       {visible && !unavailable ? <PodiumBoundary fallback={fallback}><Suspense fallback={<div className="wc-scene-loading"><span>✦</span>Raising the podium…</div>}><PodiumScene winners={podium} reducedMotion={motion} onUnavailable={() => setUnavailable(true)} /></Suspense></PodiumBoundary> : fallback}
     </div>

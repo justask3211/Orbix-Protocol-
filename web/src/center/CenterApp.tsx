@@ -33,6 +33,7 @@ import { bindRoomOnChain, payJoinToken as payJoinTokenGated } from './gate'
 import { TxPreview } from './funds'
 import { SharePanel } from './SharePanel'
 import { ProfileAvatar, ProfileModal } from './ProfilePanel'
+import { localPlacement } from './resultPresentation'
 import { useProfile } from './ProfilePanel'
 import { copyText } from './share'
 import { useRoomChannel } from './ws'
@@ -885,6 +886,9 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   const [expanded, setExpanded] = useState(false)
   const expandedRound = useRef<string | null>(null)
   const reconnectAttempt=useRef<string|null>(null)
+  const resultElement = useRef<HTMLElement>(null)
+  const [presentedRound, setPresentedRound] = useState<string | null>(null)
+  const scrolledResult = useRef<string | null>(null)
   const roomElement = useRef<HTMLDivElement>(null)
   const minimizeButton = useRef<HTMLButtonElement>(null)
   const expandButton = useRef<HTMLButtonElement>(null)
@@ -1056,6 +1060,21 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   // A stage may only draw from state the server has actually sent for this round.
   const hasRoundState = Boolean(state.template)
   const currentRound = String(state.roundId ?? room?.roundId ?? `${roomId}:live`)
+  const onPodiumPresented = useCallback(() => setPresentedRound(currentRound), [currentRound])
+  const placement = settlement ? localPlacement(settlement.results, me, state.teams, state.teamRankings) : undefined
+  useEffect(() => {
+    if (!finished) { scrolledResult.current = null; return }
+    if (!settlement || expanded || podium.length > 0 && presentedRound !== currentRound || scrolledResult.current === currentRound) return
+    // Wait for the expanded view's overflow cleanup and the result anchor layout.
+    const frame = requestAnimationFrame(() => {
+      const element = resultElement.current
+      if (!element) return
+      scrolledResult.current = currentRound
+      element.focus({ preventScroll: true })
+      element.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [finished, expanded, currentRound, Boolean(settlement), podium.length, presentedRound])
   useEffect(()=>{
     const key=`${roomId}:${me}:${session.token}`
     if(adminObserver || !amPlayer || room?.status!=='running' || !session.token || channel.status!=='idle' || reconnectAttempt.current===key)return
@@ -1279,14 +1298,16 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       {rematchNotice && <p className="ct-observer-note" role="status">{rematchNotice}</p>}
       {isHost && finished && room && <section className="ct-rematch-panel"><div><span>KEEP THE CREW TOGETHER</span><h2>One more round?</h2><p>{room.rematch?.supported ? 'Keep this room and its players. Each match gets its own result, and everyone confirms readiness again.' : 'This room uses a financial entry or funded reward. A fresh room and funding are required for the next match.'}</p></div><div className="ct-actions">{room.rematch?.supported ? <><button className="btn-primary" disabled={busy} onClick={() => void playAgain()}>Play again · same settings</button><button className="btn-ghost" disabled={busy} onClick={() => setEditingRematch(true)}>Edit next match</button></> : <button className="btn-primary" onClick={() => go(`/center/create/${templateId}?from=${roomId}`)}>Prepare a fresh room</button>}</div></section>}
       {editingRematch && room && <Suspense fallback={<p role="status">Opening next-match settings…</p>}><RematchSettings room={room} onClose={() => setEditingRematch(false)} onSave={playAgain} /></Suspense>}
-      {settlement && podium.length > 0 && <Suspense fallback={<p role="status">Raising the winners’ podium…</p>}><WinnerCelebration winners={podium} me={me} teamMode={templateId === 'boss-raid'} /></Suspense>}
+      {finished && <section ref={resultElement} className="ct-round-results" tabIndex={-1} aria-label="Round results">
+      {!settlement && <p role="status">Round complete. Confirming final placements…</p>}
+      {settlement && podium.length > 0 && <Suspense fallback={<p role="status">Raising the winners’ podium…</p>}><WinnerCelebration winners={podium} me={me} localPlacement={placement} onPresented={onPodiumPresented} teamMode={templateId === 'boss-raid'} /></Suspense>}
       {settlement && (
         <section className="ct-panel">
           <h2>Results and rewards</h2>
           <div className="board">
             {settlement.results.map((row, i) => (
               <div key={row.who} className={`board-row${row.who.toLowerCase() === me ? ' me' : ''}`}>
-                <span className="rank">{i + 1}</span>
+                <span className="rank">{row.rank ?? i + 1}</span>
                 <span className="who">{shortAddress(row.who)}</span>
                 <b>{row.score}</b>
               </div>
@@ -1306,6 +1327,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
           </details>
         </section>
       )}
+      </section>}
     </div>
   )
 }

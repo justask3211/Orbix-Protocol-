@@ -1,0 +1,1 @@
+function e(e,t,n,r){let i=n?.[t.toLowerCase()],a=i&&r?r.find(e=>e.team===i)?.rank:e.find(e=>e.who.toLowerCase()===t.toLowerCase())?.rank;return typeof a==`number`&&Number.isInteger(a)&&a>=1?a:void 0}function t(e,t){return t&&t>1?`You placed #${t}`:`Congratulations, ${e}!`}export{e as n,t};
