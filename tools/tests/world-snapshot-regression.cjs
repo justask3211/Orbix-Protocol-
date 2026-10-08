@@ -1,0 +1,12 @@
+const fs=require('node:fs'), assert=require('node:assert/strict'),{transformSync}=require('../../web/node_modules/rolldown/dist/utils-index.mjs')
+const code=transformSync('snapshot.ts',fs.readFileSync('web/src/center/worldSnapshot.ts','utf8'),{target:'es2022'}).code.replace(/\bexport\s+/g,'')
+const {applyWorldPatch}=new Function(code+'\nreturn {applyWorldPatch};')()
+const original={tick:1,serverTimeMs:100,bodies:{a:{x:1,hp:100},b:{x:2}}}
+const delta=applyWorldPatch(original,{delta:true,baseTick:1,tick:2,serverTimeMs:200,bodyDelta:{a:{x:3}},removedBodies:['b']})
+assert.deepEqual(delta.bodies,{a:{x:3,hp:100}});assert.equal(original.bodies.a.x,1)
+assert.equal(applyWorldPatch(original,{delta:true,baseTick:0}),null)
+assert.equal(applyWorldPatch(null,{delta:true,baseTick:0}),null)
+assert.equal(applyWorldPatch(delta,{serverTimeMs:150,bodies:{}}),delta)
+assert.deepEqual(applyWorldPatch(original,{bodies:{c:{x:0}}}).bodies,{c:{x:0}})
+assert.equal(applyWorldPatch(original,{finished:true}).finished,true)
+console.log('Snapshot regressions passed: full replacement, baseline deltas, removal, stale frames and resync.')

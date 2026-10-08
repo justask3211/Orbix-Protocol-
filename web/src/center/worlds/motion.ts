@@ -26,6 +26,7 @@ export function support(state: Body, x: number, z: number, y: number): number {
 export class MotionTrack {
   samples: Sample[] = []
   private offset = Infinity
+  private clockSamples: {offset: number; at: number}[] = []
   private latency = 0
   private ack = -1
   private predicted = { x: 0, y: 0, z: 0, vy: 0 }
@@ -40,7 +41,11 @@ export class MotionTrack {
     if (latest && (at < latest.at || at === latest.at && body.inputSeq === latest.body.inputSeq && body.hp === latest.body.hp && body.x === latest.body.x && body.y === latest.body.y && body.z === latest.body.z)) return
     this.samples.push({ body: { ...body }, at, received: now })
     if (this.samples.length > 20) this.samples.shift()
-    this.offset = Math.min(this.offset, now - at)
+    this.clockSamples.push({offset:now-at, at:now})
+    this.clockSamples = this.clockSamples.filter(sample => now - sample.at <= 2000).slice(-24)
+    const clockTarget = Math.min(...this.clockSamples.map(sample => sample.offset))
+    if (!Number.isFinite(this.offset)) this.offset = clockTarget
+    else this.offset += clamp(clockTarget - this.offset, -Math.max(0,now-(latest?.received ?? now))*.005, Math.max(0,now-(latest?.received ?? now))*.005)
     if (!input) return
     const sent = input.history?.find(item => item.seq === body.inputSeq)
     if (sent && this.ack !== body.inputSeq) {
@@ -48,7 +53,7 @@ export class MotionTrack {
       this.latency += (rtt / 2 - this.latency) * .35
       this.ack = body.inputSeq
     }
-    if (latest && now - latest.received < 250) this.integrate(state, latest.body, input, Math.max(0, Math.min(60, now - this.lastFrame)) / 1000, latest.at + now - latest.received)
+    if (latest && now - latest.received < 250) this.integrate(state, latest.body, input, Math.max(0, Math.min(250, now - this.lastFrame)) / 1000, latest.at + now - latest.received)
     const old = { x: this.predicted.x + this.correction.x, y: this.predicted.y + this.correction.y, z: this.predicted.z + this.correction.z }
     this.predicted = { x: num(body.x), y: num(body.y), z: num(body.z), vy: num(body.vy) }
     const begin = now - this.latency, pending = (input.history ?? []).filter(item => item.seq > num(body.inputSeq) && item.at <= now)
@@ -63,10 +68,17 @@ export class MotionTrack {
     this.lastFrame = now
   }
   private integrate(state: Body, body: Body, input: ArenaInput, dt: number, serverNow: number) {
+    // Subdivide cover contacts, independently of the render rate. Vertical motion
+    // integrates the 30 Hz authority's semi-implicit gravity as a continuous curve.
+    if (dt > 1 / 120 + 1e-8) {
+      const steps = Math.ceil(dt * 120)
+      for (let step = 0; step < steps; step++) this.integrate(state, body, input, dt / steps, serverNow + step * dt / steps * 1000)
+      return
+    }
     if (!input.active || state.finished || state._canAct === false || num(body.hp, 100) <= 0 || num(body.respawnAt) > serverNow || num(body.stunnedUntil) > serverNow) return
     const length = Math.max(1, Math.hypot(input.dx, input.dz)), speed = (input.sprint && !body.blocking ? 8 : num(body.speed, 5)) * (body.blocking ? .5 : 1)
     const p = this.predicted, previousFloor = support(state, p.x, p.z, p.y), grounded = p.y <= previousFloor + .001 && p.vy <= 0
-    if (!grounded) { p.vy -= 18 * dt; p.y += p.vy * dt }
+    if (!grounded) { p.y += p.vy * dt - 9 * dt * (dt + 1 / 30); p.vy -= 18 * dt }
     const x = clamp(p.x + input.dx / length * speed * dt, -num(state.bounds?.width, 40) / 2 + .4, num(state.bounds?.width, 40) / 2 - .4)
     const z = clamp(p.z + input.dz / length * speed * dt, -num(state.bounds?.depth, 40) / 2 + .4, num(state.bounds?.depth, 40) / 2 - .4)
     if (!blocked(state, x, p.z, p.y)) p.x = x
@@ -80,7 +92,7 @@ export class MotionTrack {
     const body = latest.body, age = now - latest.received
     let x: number, y: number, z: number, yaw: number, speed = 0
     if (input) {
-      const elapsed = Math.max(0, Math.min(now - this.lastFrame, 60)) / 1000, before = { ...this.predicted }
+      const elapsed = Math.max(0, Math.min(now - this.lastFrame, 250)) / 1000, before = { ...this.predicted }
       if (input.jumpAt && input.jumpAt > this.jump) {
         this.jump = input.jumpAt
         if (body.onGround && num(body.jumpReadyAt) <= latest.at && num(body.hp, 100) > 0 && num(body.stunnedUntil) <= latest.at && !state.finished && state._canAct !== false) this.predicted.vy = 7.5
@@ -97,7 +109,7 @@ export class MotionTrack {
       y = Math.max(support(state, x, z, y), y)
       yaw = input.yaw ?? num(body.yaw)
     } else {
-      const time = Math.max(this.lastRemoteTime, now - this.offset - 100)
+      const time = Math.max(this.lastRemoteTime, now - this.offset - 125)
       this.lastRemoteTime = time
       const right = this.samples.find(s => s.at >= time) ?? latest, index = this.samples.indexOf(right), left = this.samples[Math.max(0, index - 1)]
       const gap = Math.hypot(num(right.body.x) - num(left.body.x), num(right.body.z) - num(left.body.z)), duration = right.at - left.at
@@ -107,10 +119,11 @@ export class MotionTrack {
       y = num(left.body.y) + (num(right.body.y) - num(left.body.y)) * t
       z = num(left.body.z) + (num(right.body.z) - num(left.body.z)) * t
       yaw = angle(num(left.body.yaw), num(right.body.yaw), t)
-      speed = duration > 0 && !discontinuity && time <= latest.at + 150 ? gap * 1000 / duration : 0
+      speed = duration > 0 && !discontinuity && time < latest.at + 100 ? gap * 1000 / duration : 0
       if (time > latest.at && !discontinuity && speed <= 8.5 && duration > 0) {
-        const extra = Math.min(150, time - latest.at) / duration, px = x + (num(right.body.x) - num(left.body.x)) * extra, pz = z + (num(right.body.z) - num(left.body.z)) * extra
+        const extra = Math.min(100, time - latest.at) / duration, px = x + (num(right.body.x) - num(left.body.x)) * extra, pz = z + (num(right.body.z) - num(left.body.z)) * extra
         if (!blocked(state, px, pz, y)) { x = px; z = pz }
+        else speed = 0
       }
       y = Math.max(stateGround(state, x, z), y)
     }

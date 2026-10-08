@@ -89,6 +89,7 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
   const clock = useRef({ server: num(props.state.serverTimeMs, Date.now()), received: performance.now() })
   useEffect(() => { clock.current = { server: num(props.state.serverTimeMs, Date.now()), received: performance.now() } }, [props.state.serverTimeMs])
   const cue = useRef<Cue | null>(null), selection = useRef(0), accumulated = useRef(0)
+  const gaitSpeed = useRef(0)
   const rigs = useMemo(() => [makeRig(full, body.character || 'fox', body.team || ''), makeRig(lod, body.character || 'fox', body.team || '')], [full, lod, body.character, body.team])
   const lifetime = useMemo(() => ({ mounted: false, released: false }), [rigs])
   const frustum = useMemo(() => new Frustum(), []), projection = useMemo(() => new Matrix4(), []), sphere = useMemo(() => new Sphere(new Vector3(), 2.5), [])
@@ -150,8 +151,9 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
     if (!onGround) { lower = 'JumpLoop'; upper = 'JumpLoop' }
     if (cue.current) { upper = cue.current.name; if (cue.current.whole) lower = upper; once = true; key = cue.current.key; speed = upper === 'Dodge' ? 3 : upper === 'JumpStart' ? 4 : upper === 'JumpLand' ? 5 : upper === 'Interact' ? 4 : upper === 'SwordAttack' ? 2.5 : 1.5 }
     if (down) { lower = upper = 'Death'; once = true; key = `down-${num(body.respawnAt)}`; speed = 1.5 }
-    selectAction(rig, lower, 'lower', once && lower === upper, once && lower === upper ? key : '', once && lower === upper ? speed : ['Run','Sprint'].includes(lower) ? MathUtils.clamp(num(pose.speed) / (lower === 'Sprint' ? 8.57 : 5.12), 0, 1.5) : 1)
-    selectAction(rig, upper, 'upper', once || upper === 'Guard' || upper === 'PistolAim', key, !once && ['Run','Sprint'].includes(upper) ? MathUtils.clamp(num(pose.speed) / (upper === 'Sprint' ? 8.57 : 5.12), 0, 1.5) : speed)
+    gaitSpeed.current = num(pose.speed) < .08 ? 0 : MathUtils.damp(gaitSpeed.current, num(pose.speed), 22, Math.min(rawDelta,.1))
+    selectAction(rig, lower, 'lower', once && lower === upper, once && lower === upper ? key : '', once && lower === upper ? speed : ['Run','Sprint'].includes(lower) ? MathUtils.clamp(gaitSpeed.current / (lower === 'Sprint' ? 8.57 : 5.12), 0, 1.5) : 1)
+    selectAction(rig, upper, 'upper', once || upper === 'Guard' || upper === 'PistolAim', key, !once && ['Run','Sprint'].includes(upper) ? MathUtils.clamp(gaitSpeed.current / (upper === 'Sprint' ? 8.57 : 5.12), 0, 1.5) : speed)
     accumulated.current += Math.min(rawDelta, .1)
     if (!visible) { accumulated.current = 0; return }
     if (selected === 1 && accumulated.current < .05 && selected === selection.current) return
