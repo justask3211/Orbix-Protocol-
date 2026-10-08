@@ -61,6 +61,10 @@ class Hub:
     def count(self, room_id: str) -> int:
         return sum(1 for c in self._conns.values() if c["room"] == room_id)
 
+    def connected_players(self, room_id: str) -> set[str]:
+        return {c["who"] for c in list(self._conns.values())
+                if c["room"] == room_id and c.get("role", "player") == "player"}
+
     async def send(self, who: str, msg: dict, room_id: str | None = None) -> None:
         for conn in list(self._conns.values()):
             if conn["who"] == who and (room_id is None or conn["room"] == room_id):
@@ -108,6 +112,7 @@ class RoomRuntime:
         self.round_id: str | None = room.get("round_id")
         self.seed: str | None = room.get("seed")
         self.commit: str | None = room.get("commit_hash")
+        self.join_code: str = room.get("join_code", "")
         self.engine = engine
         self.finished_at: float | None = None
         self._deadline: float | None = None
@@ -150,7 +155,8 @@ class RoomRuntime:
 
         config = RC(**row["config"])
         rt = cls(store, vault, hub, row, config)
-        rnd = store.room_round(room_id)
+        # A reserved rematch has no snapshot: never restore the prior match into it.
+        rnd = store.get_round(rt.round_id) if rt.round_id else store.room_round(room_id)
         if rnd and rnd.get("snapshot"):
             engine_cls = engine_for(config)
             rt.engine = engine_cls.restore(config, rnd["round_id"], rnd["seed"], rnd["snapshot"])
@@ -257,24 +263,102 @@ class RoomRuntime:
         return {"role": role, "joinerFee": fee_state, "status": self.status}
 
     def set_ready(self, who: str, ready: bool = True) -> dict:
+        if who.lower() not in {p["who"] for p in self.store.participants(self.room_id, role="player")}:
+            raise ValueError("NOT_ADMITTED")
         if self.action_guard:self.action_guard(who.lower())
         self.store.set_ready(self.room_id, who.lower(), ready)
         return {"ready": self.store.ready_count(self.room_id)}
+
+    def rematch_capability(self) -> dict:
+        financial = (self.config.rewards.kind != "preview-points" or self.config.entry.kind != "free"
+                     or self.config.access.vault_mode != "simulated" or self.config.mode != "preview")
+        return {"supported": not financial, "requiresFreshRoom": financial,
+                "reason": "FRESH_FUNDED_ROOM_REQUIRED" if financial else None}
+
+    def _rematch_players(self) -> list[str]:
+        """Presence filtering is scoped to rematches; original admission stays intact."""
+        connected = self.hub.connected_players(self.room_id)
+        eligible = []
+        for p in self.store.participants(self.room_id, role="player"):
+            if not p["ready"] or p["who"] not in connected:
+                continue
+            try:
+                self.community.assert_can_join(self.room_id, p["who"])
+                if self.action_guard:
+                    self.action_guard(p["who"])
+            except Exception as exc:
+                if getattr(exc, "code", "") in {"ROOM_BANNED", "PLAYER_SUSPENDED", "ROOM_ARCHIVED"}:
+                    continue
+                raise
+            eligible.append(p["who"])
+        return eligible
+
+    async def prepare_rematch(self, config: RoomConfig | None = None, now: float | None = None) -> dict:
+        """Reserve a fresh preview match while retaining every finished round/claim.
+
+        This explicit host command begins a new match in the room container.
+        Existing lifecycle transitions still prevent stale timers reopening it.
+        """
+        now = time.time() if now is None else now
+        if not self.rematch_capability()["supported"]:
+            raise ValueError("FRESH_FUNDED_ROOM_REQUIRED")
+        old = self.store.get_round(self.round_id) if self.round_id else None
+        if self.status not in {lc.CLAIMABLE, lc.CLOSED} or not old or old.get("ended_at") is None:
+            raise ValueError("MATCH_NOT_FINISHED")
+        cfg = config or self.config
+        if (cfg.mode != "preview" or cfg.rewards.kind != "preview-points"
+                or cfg.entry.kind != "free" or cfg.access.vault_mode != "simulated"):
+            raise ValueError("FRESH_FUNDED_ROOM_REQUIRED")
+        if cfg.template_id != self.config.template_id:
+            raise ValueError("REMATCH_TEMPLATE_CHANGED")
+        if cfg.timing.close_at and now >= cfg.timing.close_at:
+            raise ValueError("ROOM_SCHEDULE_ENDED")
+        previous = self.round_id
+        round_id, seed = secrets.token_hex(16), secrets.token_hex(32)
+        config_hash = "0x" + hashlib.sha256(cfg.config_hash_input().encode()).hexdigest()
+        commit = "0x" + commit_hash(round_id, config_hash, seed)
+        self.revision = self.store.prepare_rematch(self.room_id, self.revision, cfg.model_dump(mode="json"),
+                                                  config_hash, round_id, seed, commit, reset_community=config is not None)
+        self.config, self.status = cfg, lc.REGISTRATION
+        self.round_id, self.seed, self.commit = round_id, seed, commit
+        self.engine = None
+        self.finished_at = self._deadline = None
+        self.actions_seen.clear()
+        self._arena_actions.clear()
+        self._arena_seq = None
+        self._arena_checkpoint_at = self._arena_broadcast_at = self._last_hint_tick = 0.0
+        self._last_settlement = None
+        self._community_cache = None
+        if hasattr(self, "_closed_at"):
+            del self._closed_at
+        payload = {"roomId": self.room_id, "roomNumber": self.join_code, "joinCode": self.join_code,
+                   "status": self.status, "roundId": round_id, "previousRoundId": previous,
+                   "commitHash": commit, "readinessReset": True, "config": cfg.public_dict(),
+                   "rematch": self.rematch_capability()}
+        await self.hub.broadcast(self.room_id, {"v": PROTOCOL_VERSION, "type": "room.rematch",
+                                                "roundId": round_id, "payload": payload})
+        return payload
 
     # ------------------------------------------------------------------ round start
 
     async def start(self, now: float | None = None) -> dict:
         now = now or time.time()
+        if self.status not in {lc.REGISTRATION, lc.READY}:
+            raise ValueError("ROUND_NOT_OPEN")
         if self.engine is not None and not self.engine.finished:
             raise ValueError("ROUND_ALREADY_RUNNING")
-        players = [p["who"] for p in self.store.participants(self.room_id) if p["role"] == "player"]
+        reserved = self.store.get_round(self.round_id) if self.round_id else None
+        is_rematch = reserved is not None and reserved["state"] == lc.REGISTRATION
+        players = self._rematch_players() if is_rematch else [p["who"] for p in self.store.participants(self.room_id) if p["role"] == "player"]
         if not players:
             raise ValueError("NO_PLAYERS")
-        ready = self.store.ready_count(self.room_id)
+        ready = len(players) if is_rematch else self.store.ready_count(self.room_id)
         # min_ready_to_start is a hard floor: a host cannot start early just because fewer
         # players joined (min(cap, len) would let a 2-ready room start with one player).
         if ready < self.config.admission.min_ready_to_start:
             raise ValueError("NOT_READY")
+        if len(players) > self.config.admission.player_cap:
+            raise ValueError("ROOM_FULL")
 
         self.round_id = self.round_id or secrets.token_hex(16)
         self.seed = self.seed or secrets.token_hex(32)
@@ -317,6 +401,8 @@ class RoomRuntime:
             "round_id": self.round_id, "room_id": self.room_id, "seed": self.seed,
             "commit_hash": self.commit, "started_at": now, "state": lc.RUNNING,
             "snapshot": self.engine.snapshot(),
+            "config": self.config.model_dump(mode="json"), "config_hash": config_hash,
+            "action_start_seq": reserved["action_start_seq"] if reserved else self.store.next_seq(self.room_id) - 1,
         })
         self.revision = self.store.update_room(
             self.room_id, expected_revision=self.revision, status=lc.RUNNING,
@@ -439,7 +525,8 @@ class RoomRuntime:
 
         actions = [{"who": a["who"], "action": a["action"], "at": a["at"]} for a in self.actions_seen]
         if getattr(self.engine, 'arena', False):
-            actions=[{'who':a['who'],'action':json.loads(a['payload']),'at':a['at']} for a in self.store.actions_since(self.room_id,0) if a['accepted']]
+            start_seq = (self.store.get_round(self.round_id) or {}).get('action_start_seq', 0)
+            actions=[{'who':a['who'],'action':json.loads(a['payload']),'at':a['at']} for a in self.store.actions_since(self.room_id,start_seq) if a['accepted']]
         transcript = st.transcript_hash(self.round_id or "", actions)
         config_hash = self.store.get_room(self.room_id)["config_hash"]
 
@@ -482,7 +569,7 @@ class RoomRuntime:
 
         self.store.save_round({
             "round_id": self.round_id, "room_id": self.room_id, "seed": self.seed,
-            "commit_hash": self.commit or "", "started_at": (self.store.room_round(self.room_id) or {}).get("started_at", now), "ended_at": now,
+            "commit_hash": self.commit or "", "started_at": (self.store.get_round(self.round_id) or {}).get("started_at", now), "ended_at": now,
             "merkle_root": "0x" + root.hex(), "allocations_hash": "0x" + alloc.hex(),
             "transcript_hash": "0x" + transcript.hex(), "settlement_deadline": deadline,
             "settled_at": now, "state": lc.CLAIMABLE, "snapshot": self.engine.snapshot(),
@@ -499,7 +586,7 @@ class RoomRuntime:
                 "transcriptHash": "0x" + transcript.hex(), "deadline": deadline,
                 "escrow": escrow, "chainId": DEFAULT_CHAIN_ID,
                 "allocations": entries,
-                "results": [{"who": p, "score": self.engine.scores().get(p, 0)} for p in self.engine.ranking()],
+                "results": self._result_rows(),
             },
         }
         self._last_settlement = settlement_frame
@@ -519,10 +606,11 @@ class RoomRuntime:
     # ------------------------------------------------------------------ fairness view
 
     def fairness(self) -> dict:
-        rnd = self.store.room_round(self.room_id) or {}
+        rnd = (self.store.get_round(self.round_id) if self.round_id else None) or {}
         return {
             "roundId": self.round_id,
             "commitHash": rnd.get("commit_hash"),
+            "configHash": rnd.get("config_hash"),
             "seed": rnd.get("seed") if rnd.get("ended_at") is not None else None,
             "merkleRoot": rnd.get("merkle_root"),
             "allocationsHash": rnd.get("allocations_hash"),
@@ -540,8 +628,8 @@ class RoomRuntime:
         Serves reconnecting clients after a restart too: nothing here depends on
         in-memory state alone.
         """
-        rnd = self.store.room_round(self.room_id) or {}
-        if self.status != lc.CLAIMABLE or not rnd.get("merkle_root"):
+        rnd = (self.store.get_round(self.round_id) if self.round_id else None) or {}
+        if self.status not in {lc.CLAIMABLE, lc.CLOSED} or not rnd.get("merkle_root"):
             return getattr(self, "_last_settlement", None)  # live frame if present, else nothing
         root = rnd["merkle_root"]
         allocations = self.store.entitlements_for_round(self.round_id or "")
@@ -563,9 +651,23 @@ class RoomRuntime:
                 "escrow": PLACEHOLDER_ESCROW if self.config.mode == "preview" else os.environ.get("CENTER_ESCROW", PLACEHOLDER_ESCROW),
                 "chainId": DEFAULT_CHAIN_ID,
                 "allocations": entries,
-                "results": [{"who": p, "score": self.engine.scores().get(p, 0)} for p in self.engine.ranking()] if self.engine else [],
+                "results": self._result_rows(),
             },
         }
+
+    def _result_rows(self) -> list[dict]:
+        """Scores are presentation data; only the engine decides final eligibility.
+
+        Number Hunt's score is remaining guesses, so a positive score cannot prove
+        a win. Preserve the engine's actual ordered ranking, including its tie
+        policy, rather than sorting by that display score on the client.
+        """
+        if self.engine is None:
+            return []
+        scores = self.engine.scores()
+        eligible = self.engine.eligible() if self.engine.finished else set()
+        return [{"who": who, "score": scores.get(who, 0), "rank": rank, "eligible": who in eligible}
+                for rank, who in enumerate(self.engine.ranking(), 1)]
 
     def results(self) -> dict:
         if self.engine is None:
@@ -573,7 +675,7 @@ class RoomRuntime:
         return {
             "roundId": self.round_id,
             "state": self.status,
-            "results": [{"who": p, "score": self.engine.scores().get(p, 0)} for p in self.engine.ranking()],
+            "results": self._result_rows(),
             "entitlements": self.store.entitlements_for_round(self.round_id or ""),
         }
 

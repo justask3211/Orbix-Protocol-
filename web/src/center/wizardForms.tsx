@@ -83,7 +83,7 @@ export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
       {kind:'number',key:'starting_health',label:'Fighter starting health',min:50,max:300,help:'Both fighters start with the same health.'},
       {kind:'number',key:'attack_cooldown_ms',label:'Attack cooldown (ms)',min:300,max:1000,step:100,help:'Server limits each attack. Move and use shields between strikes.'},
       {kind:'number',key:'combo_window_ms',label:'Combo window (ms)',min:300,max:1500,step:100,help:'Link valid melee strikes within this window to build a combo. Both fighters use the same rules.'},
-      {kind:'toggle',key:'allow_gun',label:'Allow gun pickups',help:'Enable ranged gun pickups alongside fists, swords and spears. Leave off for a melee-only duel.'},
+      {kind:'toggle',key:'allow_guns',label:'Allow gun pickups',help:'Enable ranged gun pickups alongside fists, swords and spears. Leave off for a melee-only duel.'},
     ],
   },
   'puzzle-sprint': {

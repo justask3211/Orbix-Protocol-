@@ -69,6 +69,7 @@ class AdminGameService:
             r = self._room(item["id"])
             cfg = r["config"]
             out.append({"roomId": r["id"], "name": cfg.get("name", r["id"]), "templateId": r["template_id"],
+                        "roomNumber": r["join_code"], "joinCode": r["join_code"],
                         "owner": r["owner"], "status": r["status"], "visibility": r["visibility"], "mode": r["mode"],
                         "players": len(self.store.participants(r["id"], role="player")), "createdAt": r["created_at"],
                         "archived": room_archived(self.store, r["id"]), "rewardKind": cfg.get("rewards", {}).get("kind", "points")})
@@ -82,6 +83,7 @@ class AdminGameService:
         roster = self.community.roster(room_id, room["owner"])
         community = self.community.snapshot(room_id, room["owner"])
         return {"roomId": room_id, "name": room["config"].get("name", room_id), "templateId": room["template_id"],
+                "roomNumber": room["join_code"], "joinCode": room["join_code"],
                 "status": room["status"], "owner": room["owner"], "observer": "hidden", "readOnly": True,
                 "publicState": runtime.engine.public_state() if runtime.engine else None,
                 "roundId": runtime.round_id, "serverTimeMs": int(self.clock() * 1000),

@@ -1,6 +1,6 @@
 # Orbix game center: implementation and intent
 
-Read this before changing `/center`. Current implementation: October 7, 2026.
+Read this before changing `/center`. Current implementation: October 8, 2026.
 The latest human request takes precedence. Preserve these established mechanics
 and design choices unless the user requests a change; do not silently substitute
 an overhead board or unrelated game for the intended experience.
@@ -13,8 +13,9 @@ The latest request explicitly corrected the compact overhead arenas: Token
 Catch, Boss Raid and Arena Duel must be small playable perspective worlds with
 human-shaped characters, camera-relative movement, jump, combat and FPV/TPV.
 The PUBG comparison describes locomotion, supply crates and squad-room controls;
-the Shadow Fight comparison describes melee weapons and combinations. Assets
-and code here are original; neither comparison authorizes copying those games.
+the Shadow Fight comparison describes melee weapons and combinations. Original
+Orbix art and licensed CC0 character sources are described below; neither
+comparison authorizes copying those games.
 
 Number Hunt remains a puzzle game. Rock Paper Scissors Duel remains a separate
 sealed-choice game (`reaction-duel`); Arena Duel is `combat-duel`. Both remain
@@ -35,10 +36,18 @@ The implementation used the project `orbix-game-engineering` skill, the installe
 3d-games skill, in-app browser checks, TypeScript/Vite, pytest and a local Python
 reducer benchmark. Specialized agents handled renderer, controls, and admin/UI
 fixes; the main agent integrated mechanics, settlement, verification and release.
-No new dependency or paid MCP service was needed for this update. Tools in
+No paid MCP service was used for this update. Tools in
 `tools/game-lab` and installed research plugins are optional tooling, not proof
 that a particular library is part of the deployed center. In particular this
-release does not use Rapier, Drei, Colyseus, Motion, Howler or Zustand at runtime.
+release does not use ecctrl, Rapier, Drei, Colyseus, Motion, Howler or Zustand at runtime.
+
+The October 8 research installed eight MIT community skills (`threejs-core`,
+`materials`, `lighting`, `camera`, `physics`, `shaders`, `react`, `performance`,
+each prefixed `threejs-`) at a pinned source revision, with retained licenses and
+local API corrections. `tools/game-lab/skill-sources.json` records their hashes.
+`ecctrl@2.0.2` is installed only in that lab. Blender 3.4 CLI processed the rigged
+assets; the installed community Blender MCP was disconnected, so no successful
+MCP scene authoring is claimed. See the dated tooling research report for sources.
 
 Use a supported modern Node runtime (the verified local build used Node 24).
 Putting that runtime on PATH matters: npm child scripts can otherwise find an
@@ -55,9 +64,11 @@ older system Node and fail on Vite's `node:util.styleText` import.
 | Camera/input/touch/loot HUD | `ArenaControls.tsx`, `arenaPlay.css` |
 | Lazy renderer and loading/context-loss recovery | `worlds/GameWorld.tsx`, `worlds/WorldScene.tsx` |
 | Characters, follow camera, FPV hands, cover, drops and boss | `worlds/ArenaWorld.tsx` |
+| Rigged actors, original boss/view model, terrain and lighting | `SkeletalActors.tsx`, `GuardianModel.tsx`, `FirstPersonModel.tsx`, `FieldEnvironment.tsx`, `FieldLighting.tsx`, `terrain.ts` |
+| Verified podium and host rematch edits | `WinnerCelebration.tsx`, `RematchSettings.tsx` |
 | Signed administration | `AdminPanel.tsx`, `center/admin_games.py`, `center/store.py` |
 | Rule constraints and version selection | `center/schema.py`, `center/games/__init__.py` |
-| Character simulation and reward allocation | `center/games/field_arena.py` |
+| Character simulation, versioned terrain and reward allocation | `center/games/field_arena.py`, `terrain_arena.py`, `terrain.py` |
 | Realtime, admission, settlement and checkpoints | `center/api.py`, `center/room.py` |
 | Isolated bot trials | `center/practice.py` |
 
@@ -71,19 +82,34 @@ expanded play view with chat beneath, Minimize and Escape.
 
 ## Assets and rendering
 
-Human characters (Scout/Sentinel/Runner/Striker), outfits, limbs, cover, hills,
-crates, parachutes, weapons, projectiles and the crystal guardian are procedural
-original geometry. Cosmetic IDs `fox/robot/frog/cat` remain compatible with
-stored rooms; they no longer require animal-shaped overhead blobs.
+Version 4 uses actual skeletal Orbix Ranger GLBs derived from Quaternius Universal
+Base Characters Standard and Universal Animation Library Standard, both CC0 1.0.
+The locally retargeted rig has 65 joints, 20 clips, embedded textures capped at
+512px, a 16,064-triangle full mesh and 3,123-triangle distant LOD. Horizontal root
+motion is in place; movement remains server-owned. Retain
+`web/public/center-models/NOTICE.md`, CC0 license and the exact source/output hashes
+in `orbix-ranger.manifest.json`. The 20 clips include an original Orbix front kick;
+do not rename unrelated clips or assume matching bone names imply bind-pose
+compatibility. See `tools/game-lab/assets/CHARACTER_PIPELINE.md` for reproduction.
+Cosmetic IDs `fox/robot/frog/cat` remain compatible with stored rooms and tint suit,
+armor and accent regions without modifying gameplay statistics or the face/eyes.
+Version 2/3 retains its procedural characters and previous reducer behavior.
+The crystal Guardian, first-person gloves/weapons, foliage, terrain textures,
+cover, crates, parachutes and projectile presentation are original Orbix art.
 Homepage WebP illustrations were generated earlier using built-in image_gen;
 `web/public/center-art/provenance.json` stores prompts, hashes and bytes. They are
-world illustrations, not screenshots of this gameplay. The current update
-reuses those illustrations and introduces no downloaded character/texture pack.
+world illustrations, not screenshots of this gameplay. This update reuses those
+illustrations and adds the licensed character pack described above.
 Record provenance/license/hash before adding any external asset.
 
-The renderer is lazy and shows a loading state. DPR is bounded to 1–1.5; there
-are no shadow maps or postprocessing passes. Shared instanced geometry batches
-characters, weapons and loot. Hidden tabs pause presentation; reduced motion
+The renderer and GLBs are lazy and show renderer/asset loading states. Fast uses
+DPR 1; Balanced caps DPR at 1.5; Sharp caps it at 2. Version 4 enables one bounded
+sun shadow only on fine-pointer desktop viewports in Balanced/Sharp. There are no
+postprocessing passes or downloaded HDR environments. Procedural props/loot are
+instanced; skeletal actors own cloned mixers/skeletons/tinted materials and share
+cached source geometry/textures. Distant actors use LOD and reduced animation
+update cadence. The displayed FPS is a short local observation, not a benchmark.
+Hidden tabs pause presentation; reduced motion
 removes decorative bobbing while retaining movement interpolation. Camera
 collision shortens its boom against actual published cover. WebGL failure keeps
 DOM controls available with Retry. See `worlds/README.md` for coordinate and
@@ -91,12 +117,22 @@ clock conventions, shared geometry ownership and scene mapping.
 
 ## Character physics and authority
 
-New UI/practice configurations explicitly set `world_version: 3`. The schema
+New UI/practice configurations explicitly set `world_version: 4`. The schema
 default remains 2 so existing committed rooms are not silently migrated to
 different rules. Version 2 reducers and classic scenes remain available.
 Changing a reducer for saved rooms requires explicit version/replay planning.
 
-Version 3 worlds are 40×40 units. Server simulation is 30Hz, room state
+Version 4 adds authoritative `field-v1` terrain to the 40×40 play space: island
+for Catch, guardian clearing for Raid, courtyard for Duel. Python
+`center/games/terrain.py` and TypeScript `worlds/terrain.ts` must agree. Ground
+height, jump/landing, cover base height, loot, projectiles and spawn/respawn follow
+the server surface. The wider 140×140 rendered landscape, water, trees and distant
+ruins are decorative vista; they do not expand the playable map or create cover.
+Only published obstacles/crates/boss are authoritative collision objects.
+Terrain parity and replay/version tests are required when changing these formulas.
+Version 3 remains flat and replayable; saved rooms are never silently upgraded.
+
+Server simulation is 30Hz, room state
 broadcasts are 10Hz, and movement input leases expire after 250ms. Normal speed
 is 5 units/sec; sprint is 8; gravity is 18; jump impulse is 7.5. The server owns
 collisions, vertical position, cover line of sight, cooldowns, inventory, loot,
@@ -166,6 +202,28 @@ are one transaction; failure leaves no partial setting or in-memory archive.
 Admin proofs are wallet message signatures with nonce/expiry/replay checks,
 not gas-bearing token transfers. Observation uses no player slot or join notice.
 
+Human room numbers are durable server-allocated strings: 100–999, then four or
+more digits as capacity fills. `room_codes` has unique room/code constraints and
+startup migration allocates old-room aliases once. Internal hash IDs remain API,
+escrow and history identifiers. Resolve with `/api/center/v1/rooms/resolve/{code}`;
+private codes return uniform 404 unless an authenticated owner/admin/member or
+authenticated holder of the existing valid secret invite is authorized. Knowing
+a numeric code does not admit a player or satisfy token-entry verification.
+
+`POST /api/center/v1/rooms/{hash}/rematch` accepts `{}` or a full edited `config` for
+the same template. Free simulated preview-point rooms reuse their container and
+invite while reserving a fresh round/seed/commit and resetting every ready flag.
+Subsequent rounds include only connected eligible ready players; first-round
+admission semantics stay compatible. Finished round rules, transcripts, proofs,
+entitlements and claim status remain independently owned. History is available
+at `/rooms/{hash}/history`; room GET restores authorized settlement after refresh.
+Paid entry, funded assets, onchain access or non-preview modes return
+`FRESH_FUNDED_ROOM_REQUIRED`; the UI prefills the original rules into a new-room
+funding review instead of reusing an old escrow game ID or silently charging.
+Podium models display verified final results; they never calculate the winner or
+prove a blockchain transfer. Claim receipt fields remain unmodified and scoped
+to authorized owners/admins or the winning wallet.
+
 Rooms checkpoint accepted movement batches once per second; critical actions,
 settlement and graceful shutdown flush them. Abrupt termination can lose the
 most recent uncheckpointed interval. Preserve all added physics/RNG/drop fields
@@ -192,9 +250,14 @@ not a guarantee for 50 live devices. Cold scene chunk: 953.64kB minified,
 253.33kB gzip, loaded on demand. Target-device performance, latency/jitter,
 extended human playtesting and live funded payouts remain verification work.
 
+These October 7 sizes and timings describe that historical build. October 8
+evidence and pending release identifiers are recorded in
+`docs/sessions/2026-10-08-rigged-worlds-rematches.md`; replace its pending final
+verification/deployment fields only after the integrating agent confirms them.
+
 Add a dated file under `docs/sessions` for each substantial update: human
 request, intent, changed behavior/files, reason, verified evidence, limits and
 release result. Link it from the index. Never turn assumptions into claimed
 measurements. Historical records remain historical; newer requests supersede
 older implementation choices. Start with `docs/sessions/README.md` and the
-October 7 entry rather than treating older SESSION_MEMORY.md as current status.
+October 8 entry rather than treating older SESSION_MEMORY.md as current status.

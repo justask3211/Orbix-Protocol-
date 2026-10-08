@@ -105,7 +105,7 @@ class CatchRules(Strict):
     template_id: Literal["token-catch"] = Field(default="token-catch", alias="templateId")
     duration_seconds: int = Field(ge=15, le=600)
     arena_mode: bool = False
-    world_version: Literal[2, 3] = 2
+    world_version: Literal[2, 3, 4] = 2
     loot_budget: int = Field(default=500, ge=1, le=10000)
     airdrop_count: int = Field(default=10, ge=1, le=30)
     loot_chunk: int = Field(default=5, ge=1, le=100)
@@ -124,11 +124,11 @@ class CatchRules(Strict):
 
     @model_validator(mode="after")
     def _loot_bounds(self):
-        if self.world_version == 3 and not self.arena_mode:
+        if self.world_version >= 3 and not self.arena_mode:
             raise ValueError('third-person loot requires arena_mode')
-        if self.world_version == 3 and self.airdrop_count > self.loot_budget:
+        if self.world_version >= 3 and self.airdrop_count > self.loot_budget:
             raise ValueError('airdrop_count cannot exceed loot_budget')
-        if self.world_version == 3 and (self.loot_budget + self.loot_chunk - 1)//self.loot_chunk + self.airdrop_count > 400:
+        if self.world_version >= 3 and (self.loot_budget + self.loot_chunk - 1)//self.loot_chunk + self.airdrop_count > 400:
             raise ValueError('use larger loot piles: at most 400 piles per match')
         return self
 
@@ -150,7 +150,7 @@ class CombatRules(Strict):
     max_players: int = Field(default=2, ge=2, le=2)
     starting_health: int = Field(default=100, ge=50, le=300)
     attack_cooldown_ms: int = Field(default=500, ge=300, le=1000)
-    world_version: Literal[2, 3] = 2
+    world_version: Literal[2, 3, 4] = 2
     allow_guns: bool = False
     combo_window_ms: int = Field(default=800, ge=300, le=1500)
 
@@ -184,7 +184,7 @@ class BossRules(Strict):
     max_players: int = Field(ge=2, le=100)
     duration_seconds: int = Field(ge=60, le=600)
     arena_mode: bool = False
-    world_version: Literal[2, 3] = 2
+    world_version: Literal[2, 3, 4] = 2
     winning_teams: int = Field(default=3, ge=1, le=3)
     team_reward_shares: list[int] = Field(default_factory=lambda: [60,25,15], min_length=1, max_length=3)
     team_member_split: Literal['equal', 'damage'] = 'equal'
@@ -202,7 +202,7 @@ class BossRules(Strict):
 
     @model_validator(mode="after")
     def _crew_reward_bounds(self):
-        if self.world_version == 3 and (not self.arena_mode or self.team_mode != 'teams'):
+        if self.world_version >= 3 and (not self.arena_mode or self.team_mode != 'teams'):
             raise ValueError('third-person raids require arena teams')
         if len(self.team_reward_shares) != self.winning_teams or any(type(n) is not int or n < 0 or n > 100 for n in self.team_reward_shares) or sum(self.team_reward_shares) != 100:
             raise ValueError('team reward shares must match winning teams and total 100 percent')
@@ -440,7 +440,7 @@ class RoomConfig(Strict):
             raise ValueError("simulated vault must not name a token")
         if self.rewards.kind == "funded-assets" and self.mode != "testnet":
             raise ValueError("funded-asset rewards require mode=testnet")
-        if getattr(self.rules, 'world_version', 2) == 3 and self.template_id in {'token-catch', 'boss-raid'} and self.rewards.kind == 'funded-assets':
+        if getattr(self.rules, 'world_version', 2) >= 3 and self.template_id in {'token-catch', 'boss-raid'} and self.rewards.kind == 'funded-assets':
             if any(s.asset_kind != 'erc20' for s in self.rewards.slots) or len({(s.asset_contract or '').lower() for s in self.rewards.slots}) != 1:
                 raise ValueError('shared loot and team pools require one ERC-20 reward asset')
         ranks = [s.rank for s in self.rewards.slots]

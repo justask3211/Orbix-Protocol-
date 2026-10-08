@@ -79,5 +79,101 @@
     "local_changes": true,
     "skill_sha256": "b17c464baf6f61712163a75c754d852b4dccf24453341e896c44da4098af3a6c",
     "name": "threejs-audio"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-07",
+    "local_changes": true,
+    "skill_sha256": "00bdcc1410b51e172b759c833efa9dd02956c4134063ab0a37f790899838f692",
+    "upstream_skill_sha256": "b537768f6de5157743cd84a3711764b77211d9edf5f90d8a1bd0c9da815c1cab",
+    "corrections_sha256": "94ae9f1b93960f85433d8be013e3e85b0e18219f8d0ba1b8bcb089663a3e635c",
+    "license_sha256": "adb0ce8850fb43989848e32720f7c7327fbb1879b492a6ea5268d0a10fd2cda4",
+    "name": "threejs-core"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-07",
+    "local_changes": true,
+    "skill_sha256": "3e19459e3e8df36dbf63bc090ce73fee12a77729975c39e382953fbe296fe88d",
+    "upstream_skill_sha256": "b132c6e4bd678eff9877e9b3032ef320d2bc70784ca7339ab825cb39337a4c96",
+    "corrections_sha256": "3d5e7d30513b3a5f2499aa035b1e2d9b1943c2885f56e4355aeb468a402e710d",
+    "license_sha256": "adb0ce8850fb43989848e32720f7c7327fbb1879b492a6ea5268d0a10fd2cda4",
+    "name": "threejs-materials"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-07",
+    "local_changes": true,
+    "skill_sha256": "ae250998503d62ffa328ec68e6fe544578cc5f98cb188e7a52709803b9f12070",
+    "upstream_skill_sha256": "c94b90a8823cec9e1094a2f06def2e84ce097b00b0995439a9ac0e97935b6be7",
+    "corrections_sha256": "fbae41e0b047f7f0aaef34c81faa77ee25944c34ebecd78575e051820be2baed",
+    "license_sha256": "adb0ce8850fb43989848e32720f7c7327fbb1879b492a6ea5268d0a10fd2cda4",
+    "name": "threejs-lighting"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-07",
+    "local_changes": true,
+    "skill_sha256": "bf194a8149faed5e4b0c04cd69a1389c8c8b26d8119b878989cf05b801b06dff",
+    "upstream_skill_sha256": "89d49a3ebcd762fe10cc85398e93fe447bc7520378b88679087b885ccdc22456",
+    "corrections_sha256": "93e0928c5f21eb4ae311ab735a4f04dbbc993b538d9d44c532f86fce7bded08b",
+    "license_sha256": "adb0ce8850fb43989848e32720f7c7327fbb1879b492a6ea5268d0a10fd2cda4",
+    "name": "threejs-camera"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-07",
+    "local_changes": true,
+    "skill_sha256": "37284255ddbd7a5fd109d9e59536694ab0eff94dfdb0328aa0d64e24847016e2",
+    "upstream_skill_sha256": "2c1125e9b5e8fcb957191d4ff585883399108b5b7eea734922f3b3cca2f45cf4",
+    "corrections_sha256": "f3e0f3abb70740b141b7eb3707fcab21c48fd1657d9dfa05f685b77cbabe2850",
+    "license_sha256": "adb0ce8850fb43989848e32720f7c7327fbb1879b492a6ea5268d0a10fd2cda4",
+    "name": "threejs-physics"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-07",
+    "local_changes": true,
+    "skill_sha256": "51a33810ca519208c8f0ad4daaeea58b9b396a3d80e85ef2a842ac841341664b",
+    "upstream_skill_sha256": "ef7acc0a483a32c98421ccc8254675d3594a90fa6e2bb97fdec29848f83a3848",
+    "corrections_sha256": "2c33f929d8bed38d2bc6ba214df60b761cca439250f7a4b4f6566638306b3807",
+    "license_sha256": "adb0ce8850fb43989848e32720f7c7327fbb1879b492a6ea5268d0a10fd2cda4",
+    "name": "threejs-shaders"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-07",
+    "local_changes": true,
+    "skill_sha256": "5e706245cf79c95768e8521c73964e2880855d813f3ccf24cfbd83e7c06ae7ff",
+    "upstream_skill_sha256": "81fd66726988a92eecd6cf30509909705525c1e6e5d737dfe5b0d38145dca9f8",
+    "corrections_sha256": "1dbf02333bc34bcf217faa3f5e8fe0979d0734d9ca0914f543de1bf3538ba52e",
+    "license_sha256": "adb0ce8850fb43989848e32720f7c7327fbb1879b492a6ea5268d0a10fd2cda4",
+    "name": "threejs-react"
+  },
+  {
+    "source": "https://github.com/alton47/threejs-skills",
+    "ref": "7b8e25638cff83a6be4926d8f05001022cc80ac3",
+    "license": "MIT",
+    "installed": "2026-10-07",
+    "local_changes": true,
+    "skill_sha256": "5a1e094736f04b7441486bac569966af755660a9a7ade5b612ddd94b85a51c3d",
+    "upstream_skill_sha256": "9ec37cbf2a237f75eb90175b57d4118170640ade96de8622a207a1e3c22f974d",
+    "corrections_sha256": "a20bc85ae2249ccf8cc9346c0761f76fb471f38e1356a2cfe6d6a19f3ce24bad",
+    "license_sha256": "adb0ce8850fb43989848e32720f7c7327fbb1879b492a6ea5268d0a10fd2cda4",
+    "name": "threejs-performance"
   }
 ]

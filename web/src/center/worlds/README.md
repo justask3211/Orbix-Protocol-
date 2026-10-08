@@ -1,37 +1,127 @@
-# Orbix procedural worlds
+# Orbix perspective worlds
 
-All geometry and outfit designs are original. The production renderer uses the installed Three.js / React Three Fiber libraries; there are no copied commercial game assets, downloaded character packs, paid rendering services, remote textures or blockchain requests in the render loop. The PUBG comparison describes player movement and camera expectations, not a license to reproduce that game's assets.
+Current architecture: October 8, 2026. `AGENTUSE.md` records product intent;
+dated `docs/sessions` entries preserve prior implementations and release evidence.
+Token Catch, Boss Raid and Arena Duel use small movable perspective spaces with
+FPV/TPV, jumping, aiming and combat. Fortnite/PUBG/Shadow Fight are quality and
+mechanics references, not licensed asset sources or an AAA quality claim.
 
-`GameWorld.tsx` is the lightweight entry and lazily imports `WorldScene.tsx`. An actual renderer loading state appears until the Canvas is created. WebGL errors/context loss retain accessible DOM controls and offer Retry. The scene pauses when the tab is hidden. Essential player interpolation remains active with reduced-motion enabled, while spinning/bobbing embellishments stop. DPR is bounded to 1–1.5; there are no shadow maps or postprocessing passes.
+## Versioned authority and terrain
 
-## Current perspective arenas
+New wizard/practice worlds explicitly use `world_version: 4`. Schema defaults
+remain version 2; `center/games/__init__.py` selects the saved version rather than
+silently upgrading old rooms. Version 3 retains its flat 40×40 field simulation;
+version 2 and classic scenes retain their earlier mechanics.
 
-Token Catch, Boss Raid and Arena Duel use `ArenaWorld.tsx` for server `arena: true` state. Canvas uses a perspective camera, never an orthographic overhead camera. A shoulder camera follows the same reconciled local pose as the avatar and shortens its boom against published cover. `cameraRef` contains `{yaw,pitch,mode:'third'|'first'}`; yaw points world-forward `(sin(yaw),cos(yaw))`, positive camera pitch looks down, and gun aim pitch is the negative of that angle. First-person mode hides the local full body and renders a small original hands/weapon view model. Controls own drag/swipe look, pointer lock, camera-relative WASD/touch movement and gameplay intents; the renderer does not independently change input or submit attacks on mesh clicks.
+Version 4 `TerrainArenaEngine` adds `field-v1` ground height.
+`center/games/terrain.py` and `terrain.ts` must match numerically: Catch is
+`island`, Raid is `guardian`, Duel is `courtyard`. Body ground/jump/landing,
+published cover `baseY`, drops, airdrops, boss placement, projectile obstruction
+and respawn use the authoritative surface. Ground/support tests live in
+`center/tests/test_terrain_arena.py`; tooling tests check Python/TypeScript parity.
+Altering formulas requires version/replay planning.
 
-Scout, Sentinel, Runner and Striker retain the cosmetic IDs `fox`, `robot`, `frog` and `cat`. These are human-shaped characters with distinct outfit/skin/hair palettes, articulated legs/arms, backpacks, boots, hands and facial features. Do not replace them with stationary animal blobs or move them into an overhead board. All participants share two instanced body draw calls (16 box parts and 8 rounded parts per player), plus batched weapons, HP bars, ground rings and shield bubbles. Walking, sprinting, airborne poses, accepted attack cooldowns, combo changes and guard states animate joints. Local full-body visibility changes in FPV without remounting the renderer. Cosmetic choice cannot alter authoritative gameplay stats.
+`FieldEnvironment.tsx` renders a 140×140 landscape, original local grain/normal
+textures, trees, grass, stones, water and ruins. The playable region is still the
+published 40×40 bounds. Everything beyond it is vista. Decorative foliage and
+ruins do not become server cover; only published obstacles, intact crates and
+the boss block players/camera/attacks. Do not extend movement into scenery or
+invent collision from an attractive prop.
 
-Public state maps directly to geometry:
+## Rigged characters and original equipment
 
-- `bodies[wallet]`: x/z, capsule-base y, yaw, HP, outfit, weapon, shield, guard, sprint, cooldowns and knockout/respawn times.
-- `bounds`: actual server world width/depth. New version 3 worlds are 40×40; legacy bounds remain respected.
-- `obstacles`: published x/z/width/depth/height/kind collision shapes. Cover geometry and camera obstruction checks use these values. Projection allows jump clearance above published cover height.
-- `crates`: only intact destructible crates render. Supplies from broken crates remain server loot.
-- `airdrops`: only already-spawned public crates render. Parachute descent is tied to actual spawn/land times; never invent future landing locations. Crate opening is a server event. Its loot is inspected and collected through the nearby DOM loot panel, rather than decorative click-to-win scene objects.
-- `drops`: published coins/bombs/weapons/shields/healing/upgrades, capped at 450 visual items. Opened airdrops expose individual piles around their crate, with `sourceId:airdrop-N` retaining their origin; the nearby loot panel collects each actual server item. Coins spilled after a bomb also appear as public ground loot.
-- `projectiles`: capped at 150 batched tracers; projection follows the published yaw/pitch and actual version-dependent speed (28 units/sec in field arenas; 12 in legacy arenas). No predicted hit awards points.
-- `attacks`: boss telegraphs are exactly published circles or forward beams. A beam's radius is its full forward length from the boss, with its supplied full width; it must not extend behind the boss. Slam/meteor radius and wave area come from the server. Jump and dodge decisions belong to the simulation.
-- `events`: brief confirmed hit/explosion/scatter rings, not fabricated loot or awards.
+`SkeletalActors.tsx` loads `/center/center-models/orbix-ranger.glb` and its distant
+LOD with standard GLTFLoader. These are actual skinned characters derived from
+Quaternius Universal Base Characters Standard and Universal Animation Library
+Standard (CC0 1.0). Source/output hashes, licenses and retarget mapping are retained
+beside the GLBs; pipeline instructions live in
+`tools/game-lab/assets/CHARACTER_PIPELINE.md`.
 
-Movement presentation interpolates snapshots and projects local x/z intent at most 250ms while checking actual walls/cover/crates/boss. A large correction snaps instead of smoothing a teleport. The server owns fixed-step physics, jump gravity, gun trajectories, line of sight, damage, loot, ranking and settlement. Client messages never send final positions or scores. Local prediction is bounded presentation, not an independent physics authority. Clients use increasing sequences seeded from the last server `inputSeq`; input leases expire after a missing release/disconnect.
+The full mesh has 16,064 triangles, the LOD 3,123, and both retain the complete
+65-joint rig and 20 clips: Idle, Walk, Run, Sprint, JumpStart, JumpLoop, JumpLand,
+PunchJab, PunchCross, Guard, SwordAttack, SwordIdle, PistolIdle, PistolAim,
+PistolShoot, Hit, Death, Dodge, Interact and the original Orbix Kick. Embedded
+textures are at most 512px. No Draco/Meshopt/KTX runtime decoder is required.
+Root translation is in place; animation never determines speed, hits, loot,
+winners or token transfers. Retargeting uses deliberate rest-space mapping;
+matching joint names alone does not establish compatibility.
 
-Arena elapsed clocks (`nowMs`, drop spawn/land/expiry, attack warning/hit/expiry) use milliseconds from match start. Body shield/stun/respawn/attack cooldowns and `serverTimeMs` use epoch milliseconds. Do not mix these time domains. Future RNG/schedules and private room secrets must never enter visual public state.
+Meters, +Y up, +Z forward, feet Y=0, approximately 1.82m tall; grip bones are
+`hand_r`/`hand_l`. `SkeletonUtils.clone` gives each actor its own skeleton, mixer
+and actions. Tint only `Orbix_Suit`, `Orbix_Armor`, `Orbix_Accent`; preserve face,
+eyes and source textures. Existing fox/robot/frog/cat cosmetic IDs remain Scout,
+Sentinel, Runner and Striker. Colors/team accents do not alter stats.
+Crossfaded upper/lower layers allow movement with accepted combat actions.
+Within 12 units (and for the local player) use the full rig; distant actors use
+LOD and reduced mixer cadence. Frustum/distance culling stops hidden rig work.
+StrictMode cleanup must not dispose mixers during effect rehearsal. Release
+owned mixers, skeleton bone textures and cloned materials after actual teardown;
+cached geometry/textures remain shared.
 
-## Preserved classic scenes
+`GuardianModel.tsx` is an original carved crystal boss with original local
+surface texture and poses driven by confirmed HP/attack state.
+`FirstPersonModel.tsx` is original gloves, gun, sword, spear and kick presentation
+with confirmed inventory/actions. FPV hides the local full-body mesh; remote
+actors remain visible. No Epic Games, Fortnite or PUBG assets are present.
 
-Number Hunt uses mystery islands and masked targets until the round finishes. Original lane-based Token Catch and fixed-strike Boss Raid rooms keep their classic scenes when `arena` is false. Rock Paper Scissors Duel uses sealed choice totems and only completed public history reveals an opponent's move. These older mechanisms and saved transcripts must remain compatible.
+## Camera, public state and clocks
 
-## Verification boundaries
+`ArenaWorld.tsx` owns shoulder/first-person follow cameras. `cameraRef` holds
+`{yaw,pitch,mode:'third'|'first'}`: forward is `(sin(yaw),cos(yaw))`, positive camera
+pitch looks down, aim pitch has the opposite sign. Camera obstruction uses
+published cover and ground. Controls own pointer lock, drag/swipe look,
+camera-relative WASD/touch intent and attacks; mesh clicks do not award loot.
+Release held input on blur, cancellation, hidden tab, disconnect and unmount.
 
-TypeScript validates renderer/control interfaces. Browser QA must verify actual perspective rendering, mouse/touch controls, jump clearance, camera obstruction, FPV toggle, knockout/rejoin and resource cleanup. Target-device profiling should measure draw calls, frame time, cold renderer bytes and network behavior with realistic players. No measured frame-rate or 50-device load claim follows merely from instancing or server reducer tests. On-chain receipt confirmation is separate from game score and must not be implied by scene effects.
+The server owns 30Hz physics, lease/sequence validation, cooldowns, inventory,
+damage, loot, ranking and settlement; snapshots broadcast at 10Hz. Local
+projection is bounded to a 250ms presentation lease, checked against published
+cover and reconciled to snapshots. Never submit final positions or scores.
 
-Primary API references: https://r3f.docs.pmnd.rs/api/canvas, https://r3f.docs.pmnd.rs/api/hooks, https://r3f.docs.pmnd.rs/advanced/pitfalls and https://threejs.org/docs/pages/PerspectiveCamera.html.
+- `bodies` maps feet position, yaw, HP, inventory, cosmetic, guard, cooldowns and
+  knockout/respawn state. Version 4 adds `groundHeight`/`onGround` cues.
+- `obstacles`, `crates`, `boss` are published collision objects; use base heights.
+- `airdrops` expose only spawned crates and actual spawn/land times. Opening
+  does not collect the whole value. Nearby DOM loot controls collect individual
+  server items; `sourceId` preserves crate origin.
+- `drops`/`projectiles` are actual public items/tracers (visual caps 450/150).
+- `attacks` are published boss telegraphs. A beam extends forward only with
+  its supplied full length/width. Rings never fabricate damage or rewards.
+
+Arena `nowMs` and drop/attack schedules use milliseconds since round start.
+Body shield/stun/respawn/attack cooldowns and `serverTimeMs` use epoch milliseconds.
+Never mix clocks or expose future RNG, seeds, private hints or sealed moves.
+
+## Loading, graphics and results
+
+`GameWorld.tsx` lazy-loads `WorldScene.tsx` and displays renderer and GLB/terrain
+loading states. WebGL/context-loss failures preserve DOM controls with Retry.
+Fast defaults on coarse-pointer/mobile viewports: DPR 1, no sun shadows.
+Balanced caps DPR at 1.5; Sharp caps it at 2. Version 4 has a bounded 1536px sun
+shadow only on fine-pointer desktop viewports in Balanced/Sharp, ACES tone mapping,
+local gradient sky and fog. No external HDR or postprocessing is used.
+Hidden tabs pause rendering; reduced motion removes decorative motion while
+maintaining playable interpolation. Displayed FPS samples about 1.5 seconds of
+this browser's rendering. It is an observation, not a reproducible device,
+network or 50-player benchmark.
+
+`WinnerCelebration.tsx` separately lazy-loads the shared Ranger podium when results
+enter view. It consumes verified final placements supplied by the room API;
+animation never decides a winner. DOM names/ranks, fallback and reduced motion
+remain available. Finished-room refresh recovers authorized durable settlement.
+Onchain claim receipts are separate verification from a score or celebration.
+
+## Tooling and verification boundaries
+
+Production uses React/TypeScript, Three.js and R3F with project CSS. The isolated
+lab contains ecctrl 2.0.2, Rapier, Drei, glTF Transform and meshoptimizer; installing
+them does not make them deployed gameplay dependencies. glTF Transform and
+meshoptimizer optimize art offline. Blender 3.4 CLI processed the rig; the
+installed community Blender MCP was disconnected. Pinned community Three.js
+skills and their corrections are guidance, not renderer imports.
+
+Use actual in-app browser checks for perspective rendering, touch/keyboard,
+jump/cover clearance, FPV grip, attack/knockout, rejoin/rematch and cleanup.
+TypeScript/pytest validate interfaces and reducers; screenshots and FPS readouts
+do not establish latency, jitter, mobile performance or live funded payouts.
+Preserve old session records and add dated evidence for new releases.

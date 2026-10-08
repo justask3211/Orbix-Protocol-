@@ -13,9 +13,9 @@ PLAYER = '0x'+'11'*20
 BOTS = ['0x'+f'{i:02x}'*20 for i in range(32,36)]
 RULES = {
     'number-hunt':dict(digits=4,min=1111,max=9999,guess_budget=20,duration_seconds=300,hints='on',hint_visibility='private'),
-    'token-catch':dict(duration_seconds=120,arena_mode=True,world_version=3,loot_budget=500,airdrop_count=10,loot_chunk=5,spawn_per_second=4,lanes=3,hazard_chance_pct=12,win_threshold=5),
-    'boss-raid':dict(duration_seconds=180,arena_mode=True,world_version=3,team_mode='teams',team_size=2,max_players=50,min_players=2,boss_health=6000,contribution_cap=10000),
-    'combat-duel':dict(duration_seconds=180,world_version=3,starting_health=150),
+    'token-catch':dict(duration_seconds=120,arena_mode=True,world_version=4,loot_budget=500,airdrop_count=10,loot_chunk=5,spawn_per_second=4,lanes=3,hazard_chance_pct=12,win_threshold=5),
+    'boss-raid':dict(duration_seconds=180,arena_mode=True,world_version=4,team_mode='teams',team_size=2,max_players=50,min_players=2,boss_health=6000,contribution_cap=10000),
+    'combat-duel':dict(duration_seconds=180,world_version=4,starting_health=150),
     'reaction-duel':dict(rounds=3),
 }
 
@@ -68,9 +68,9 @@ def mount_practice(app,prefix):
             record['seqs'][bot]+=1
             engine.act(bot,{'kind':'move','seq':record['seqs'][bot],'dx':dx/max(1,distance) if moving else 0,
                 'dz':dz/max(1,distance) if moving else 0,'yaw':math.atan2(dx,dz)},now)
-            if getattr(engine,'version',2)==3 and target.get('id') and distance<=3:
+            if getattr(engine,'version',2)>=3 and target.get('id') and distance<=3:
                 engine.act(bot,{'kind':'open_airdrop' if target.get('id','').startswith('airdrop-') else 'loot','dropId':target['id']},now)
-            if getattr(engine,'version',2)==3 and moving and not engine._can_walk_body(body['x']+dx/max(1,distance),body['z']+dz/max(1,distance),body):
+            if getattr(engine,'version',2)>=3 and moving and not engine._can_walk_body(body['x']+dx/max(1,distance),body['z']+dz/max(1,distance),body):
                 engine.act(bot,{'kind':'jump'},now)
             if engine.template_id!='token-catch' and body['attackReadyAt']<=now*1000:
                 engine.act(bot,{'kind':'attack'},now)
@@ -79,6 +79,9 @@ def mount_practice(app,prefix):
         update(record)
         engine=record['engine']
         state=engine.public_state()
+        if engine.finished:
+            scores=engine.scores();eligible=engine.eligible()
+            state['finalPlacements']=[{'who':who,'score':scores[who],'rank':rank} for rank,who in enumerate(engine.ranking(),1) if who in eligible]
         if hasattr(engine,'private_state'):state.update(engine.private_state(PLAYER))
         return {'state':state,'me':PLAYER,'players':engine.participants,'deadline':record['startedAt']+RULES[engine.template_id].get('duration_seconds',45),
             'serverTimeMs':int(time.time()*1000),'practice':True,'rewards':'none'}

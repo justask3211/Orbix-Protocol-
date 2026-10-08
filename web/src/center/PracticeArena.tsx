@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, RefreshCw, Sparkles } from 'lucide-react'
 import { FOUR_STAGE_VIEWS } from './GamePlayStages'
 import { FEATURED_GAMES } from './featuredGames'
 import './practice.css'
+const WinnerCelebration = lazy(() => import('./WinnerCelebration'))
 
 type Practice = {practiceId:string;accessToken:string;me:string;players:string[];state:Record<string,any>;serverTimeMs:number;deadline:number}
 const base = '/api/center/v1/practice'
@@ -80,5 +81,6 @@ export function PracticeArena({templateId,navigate}:{templateId:string;navigate:
     {!practice && !error && <section className="ct-practice-loader" role="status"><span aria-hidden="true">✦</span><h2>Preparing your playground</h2><p>Loading a small world and its controls…</p></section>}
     {practice && Stage && <Stage state={{...practice.state,_practice:true,roundId:practice.practiceId,_roomId:practice.practiceId,_roundId:practice.practiceId,__deadline:practice.deadline,_serverOffsetMs:practice.serverTimeMs-Date.now(),_canAct:!practice.state.finished,_connection:'open',_actionError:actionError.current}} act={act} me={practice.me} players={practice.players} finished={Boolean(practice.state.finished)}/>}
     {practice?.state.finished && <aside className="ct-practice-result"><strong>Practice complete</strong><p>Try another character, restart, or create a multiplayer room from the game center.</p></aside>}
+    {practice?.state.finished && <Suspense fallback={<p role="status">Preparing practice results…</p>}><WinnerCelebration winners={(practice.state.finalPlacements ?? []).filter((row: any) => row.rank <= 3).slice(0,3).map((row: any) => ({wallet:row.who,name:row.who===practice.me?'You':'Practice bot',rank:row.rank,score:row.score,character:practice.state.bodies?.[row.who]?.character}))} me={practice.me} title="Practice honors" rewardNote="Practice scores have no token payouts, entry payments or claims." /></Suspense>}
   </main>
 }

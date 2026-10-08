@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
 import sqlite3
 import threading
 import time
@@ -49,6 +50,11 @@ CREATE TABLE IF NOT EXISTS invites (
     revoked  INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (room_id, code)
 );
+CREATE TABLE IF NOT EXISTS room_codes (
+    room_id TEXT PRIMARY KEY REFERENCES rooms(id),
+    join_code TEXT NOT NULL UNIQUE
+        CHECK(length(join_code) BETWEEN 3 AND 9 AND join_code NOT GLOB '*[^0-9]*')
+);
 CREATE TABLE IF NOT EXISTS rounds (
     round_id        TEXT PRIMARY KEY,
     room_id         TEXT NOT NULL,
@@ -62,7 +68,10 @@ CREATE TABLE IF NOT EXISTS rounds (
     settlement_deadline INTEGER,
     settled_at      REAL,
     state           TEXT NOT NULL,
-    snapshot_json   TEXT
+    snapshot_json   TEXT,
+    config_json     TEXT,
+    config_hash     TEXT,
+    action_start_seq INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS entitlements (
     claim_id     TEXT PRIMARY KEY,
@@ -155,6 +164,61 @@ class Store:
         self._conn.executescript(SCHEMA)
         self._migrate_admin_audit()
         self._conn.commit()
+        self._migrate_round_metadata()
+        self._migrate_room_codes()
+
+    def _migrate_round_metadata(self) -> None:
+        """Keep the config and input boundary attached to each historical match."""
+        with self.tx() as cx:
+            columns = {row[1] for row in cx.execute("PRAGMA table_info(rounds)")}
+            for column, declaration in (("config_json", "TEXT"), ("config_hash", "TEXT"),
+                                        ("action_start_seq", "INTEGER NOT NULL DEFAULT 0")):
+                if column not in columns:
+                    cx.execute(f"ALTER TABLE rounds ADD COLUMN {column} {declaration}")
+            cx.execute("UPDATE rounds SET config_json=(SELECT config_json FROM rooms WHERE rooms.id=rounds.room_id), "
+                       "config_hash=(SELECT config_hash FROM rooms WHERE rooms.id=rounds.room_id) WHERE config_json IS NULL")
+
+    def _migrate_room_codes(self) -> None:
+        """Allocate durable aliases for old rooms once, under the SQLite write lock."""
+        with self.tx() as cx:
+            cx.execute("BEGIN IMMEDIATE")
+            for row in cx.execute("SELECT id FROM rooms WHERE NOT EXISTS "
+                                  "(SELECT 1 FROM room_codes WHERE room_codes.room_id=rooms.id) "
+                                  "ORDER BY created_at,id").fetchall():
+                self._allocate_room_code(cx, row[0])
+
+    @staticmethod
+    def _allocate_room_code(cx, room_id: str) -> str:
+        """Try random easy codes, then find a gap; never reuse an existing alias."""
+        existing = cx.execute("SELECT join_code FROM room_codes WHERE room_id=?", (room_id,)).fetchone()
+        if existing:
+            return existing[0]
+        for digits in range(3, 10):
+            low, high = 10 ** (digits - 1), 10 ** digits
+            used = cx.execute("SELECT COUNT(*) FROM room_codes WHERE length(join_code)=?", (digits,)).fetchone()[0]
+            if used >= high - low:
+                continue
+            for _ in range(24):
+                code = str(low + secrets.randbelow(high - low))
+                try:
+                    cx.execute("INSERT INTO room_codes(room_id,join_code) VALUES (?,?)", (room_id, code))
+                    return code
+                except sqlite3.IntegrityError:
+                    if not cx.execute("SELECT 1 FROM room_codes WHERE join_code=?", (code,)).fetchone():
+                        raise
+            # A deterministic gap fallback also works with an unlucky/random source.
+            candidate = low
+            for row in cx.execute("SELECT CAST(join_code AS INTEGER) FROM room_codes "
+                                  "WHERE length(join_code)=? ORDER BY CAST(join_code AS INTEGER)", (digits,)):
+                if row[0] == candidate:
+                    candidate += 1
+                elif row[0] > candidate:
+                    break
+            if candidate < high:
+                code = str(candidate)
+                cx.execute("INSERT INTO room_codes(room_id,join_code) VALUES (?,?)", (room_id, code))
+                return code
+        raise ValueError("ROOM_CODE_CAPACITY")
 
     def _migrate_admin_audit(self) -> None:
         """Upgrade persistent pre-hash audit tables without deleting their history.
@@ -342,14 +406,21 @@ class Store:
                     room.get("round_id"), room.get("seed"), room.get("commit_hash"), now, now,
                 ),
             )
+            self._allocate_room_code(c, room["id"])
 
     def get_room(self, room_id: str) -> dict | None:
         with self.tx() as c:
-            row = c.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+            row = c.execute("SELECT rooms.*,room_codes.join_code FROM rooms JOIN room_codes ON "
+                            "room_codes.room_id=rooms.id WHERE rooms.id=?", (room_id,)).fetchone()
         return self._room_row(row) if row else None
 
+    def resolve_room_code(self, code: str) -> dict | None:
+        with self.tx() as cx:
+            row = cx.execute("SELECT room_id FROM room_codes WHERE join_code=?", (code,)).fetchone()
+        return self.get_room(row[0]) if row else None
+
     def list_rooms(self, visibility: str | None = None, limit: int = 50) -> list[dict]:
-        q = "SELECT * FROM rooms"
+        q = "SELECT rooms.*,room_codes.join_code FROM rooms JOIN room_codes ON room_codes.room_id=rooms.id"
         args: list[Any] = []
         if visibility:
             q += " WHERE visibility=?"
@@ -359,6 +430,41 @@ class Store:
         with self.tx() as c:
             rows = c.execute(q, args).fetchall()
         return [self._room_row(r) for r in rows]
+
+    def prepare_rematch(self, room_id: str, expected_revision: int, config: dict,
+                        config_hash: str, round_id: str, seed: str, commit: str,
+                        reset_community: bool = False) -> int:
+        """Explicit new match: preserve finished evidence, atomically reset the lobby."""
+        with self.tx() as cx:
+            old = cx.execute("SELECT round_id,owner FROM rooms WHERE id=?", (room_id,)).fetchone()
+            changed = cx.execute(
+                "UPDATE rooms SET status='registration',round_id=?,seed=?,commit_hash=?,config_json=?,"
+                "config_hash=?,visibility=?,updated_at=?,revision=revision+1 WHERE id=? AND revision=?",
+                (round_id, seed, commit, json.dumps(config), config_hash, config["visibility"],
+                 time.time(), room_id, expected_revision),
+            )
+            if changed.rowcount != 1:
+                raise ConflictError("Room changed before rematch preparation")
+            action_start = cx.execute("SELECT COALESCE(MAX(seq),0) FROM actions WHERE room_id=?", (room_id,)).fetchone()[0]
+            cx.execute("UPDATE participants SET ready=0 WHERE room_id=?", (room_id,))
+            cx.execute("INSERT INTO rounds(round_id,room_id,seed,commit_hash,started_at,state,config_json,config_hash,action_start_seq) "
+                       "VALUES (?,?,?,?,?,'registration',?,?,?)",
+                       (round_id, room_id, seed, commit, time.time(), json.dumps(config), config_hash, action_start))
+            if reset_community:
+                options = config.get("community_settings", {})
+                settings = {"muteChat": bool(options.get("mute_chat", False)),
+                            "hidePlayers": bool(options.get("hide_players", False)),
+                            "hideGuesses": bool(options.get("hide_guesses", False))}
+                cx.execute("INSERT INTO room_community_settings(room_id,settings_json,updated_by,updated_at) VALUES (?,?,?,?) "
+                           "ON CONFLICT(room_id) DO UPDATE SET settings_json=excluded.settings_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at",
+                           (room_id, json.dumps(settings), old["owner"], time.time()))
+                # Retire presets into their old round instead of deleting history.
+                cx.execute("UPDATE room_community_scheduled_hints SET preset_index=NULL,round_id=COALESCE(round_id,?) "
+                           "WHERE room_id=? AND preset_index IS NOT NULL", (old["round_id"], room_id))
+                for index, hint in enumerate(options.get("timed_hints", [])):
+                    cx.execute("INSERT INTO room_community_scheduled_hints(room_id,who,text,delay_seconds,preset_index,created_at) "
+                               "VALUES (?,?,?,?,?,?)", (room_id, old["owner"], hint["text"], hint["delay_seconds"], index, time.time()))
+            return expected_revision + 1
 
     def update_room(self, room_id: str, *, expected_revision: int, status: str | None = None,
                     round_id: str | None = None, seed: str | None = None,
@@ -448,15 +554,21 @@ class Store:
 
     def save_round(self, rnd: dict) -> None:
         with self.tx() as c:
+            previous = c.execute("SELECT config_json,config_hash,action_start_seq FROM rounds WHERE round_id=?", (rnd["round_id"],)).fetchone()
+            config_json = json.dumps(rnd["config"]) if rnd.get("config") is not None else (previous[0] if previous else None)
+            config_hash = rnd.get("config_hash") or (previous[1] if previous else None)
+            action_start = rnd.get("action_start_seq", previous[2] if previous else 0)
             c.execute(
                 """INSERT OR REPLACE INTO rounds (round_id, room_id, seed, commit_hash, started_at, ended_at,
-                       merkle_root, allocations_hash, transcript_hash, settlement_deadline, settled_at, state, snapshot_json)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       merkle_root, allocations_hash, transcript_hash, settlement_deadline, settled_at, state, snapshot_json,
+                       config_json,config_hash,action_start_seq)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     rnd["round_id"], rnd["room_id"], rnd["seed"], rnd["commit_hash"], rnd["started_at"],
                     rnd.get("ended_at"), rnd.get("merkle_root"), rnd.get("allocations_hash"),
                     rnd.get("transcript_hash"), rnd.get("settlement_deadline"), rnd.get("settled_at"),
                     rnd["state"], json.dumps(rnd.get("snapshot")) if rnd.get("snapshot") is not None else None,
+                    config_json, config_hash, action_start,
                 ),
             )
 
@@ -473,6 +585,7 @@ class Store:
             return None
         d = dict(row)
         d["snapshot"] = json.loads(d["snapshot_json"]) if d["snapshot_json"] else None
+        d["config"] = json.loads(d["config_json"]) if d.get("config_json") else None
         return d
 
     def room_round(self, room_id: str) -> dict | None:
@@ -482,7 +595,14 @@ class Store:
             return None
         d = dict(row)
         d["snapshot"] = json.loads(d["snapshot_json"]) if d["snapshot_json"] else None
+        d["config"] = json.loads(d["config_json"]) if d.get("config_json") else None
         return d
+
+    def rounds_for_room(self, room_id: str, limit: int = 50) -> list[dict]:
+        with self.tx() as cx:
+            rows = cx.execute("SELECT round_id FROM rounds WHERE room_id=? ORDER BY started_at DESC,rowid DESC LIMIT ?",
+                              (room_id, limit)).fetchall()
+        return [self.get_round(row[0]) for row in rows]
 
     def next_seq(self, room_id: str) -> int:
         with self.tx() as c:

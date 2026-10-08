@@ -19,3 +19,4 @@
 /* The shared stage fills direct children; these overlays need their own touch geometry. */
 @media(pointer:coarse),(max-width:760px){.gp-scene>.ar-joystick{height:112px}.gp-scene>.ar-look-zone{height:calc(100% - 210px)}.ar-view-options button{min-height:44px}}
 @media(max-width:420px){.gp-scene>.ar-joystick{height:96px}}
+.ar-scene .ow-world-title{display:flex;position:absolute;bottom:0;left:0;right:0;z-index:4;height:32px;padding:0 12px;font-size:10px;background:#183039d9;border:0;backdrop-filter:blur(8px)}.ar-scene .ow-world-title small{font-size:9px}.ar-scene .ow-quality{font-size:10px}@media(pointer:coarse),(max-width:760px){.ar-joystick{bottom:58px}.ar-touch-actions{bottom:50px}}
