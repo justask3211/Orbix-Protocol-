@@ -128,3 +128,24 @@ passes. Chromium rendered the new Duel material shader and character treatment,
 accepted movement/jump/stop, and a screenshot was reviewed. 506 Python tests,
 tsc -b --noEmit and build passed. This restyles the existing Ranger; it does not
 replace its licensed anatomy or establish commercial-game animation parity.
+
+## Task 6 — creator fee and reward explanations
+
+Step 4 now illustrates ERC-20 contract selection, whole-token entry amounts,
+joiner approval/payment and creator/custom/burn destinations. The live diagram
+reflects the existing editable fields. The contract strip explains allowance
+approval followed by join(roomId), with room publishing/binding kept separate.
+Burn copy describes an unavailable destination rather than promising that every
+ERC-20 decreases totalSupply. Original CSS and Lucide icons add no diagram library.
+
+Five reward guides explain preview points, creator tokens, NFTs, ETH and private-key
+wallet delivery, with creator/recipient views and Auto/Code/Merkle/Open strips.
+The wizard still publishes preview points or preserves copied funded settings;
+exploring these guides explicitly does not configure unsupported funding or claim
+modes. No private key is requested. Entry and reward contract behavior is unchanged.
+
+Evidence: 506 Python tests, tsc -b --noEmit and build passed. Chromium exercised
+actual CA/amount/custom payout controls, all five guides and all four claim modes
+at 1200, 390 and 320px without overflow or page errors. Phone screenshot reviewed;
+shared global header sizing and hidden mobile step labels were corrected. Actual
+funded contract execution for these explanatory flows was not performed.
