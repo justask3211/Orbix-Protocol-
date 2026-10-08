@@ -149,3 +149,17 @@ actual CA/amount/custom payout controls, all five guides and all four claim mode
 at 1200, 390 and 320px without overflow or page errors. Phone screenshot reviewed;
 shared global header sizing and hidden mobile step labels were corrected. Actual
 funded contract execution for these explanatory flows was not performed.
+
+## Task 7 — six-digit new room codes
+
+New allocations start at 100000–999999 and expand to seven through nine digits
+only when capacity requires it. Existing aliases return unchanged; startup only
+allocates missing aliases. Unique constraints, transactional collision retries
+and deterministic gap fallback remain. Resolver/frontend parsing still accepts
+legacy three-to-five-digit codes. The join-field example now uses six digits.
+Private-room visibility and payment/admission requirements remain unchanged.
+
+Evidence: five minimum-length/boundary/collision/migration/concurrency checks
+failed on the old allocator, then passed after the fix. A legacy 123 API link
+resolves before and after database reopen. 508 Python tests, tsc -b --noEmit and
+build passed. No production database migration was executed.

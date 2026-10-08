@@ -61,7 +61,7 @@ export function GameCenterHome({ session, onConnect, navigate }: GameCenterHomeP
   function joinRoom(event: FormEvent) {
     event.preventDefault()
     const path = roomPathFromInput(joinInput)
-    if (!path) { setJoinError('Enter a numeric room number (for example 353) or an Orbix invite link.'); joinField.current?.focus(); return }
+    if (!path) { setJoinError('Enter a numeric room number (for example 353123) or an Orbix invite link.'); joinField.current?.focus(); return }
     setJoinError(null)
     navigate(path)
   }
