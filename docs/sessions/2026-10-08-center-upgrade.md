@@ -84,3 +84,28 @@ authority correction is made.
 
 API reference checks: [Three AnimationAction](https://threejs.org/docs/pages/AnimationAction.html)
 and [Fiber hooks](https://r3f.docs.pmnd.rs/api/hooks); runtime dependencies unchanged.
+
+Task 3 browser follow-up: local Chromium rendered all three V4 practice worlds
+and accepted held-key movement, jump and stop; screenshots inspected. Some
+coalesced practice inputs hit the existing rate limiter, without invalid actions
+or scene failure. A fixture initially counted hidden canvas fallback HTML as
+visible; corrected visibility checks pass. This does not measure real-device FPS.
+
+## Task 4 — original equipment and pickups
+
+ItemAssets.ts builds nine original merged, colored meshes (6,656 triangles total):
+embossed coin, smiling fused bomb, shield with rim/badge, toy blaster, medkit,
+boxing glove, upgrade battery, sword and spear. ItemMeshes instances these shapes
+with a scale pop, hover bob and shader dissolve on authoritative removal.
+Reduced motion keeps items still and removes pickup animation immediately.
+Bounded counts and delayed owned-resource cleanup preserve renderer lifecycle.
+Hand_r and hand_l now supply actual grip positions/orientations for weapons and
+active shield inventory, in both LODs; first-person shields use the matching mesh.
+The gun's axis mapping was checked against PistolAim's actual wrist basis.
+No gameplay statistics, item logic, collision shapes or money code changed.
+
+Evidence: real geometry/finite-buffer/triangle-budget/wrist/dissolve regression
+and skeletal lifecycle regression passed; local Chromium rendered Duel with the
+new item shaders and accepted movement/jump/stop without a visible fallback.
+506 Python tests, tsc -b --noEmit and build passed. Extended human review of all
+pickup/weapon states and physical mobile performance remain unproven.

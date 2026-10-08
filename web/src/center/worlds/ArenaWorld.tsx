@@ -4,6 +4,7 @@ import { Color, Group, InstancedMesh, MathUtils, Object3D, PerspectiveCamera, Ve
 import type { GameWorldProps } from './GameWorld'
 import FieldEnvironment from './FieldEnvironment'
 import SkeletalActors from './SkeletalActors'
+import ItemPickups from './ItemMeshes'
 import GuardianModel from './GuardianModel'
 import FirstPersonModel from './FirstPersonModel'
 import { stateGround } from './terrain'
@@ -215,7 +216,7 @@ export default function ArenaWorld(props: GameWorldProps & { onAssetsReady?: () 
 </>}
     {crates.slice(0, 40).map((crate: any) => <group key={crate.id} position={[num(crate.x), num(crate.y), num(crate.z)]}><mesh position={[0, .4, 0]}><boxGeometry args={[.8, .8, .8]} /><meshStandardMaterial color="#cf9b72" roughness={.9} /></mesh>{[-1, 1].map(side => <mesh key={side} position={[0, .4, .411]} rotation={[0, 0, side * .7]}><boxGeometry args={[.10, .95, .025]} /><meshStandardMaterial color="#f3d3a2" /></mesh>)}</group>)}
     {(state.airdrops ?? []).slice(0, 30).map((drop: any) => <SupplyDrop key={drop.id} drop={drop} state={state} reducedMotion={props.reducedMotion} />)}
-    <Suspense fallback={null}>{detailed ? <SkeletalActors {...props} poses={poses} onReady={props.onAssetsReady} /> : <ArenaCharacters {...props} poses={poses} />}</Suspense><FollowCamera {...props} poses={poses} />{detailed ? <FirstPersonModel {...props} /> : <FirstPersonHands {...props} />}<GroundLoot state={state} reducedMotion={props.reducedMotion} />{detailed ? <GuardianModel state={state} reducedMotion={props.reducedMotion} /> : <ArenaBoss state={state} />}<BossWarnings state={state} /><Projectiles state={state} />
+    <Suspense fallback={null}>{detailed ? <SkeletalActors {...props} poses={poses} onReady={props.onAssetsReady} /> : <ArenaCharacters {...props} poses={poses} />}</Suspense><FollowCamera {...props} poses={poses} />{detailed ? <FirstPersonModel {...props} /> : <FirstPersonHands {...props} />}{detailed ? <ItemPickups state={state} reducedMotion={props.reducedMotion} /> : <GroundLoot state={state} reducedMotion={props.reducedMotion} />}{detailed ? <GuardianModel state={state} reducedMotion={props.reducedMotion} /> : <ArenaBoss state={state} />}<BossWarnings state={state} /><Projectiles state={state} />
     {events.filter((event: any) => ['pickup-bomb', 'push', 'boss-slam', 'boss-wave', 'attack', 'hit', 'scatter', 'crate-break'].includes(event.kind) && num(state.nowMs) - num(event.at) < 450).map((event: any) => <mesh key={event.id} rotation={[-Math.PI / 2, 0, 0]} position={[num(event.x), stateGround(state, num(event.x), num(event.z)) + .065, num(event.z)]}><ringGeometry args={[.65, .8, 20]} /><meshBasicMaterial color={event.kind.startsWith('boss') || event.kind === 'pickup-bomb' ? '#ff806f' : '#fff1a4'} transparent opacity={.65} depthWrite={false} /></mesh>)}
   </>
 }
