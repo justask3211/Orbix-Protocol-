@@ -35,6 +35,7 @@ from center.schema import TEMPLATE_META, RoomConfig, normalise_keys, parse_rules
 from center.store import ConflictError, Store
 from center.community import CommunityService, CommunityError
 from center.privacy import visible_state
+from center.waitlist import WaitlistService
 from center.entry_gate import EntryGateVerifier, EntryGateError, DEPLOYED_GATE
 from center.admin_games import mount_admin_games, game_availability, room_archived
 from center.practice import mount_practice
@@ -65,6 +66,10 @@ def env_flag(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+class WaitlistSubmission(BaseModel):
+    wallet: str = Field(max_length=42)
 
 
 class Flags(BaseModel):
@@ -237,6 +242,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     from center.reward_flow import RewardFlow
     app.state.rewards = RewardFlow(store, JsonRpc(os.environ.get("CENTER_RPC_URL", "https://rpc.testnet.chain.robinhood.com"), flags.chain_id), flags.chain_id)
     app.state.flags = flags
+    waitlists = WaitlistService(store, flags.chain_id)
+    app.state.waitlists = waitlists
     app.state.store = store
     app.state.vault = vault
     app.state.runtimes = runtimes
@@ -685,6 +692,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                 "scheduled": scheduled,
                 "expiring": expiring,
                 "active": row["status"] not in ("closed", "cancelled"),
+                "waitlistEnabled": cfg.get("waitlist", {}).get("enabled", False),
+                "waitlistCount": waitlists.count(row["id"]),
             })
         return {"rooms": mine}
 
@@ -953,6 +962,22 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         if rt.owner != who:
             raise HTTPException(403, detail={"code": "FORBIDDEN", "message": "only the host may cancel"})
         return await rt.cancel()
+
+    @app.post(f"{API_PREFIX}/rooms/{{room_id}}/waitlist")
+    def submit_waitlist(room_id: str, body: WaitlistSubmission, who: str = Depends(require_wallet)) -> dict:
+        rt = runtime_for(room_id)
+        return waitlists.submit(room_id, who, body.wallet,
+            finished=bool(rt.engine and rt.engine.finished and rt.finished_at),
+            players=list(rt.engine.participants) if rt.engine else [])
+
+    @app.get(f"{API_PREFIX}/rooms/{{room_id}}/waitlist")
+    def get_waitlist(room_id: str, who: str = Depends(require_wallet)) -> dict:
+        return waitlists.listing(room_id, who)
+
+    @app.get(f"{API_PREFIX}/rooms/{{room_id}}/waitlist.csv")
+    def export_waitlist(room_id: str, who: str = Depends(require_wallet)):
+        return PlainTextResponse(waitlists.listing(room_id, who, export=True), media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="orbix-waitlist.csv"', "Cache-Control": "no-store"})
 
     @app.get(f"{API_PREFIX}/rooms/{{room_id}}/results")
     def results(room_id: str) -> dict:
