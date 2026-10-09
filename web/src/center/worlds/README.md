@@ -125,3 +125,8 @@ jump/cover clearance, FPV grip, attack/knockout, rejoin/rematch and cleanup.
 TypeScript/pytest validate interfaces and reducers; screenshots and FPS readouts
 do not establish latency, jitter, mobile performance or live funded payouts.
 Preserve old session records and add dated evidence for new releases.
+# Legacy renderer — 2026-10-10
+
+The user mandated Babylon.js adoption. Token Catch is rebuilt in `../babylon/`;
+`?engine=babylon` selects it during gates and `?engine=three` retains this route.
+This module remains for other games and compatibility. Delete nothing in this round.

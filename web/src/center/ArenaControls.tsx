@@ -41,6 +41,7 @@ export function ArenaPlay(props: StageProps) {
   const blockHeld = useRef(false)
   const sprintHeld = useRef(false)
   const fireHeld = useRef(false)
+  const gamepad = useRef({x:0,y:0,sprint:false,fire:false,buttons:[] as boolean[]})
   const lastSend = useRef(0)
   const lastAction = useRef(0)
   const pendingMove = useRef<number | null>(null)
@@ -63,13 +64,13 @@ export function ArenaPlay(props: StageProps) {
   const maximum = Math.max(1, Number(body?.maxHp) || 100)
 
   const refreshInput = () => {
-    let side = stick.current.x, forward = -stick.current.y
+    let side = stick.current.x + gamepad.current.x, forward = -stick.current.y - gamepad.current.y
     for (const key of held.current) { const direction = MOVE_KEYS[key]; if (direction) { side += direction[0]; forward += direction[1] } }
     const length = Math.max(1, Math.hypot(side, forward))
     side /= length; forward /= length
     const yaw = camera.current.yaw
     const previous = input.current
-    input.current = { ...previous, dx: Math.sin(yaw) * forward - Math.cos(yaw) * side, dz: Math.cos(yaw) * forward + Math.sin(yaw) * side, active: enabledRef.current && !document.hidden, sprint: sprintHeld.current || held.current.has('shift'), yaw }
+    input.current = { ...previous, dx: Math.sin(yaw) * forward - Math.cos(yaw) * side, dz: Math.cos(yaw) * forward + Math.sin(yaw) * side, active: enabledRef.current && !document.hidden, sprint: sprintHeld.current || held.current.has('shift') || gamepad.current.sprint, yaw }
     if (previous.dx !== input.current.dx || previous.dz !== input.current.dz || previous.sprint !== input.current.sprint || previous.active !== input.current.active) input.current.changedAt = performance.now()
   }
   const sendMovement = () => {
@@ -99,6 +100,7 @@ export function ArenaPlay(props: StageProps) {
   const releaseAll = () => {
     const moving = Boolean(input.current.dx || input.current.dz || input.current.sprint)
     held.current.clear(); stick.current = { x: 0, y: 0, pointer: -1 }; sprintHeld.current = false; fireHeld.current = false
+    gamepad.current = {x:0,y:0,sprint:false,fire:false,buttons:[]}
     input.current = { ...input.current, dx: 0, dz: 0, active: false, sprint: false, yaw: camera.current.yaw, changedAt: performance.now() }
     setStickView({ x: 0, y: 0 })
     if (pendingMove.current !== null) { clearTimeout(pendingMove.current); pendingMove.current = null }
@@ -126,9 +128,21 @@ export function ArenaPlay(props: StageProps) {
       const current = stateRef.current.bodies?.[me]
       const serverTime = receivedTime.current.server + Date.now() - receivedTime.current.client
       if (!enabledRef.current || document.hidden || Number(current?.respawnAt) > serverTime || Number(current?.downedUntil) > serverTime || Number(current?.stunnedUntil) > serverTime) { input.current.active = false; return }
+      // Standard-mapping pads feed the same sequenced intent/action path as keys
+      // and touch. Neutral/disconnect sends a stop; buttons fire on rising edges.
+      const pad = navigator.getGamepads?.().find(item => item?.connected && item.mapping === 'standard')
+      const previousPad = gamepad.current, deadzone = (axis: number) => Math.abs(axis) < .18 ? 0 : Math.sign(axis) * (Math.abs(axis)-.18)/.82
+      const buttons = pad ? Array.from(pad.buttons, button => button.pressed) : []
+      gamepad.current = {x:deadzone(pad?.axes[0] ?? 0),y:deadzone(pad?.axes[1] ?? 0),sprint:Boolean(buttons[5] || buttons[10]),fire:Boolean(buttons[7]),buttons}
+      if (pad) {
+        const lookX=deadzone(pad.axes[2] ?? 0)*18,lookY=deadzone(pad.axes[3] ?? 0)*14
+        if(lookX||lookY)rotateCamera(lookX,lookY)
+        for (const [index,kind] of [[0,'jump'],[1,'dodge'],[2,'interact'],[3,'punch']] as const) if (buttons[index] && !previousPad.buttons[index]) { if (kind === 'interact') interact(); else action(kind) }
+      }
+      if (Boolean(buttons[6]) !== Boolean(previousPad.buttons[6])) guard(Boolean(buttons[6]))
       refreshInput()
-      if (input.current.dx || input.current.dz || input.current.sprint) sendMovement()
-      if (fireHeld.current && Number(current?.attackReadyAt || 0) <= serverTime && Date.now() - lastAction.current >= 150) action('attack')
+      if (input.current.dx || input.current.dz || input.current.sprint || previousPad.x || previousPad.y || previousPad.sprint) sendMovement()
+      if ((fireHeld.current || gamepad.current.fire) && Number(current?.attackReadyAt || 0) <= serverTime && Date.now() - lastAction.current >= 150) action('attack')
     }, 75)
     const down = (event: KeyboardEvent) => {
       if (!enabledRef.current || textInput(event.target) || (!panel.current?.contains(document.activeElement) && document.activeElement !== document.body)) return
