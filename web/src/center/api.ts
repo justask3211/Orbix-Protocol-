@@ -1,3 +1,4 @@
+import type { Funding, RewardClaim, RewardPlan } from './rewardWallet'
 import type { Appearance, Cosmetics } from './characters'
 // Orbix Center API client. One place that knows the wire format, so no component
 // hand-rolls a fetch and drifts from the backend contract.
@@ -157,13 +158,17 @@ export const center = {
   verify: (address: string, nonce: string, signature: string) =>
     request<{ token: string }>('/auth/verify', { method: 'POST', body: JSON.stringify({ address, nonce, signature }) }),
 
+  prepareRewards: (config: unknown, intentNonce: string, token: string) => request<{roomId:string;roomKey:`0x${string}`;engine:`0x${string}`;merkleRoot:`0x${string}`;published:boolean;funding:Funding|null}>('/rooms/prepare-rewards', {method:'POST',body:JSON.stringify({config,intentNonce})},token),
+  myRewards: (token:string,roomId?:string) => request<{rewards:RewardClaim[]}>(`/wallet/rewards${roomId?`?roomId=${encodeURIComponent(roomId)}`:''}`,{},token),
+  rewardLookup: (code:string,token:string) => request<{claim:RewardClaim}>('/rewards/lookup',{method:'POST',body:JSON.stringify({code})},token),
+  rewardPlan: (roomId:string,token:string) => request<{plan:RewardPlan|null}>(`/rooms/${encodeURIComponent(roomId)}/reward-plan`,{},token),
   // ---- drafts + rooms
   saveDraft: (config: unknown, token: string, draftId?: string) =>
     request<{ draftId: string; config: unknown }>(draftId ? `/drafts/${draftId}` : '/drafts', { method: draftId ? 'PATCH' : 'POST', body: JSON.stringify({ config }) }, token),
-  publish: (config: unknown, intentNonce: string, token: string) =>
+  publish: (config: unknown, intentNonce: string, token: string, funding?: Funding) =>
     request<{ roomId: string; status: string; charged: number; balanceAfter: number; balanceLabel: string; shareUrl: string; replayed?: boolean; intentId: string }>(
       '/rooms',
-      { method: 'POST', body: JSON.stringify({ config, intentNonce }) },
+      { method: 'POST', body: JSON.stringify({ config, intentNonce, funding }) },
       token,
     ),
   adminPricing: (token: string) =>
@@ -234,6 +239,31 @@ export const center = {
 
 /** Turn any thrown value into something a player can read. */
 export function explainError(error: unknown): string {
+  const object = error as {code?: number; message?: string; data?: unknown; cause?: unknown}
+  let raw = ''
+  try { raw = JSON.stringify(error) + ' ' + (error instanceof Error ? error.message : String(error)) } catch { raw = String(error) }
+  if (object?.code === 4001 || /user rejected|user denied|request rejected/i.test(raw)) return 'You rejected the wallet request. No confirmation was recorded.'
+  const selectors: Record<string,string> = {
+    '0xdb89e3f4': 'ORBIX transfers are locked until its bonding curve graduates. Choose a transferable reward asset.',
+    '0xfb8f41b2': 'Insufficient token allowance. Approve the reward contract before depositing.',
+    '0x70f65caa': 'The claim deadline has passed.',
+    '0x96a18df4': 'Choose a claim deadline more than one hour away.',
+    '0x646cf558': 'That reward was already claimed.',
+    '0x618c7242': 'This reward belongs to a different wallet.',
+    '0x31212686': 'The claim signature does not match the reward authority. Refresh the claim.',
+    '0x76ecffc0': 'That reward pool could not be found.',
+    '0x9d52b56e': 'The reward asset or claim mode does not match this pool.',
+    '0xc5f53ea9': 'All open reward slots have been claimed.',
+    '0x1f2a2005': 'Check the deposit amount and remaining pool inventory.',
+    '0x93687c0b': 'Only the creator wallet can fund or allocate this pool.',
+    '0x560ff900': 'This reward pool has already settled.',
+    '0x2c7e4d98': 'The reward proof does not match the committed distribution.',
+    '0xe450d38c': 'Your wallet does not have enough tokens for this reward deposit.',
+  }
+  for (const [selector,message] of Object.entries(selectors)) if(raw.toLowerCase().includes(selector))return message
+  if (/insufficient allowance/i.test(raw)) return 'Insufficient token allowance. Approve the reward contract before depositing.'
+  if (/0x[0-9a-f]{8}/i.test(raw) && /revert|execution|error|failed/i.test(raw)) return 'The contract rejected this transaction. Refresh your reward status and check the wallet, amount, allowance and deadline.'
+
   if (error instanceof ApiError) {
     const map: Record<string, string> = {
       UNAUTHORIZED: 'Sign in with your wallet first.',
@@ -253,5 +283,5 @@ export function explainError(error: unknown): string {
     if (error.code === 'INVALID_CONFIG') return `${mapped} ${error.message}`
     return mapped ?? `${error.code}: ${error.message}`
   }
-  return error instanceof Error ? error.message : String(error)
+  return error instanceof Error ? error.message : 'The wallet request failed. Please retry.'
 }

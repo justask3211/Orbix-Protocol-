@@ -4,6 +4,7 @@
 
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { center } from './api'
+import { MyRewards } from './FundedRewards'
 import { ProfileImageUpload } from './ProfileImage'
 import { shortAddress } from './session'
 import { useModalFocus } from './useModalFocus'
@@ -80,7 +81,7 @@ export function ProfileModal({ session, profile, onClose, onSave, readError, rea
   onClose: () => void
   onSave: (p: Profile) => void
 }) {
-  const [tab, setTab] = useState<'profile'|'character'>('profile')
+  const [tab, setTab] = useState<'profile'|'character'|'rewards'>('profile')
   const [character, setCharacter] = useState(profile?.character ?? 'blob')
   const [cosmetics, setCosmetics] = useState<Cosmetics>(profile?.cosmetics ?? {})
   const [name, setName] = useState(profile?.name ?? '')
@@ -114,8 +115,8 @@ export function ProfileModal({ session, profile, onClose, onSave, readError, rea
         <h3>Your profile</h3>
         <p className="wl-sub">This is what other players see in game logs and player lists.</p>
 
-        <div role="tablist" aria-label="Profile sections"><button role="tab" aria-selected={tab==='profile'} className="btn-ghost" onClick={()=>setTab('profile')}>Profile</button><button role="tab" aria-selected={tab==='character'} className="btn-ghost" onClick={()=>setTab('character')}>Character</button></div>
-        {tab==='character' ? <section aria-label="Character customization"><Suspense fallback={<p role="status">Loading character preview…</p>}><CharacterPreview appearance={{character,cosmetics}}/></Suspense><div className="pf-character-grid">{CHARACTERS.map(item=><button key={item.id} aria-pressed={character===item.id} onClick={()=>setCharacter(item.id)} title={item.description} style={{borderColor:item.color}}><span aria-hidden>{item.face}</span><b>{item.name}</b><small>{item.description.split(' · ')[0]}</small></button>)}</div><div className="pf-cosmetics">{Object.entries(COSMETIC_OPTIONS).map(([kind,options])=><label className="pf-field" key={kind}><span id={`cosmetic-${kind}`}>{kind[0].toUpperCase()+kind.slice(1)}</span><select aria-labelledby={`cosmetic-${kind}`} value={cosmetics[kind as keyof Cosmetics]??options[0]} onChange={event=>setCosmetics(previous=>({...previous,[kind]:event.target.value}))}>{options.map(value=><option key={value} value={value}>{value[0].toUpperCase()+value.slice(1)}</option>)}</select></label>)}</div><p>Your character is cosmetic. Changes apply to your next round.</p></section> : <>
+        <div role="tablist" aria-label="Profile sections"><button role="tab" aria-selected={tab==='profile'} className="btn-ghost" onClick={()=>setTab('profile')}>Profile</button><button role="tab" aria-selected={tab==='character'} className="btn-ghost" onClick={()=>setTab('character')}>Character</button><button role="tab" aria-selected={tab==='rewards'} className="btn-ghost" onClick={()=>setTab('rewards')}>My rewards</button></div>
+        {tab==='rewards' ? <MyRewards session={session}/> : tab==='character' ? <section aria-label="Character customization"><Suspense fallback={<p role="status">Loading character preview…</p>}><CharacterPreview appearance={{character,cosmetics}}/></Suspense><div className="pf-character-grid">{CHARACTERS.map(item=><button key={item.id} aria-pressed={character===item.id} onClick={()=>setCharacter(item.id)} title={item.description} style={{borderColor:item.color}}><span aria-hidden>{item.face}</span><b>{item.name}</b><small>{item.description.split(' · ')[0]}</small></button>)}</div><div className="pf-cosmetics">{Object.entries(COSMETIC_OPTIONS).map(([kind,options])=><label className="pf-field" key={kind}><span id={`cosmetic-${kind}`}>{kind[0].toUpperCase()+kind.slice(1)}</span><select aria-labelledby={`cosmetic-${kind}`} value={cosmetics[kind as keyof Cosmetics]??options[0]} onChange={event=>setCosmetics(previous=>({...previous,[kind]:event.target.value}))}>{options.map(value=><option key={value} value={value}>{value[0].toUpperCase()+value.slice(1)}</option>)}</select></label>)}</div><p>Your character is cosmetic. Changes apply to your next round.</p></section> : <>
         <div className="pf-preview" style={{ ['--pf-hue' as string]: `${hue}` }}>
           <div className="pf-avatar-preview">{name?.[0]?.toUpperCase() || '?'}</div>
           <div>
@@ -169,9 +170,9 @@ export function ProfileModal({ session, profile, onClose, onSave, readError, rea
         </>}
         {readError && <p className="err" role="alert">{readError} <button className="btn-ghost" onClick={onRetry}>Retry profile</button></p>}
         {err && <p className="err" role="alert">{err}</p>}
-        <button className="btn-primary" style={{ width: '100%' }} onClick={save} disabled={busy || Boolean(readError) || readLoading}>
+        {tab!=='rewards'&&<button className="btn-primary" style={{ width: '100%' }} onClick={save} disabled={busy || Boolean(readError) || readLoading}>
           {busy ? 'Saving…' : tab === 'character' ? 'Save character' : 'Save profile'}
-        </button>
+        </button>}
       </div>
     </div>
   )
