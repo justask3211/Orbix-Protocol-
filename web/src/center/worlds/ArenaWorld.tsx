@@ -9,6 +9,9 @@ import ItemPickups from './ItemMeshes'
 import GuardianModel from './GuardianModel'
 import FirstPersonModel from './FirstPersonModel'
 import { stateGround } from './terrain'
+import { SurfaceQueries } from '../framework/surface'
+import { clipBoom, MovementResponse } from '../framework/camera'
+import { HealthFeedback } from '../framework/feedback'
 
 type Pose = { x: number; y: number; z: number; yaw: number; moving: number; speed?: number }
 type Poses = Map<string, Pose>
@@ -109,8 +112,11 @@ function ArenaCharacters({ state, me, inputRef, cameraRef, poses }: GameWorldPro
 }
 
 /** Follow the same reconciled position as the character; collision shortens the camera boom. */
-function FollowCamera({ state, me, cameraRef, inputRef, poses }: GameWorldProps & { poses: Poses }) {
+function FollowCamera({ state, me, cameraRef, inputRef, poses, reducedMotion }: GameWorldProps & { poses: Poses }) {
   const target = useMemo(() => new Vector3(), []), desired = useMemo(() => new Vector3(), []), look = useMemo(() => new Vector3(), []), initialized = useRef(false)
+  const surface = useMemo(() => new SurfaceQueries(), []), response = useMemo(() => new MovementResponse(), []), lead = useMemo(() => new Vector3(), [])
+  useEffect(() => () => surface.dispose(), [surface])
+  useEffect(() => { surface.update(state) }, [surface, state])
   const previousTarget = useMemo(() => new Vector3(), [])
   useFrame(({ camera, size }, delta) => {
     const pose = poses.get(me), body = state.bodies?.[me]
@@ -118,21 +124,21 @@ function FollowCamera({ state, me, cameraRef, inputRef, poses }: GameWorldProps 
     const yaw = num(cameraRef?.current.yaw, Math.PI), pitch = MathUtils.clamp(num(cameraRef?.current.pitch, .20), -.5, .90), first = cameraRef?.current.mode === 'first'
     const distance = first ? .04 : size.width < 600 ? 5 : 5.7, flat = Math.cos(pitch), vertical = Math.sin(pitch)
     target.set(x, y + (first ? Number(state.worldVersion) >= 4 ? 1.66 * CARTOON_PROPORTIONS[1] : 1.57 : 1.25), z)
+    const velocity = response.update(x, y, z, delta, !!body && num(body.hp, 100) > 0)
+    lead.set(velocity.x, 0, velocity.z).multiplyScalar(first || reducedMotion ? 0 : .045).clampLength(0, .32)
+    target.add(lead)
     // Translate with the reconciled actor immediately; ease only the camera boom.
     if (initialized.current) camera.position.add(target).sub(previousTarget)
     previousTarget.copy(target)
     desired.set(target.x - Math.sin(yaw) * flat * distance - (first ? 0 : Math.cos(yaw) * .48), target.y + vertical * distance + (first ? 0 : .55), target.z - Math.cos(yaw) * flat * distance + (first ? 0 : Math.sin(yaw) * .48))
-    if (!first) {
-      const obstacles = [...(state.obstacles ?? []), ...(state.crates ?? []).filter((crate: any) => crate.hp > 0).map((crate: any) => ({ ...crate, width: .8, depth: .8, height: .8 }))]
-      for (let step = 1; step <= 20; step++) {
-        const t = step / 20, px = MathUtils.lerp(target.x, desired.x, t), pz = MathUtils.lerp(target.z, desired.z, t), py = MathUtils.lerp(target.y, desired.y, t)
-        if (obstacles.some((item: any) => py < num(item.baseY, num(item.y)) + num(item.height, 1.5) + .2 && (item.radius ? Math.hypot(px - num(item.x), pz - num(item.z)) < num(item.radius) + .25 : Math.abs(px - num(item.x)) < num(item.width, 1) / 2 + .25 && Math.abs(pz - num(item.z)) < num(item.depth, 1) / 2 + .25))) { desired.lerpVectors(target, desired, Math.max(.1, t - .07)); break }
-      }
-    }
+    if (!first) clipBoom(surface, target, desired)
     desired.y = Math.max(stateGround(state, desired.x, desired.z) + .65, desired.y)
     if (!initialized.current || camera.position.distanceTo(desired) > 12) { camera.position.copy(desired); initialized.current = true }
     else if (first) camera.position.copy(desired)
     else camera.position.lerp(desired, 1 - Math.exp(-Math.min(.08, delta) * 28))
+    // Clip the smoothed camera as well: easing must never carry it through a wall.
+    if (!first) clipBoom(surface, target, camera.position)
+    camera.position.y = Math.max(stateGround(state, camera.position.x, camera.position.z) + .25, camera.position.y)
     look.set(camera.position.x + Math.sin(yaw) * flat * 15, camera.position.y - vertical * 15, camera.position.z + Math.cos(yaw) * flat * 15)
     camera.lookAt(look)
     if (camera instanceof PerspectiveCamera) { const fov = first ? 72 : inputRef?.current.sprint ? 64 : 58; if (Math.abs(camera.fov - fov) > .03) { camera.fov = MathUtils.damp(camera.fov, fov, 5, delta); camera.updateProjectionMatrix() } }
@@ -221,7 +227,7 @@ export default function ArenaWorld(props: GameWorldProps & { onAssetsReady?: () 
 </>}
     {crates.slice(0, 40).map((crate: any) => <group key={crate.id} position={[num(crate.x), num(crate.y), num(crate.z)]}><mesh position={[0, .4, 0]}><boxGeometry args={[.8, .8, .8]} /><meshStandardMaterial color="#cf9b72" roughness={.9} /></mesh>{[-1, 1].map(side => <mesh key={side} position={[0, .4, .411]} rotation={[0, 0, side * .7]}><boxGeometry args={[.10, .95, .025]} /><meshStandardMaterial color="#f3d3a2" /></mesh>)}</group>)}
     {(state.airdrops ?? []).slice(0, 30).map((drop: any) => <SupplyDrop key={drop.id} drop={drop} state={state} reducedMotion={props.reducedMotion} />)}
-    <Suspense fallback={null}>{detailed ? <SkeletalActors {...props} poses={poses} onReady={props.onAssetsReady} /> : <ArenaCharacters {...props} poses={poses} />}</Suspense><FollowCamera {...props} poses={poses} />{detailed ? <FirstPersonModel {...props} /> : <FirstPersonHands {...props} />}{detailed ? <ItemPickups state={state} reducedMotion={props.reducedMotion} /> : <GroundLoot state={state} reducedMotion={props.reducedMotion} />}{detailed ? <GuardianModel state={state} reducedMotion={props.reducedMotion} /> : <ArenaBoss state={state} />}<BossWarnings state={state} /><Projectiles state={state} />
+    <Suspense fallback={null}>{detailed ? <SkeletalActors {...props} poses={poses} onReady={props.onAssetsReady} /> : <ArenaCharacters {...props} poses={poses} />}</Suspense><FollowCamera {...props} poses={poses} />{detailed ? <FirstPersonModel {...props} /> : <FirstPersonHands {...props} />}{detailed ? <ItemPickups state={state} reducedMotion={props.reducedMotion} /> : <GroundLoot state={state} reducedMotion={props.reducedMotion} />}{detailed ? <GuardianModel state={state} reducedMotion={props.reducedMotion} /> : <ArenaBoss state={state} />}<HealthFeedback state={state} poses={poses} me={props.me} firstPerson={props.cameraRef?.current.mode === 'first'} reducedMotion={props.reducedMotion} /><BossWarnings state={state} /><Projectiles state={state} />
     {events.filter((event: any) => ['pickup-bomb', 'push', 'boss-slam', 'boss-wave', 'attack', 'hit', 'scatter', 'crate-break'].includes(event.kind) && num(state.nowMs) - num(event.at) < 450).map((event: any) => <mesh key={event.id} rotation={[-Math.PI / 2, 0, 0]} position={[num(event.x), stateGround(state, num(event.x), num(event.z)) + .065, num(event.z)]}><ringGeometry args={[.65, .8, 20]} /><meshBasicMaterial color={event.kind.startsWith('boss') || event.kind === 'pickup-bomb' ? '#ff806f' : '#fff1a4'} transparent opacity={.65} depthWrite={false} /></mesh>)}
   </>
 }

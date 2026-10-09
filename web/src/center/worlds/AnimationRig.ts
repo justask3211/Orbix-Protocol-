@@ -24,7 +24,7 @@ export function releaseRig(rig: Rig) {
 
 }
 
-export function selectAction(rig: Rig, name: string, layer: 'lower' | 'upper', once: boolean, eventKey: string, speed = 1) {
+export function selectAction(rig: Rig, name: string, layer: 'lower' | 'upper', once: boolean, eventKey: string, speed = 1, blend = once ? .07 : .10) {
   const key = `${name}:${layer}`, identity = `${key}:${eventKey}`, action = rig.actions.get(key) || rig.actions.get(`Idle:${layer}`)
   if (!action) return
   action.setEffectiveTimeScale(speed)
@@ -37,9 +37,9 @@ export function selectAction(rig: Rig, name: string, layer: 'lower' | 'upper', o
     // and a LOD mixer that was inactive during the transition.
     for (const [otherKey,other] of rig.actions) if(otherKey.endsWith(`:${layer}`) && !['Idle','Walk','Run','Sprint'].includes(otherKey.split(':')[0])) other.stop()
   }
-  if (prior && prior !== action && prior.isRunning()) prior.fadeOut(once ? .07 : .10)
+  if (prior && prior !== action && prior.isRunning()) prior.fadeOut(blend)
   action.reset().setLoop(once ? LoopOnce : LoopRepeat, once ? 1 : Infinity).setEffectiveTimeScale(speed).setEffectiveWeight(1)
   action.paused = false; action.enabled = true
   if (layer === 'upper' && ['Idle','Walk','Run','Sprint'].includes(name)) { const lower = rig.actions.get(`${name}:lower`); if (lower) action.syncWith(lower) }
-  action.clampWhenFinished = once; action.fadeIn(once ? .07 : .10).play(); rig.current[layer] = identity
+  action.clampWhenFinished = once; action.fadeIn(blend).play(); rig.current[layer] = identity
 }

@@ -1,0 +1,8 @@
+{
+  "samples": 1000,
+  "p50Ms": 0.025417000000004464,
+  "p95Ms": 0.06134499999998866,
+  "colliders": 40,
+  "raysPerFrame": 10,
+  "environment": "Node Linux x64; static cannon-es queries, excludes render/GPU"
+}

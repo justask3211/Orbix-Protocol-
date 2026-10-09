@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { CanvasTexture, ConeGeometry, CylinderGeometry, ExtrudeGeometry, Group, IcosahedronGeometry, MathUtils, Matrix4, Mesh, MeshStandardMaterial, Shape, SphereGeometry, SRGBColorSpace, TorusGeometry, type BufferGeometry } from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { HealthTrack } from '../framework/health'
 import type { GameWorldProps } from './GameWorld'
 
 type Props = { state: GameWorldProps['state']; reducedMotion?: boolean }
@@ -19,7 +20,7 @@ function Piece({ geometry, material, position = [0, 0, 0], scale = [1, 1, 1], ro
 export default function GuardianModel({ state, reducedMotion = false }: Props) {
   const root = useRef<Group>(null), chest = useRef<Group>(null), head = useRef<Group>(null)
   const leftArm = useRef<Group>(null), rightArm = useRef<Group>(null), core = useRef<Group>(null)
-  const previousHp = useRef<number | null>(null), hitAt = useRef(-Infinity), deadAt = useRef<number | null>(null)
+  const health = useMemo(() => new HealthTrack(), []), deadAt = useRef<number | null>(null)
   const received = useRef(performance.now())
   const assets = useMemo(() => {
     const box = new RoundedBoxGeometry(1, 1, 1, 1, .12)
@@ -104,11 +105,10 @@ export default function GuardianModel({ state, reducedMotion = false }: Props) {
   useEffect(() => { received.current = performance.now() }, [state.nowMs])
   useEffect(() => {
     const hp = finite(state.boss?.hp)
-    if (previousHp.current !== null && hp < previousHp.current) hitAt.current = performance.now()
-    previousHp.current = hp
+    health.observe(hp, state.roundId, performance.now())
     if (state.boss && hp <= 0 && deadAt.current === null) deadAt.current = performance.now()
     if (hp > 0) deadAt.current = null
-  }, [state.boss, state.boss?.hp])
+  }, [state.boss, state.boss?.hp, state.roundId, health])
   useFrame(({ clock }, delta) => {
     if (!root.current || !state.boss) return
     const boss = state.boss, wallNow = performance.now(), elapsed = finite(state.nowMs) + (state.finished ? 0 : Math.min(250, wallNow - received.current))
@@ -121,7 +121,7 @@ export default function GuardianModel({ state, reducedMotion = false }: Props) {
     const wind = warning ? MathUtils.clamp((elapsed - finite(attack!.warnAt)) / Math.max(1, finite(attack!.hitAt) - finite(attack!.warnAt)), 0, 1) : 0
     const impact = attack && !warning ? Math.max(0, 1 - (elapsed - finite(attack.hitAt)) / 420) : 0
     const dead = deadAt.current !== null ? reducedMotion ? 1 : MathUtils.clamp((wallNow - deadAt.current) / 1250, 0, 1) : 0
-    const hit = Math.max(0, 1 - (wallNow - hitAt.current) / 260)
+    const hit = health.intensity(wallNow)
     const breath = reducedMotion || dead > 0 ? 0 : Math.sin(clock.elapsedTime * 1.5) * .018
     root.current.position.set(finite(boss.x), finite(boss.y), finite(boss.z))
     const yawDifference = Math.atan2(Math.sin(finite(boss.yaw) - root.current.rotation.y), Math.cos(finite(boss.yaw) - root.current.rotation.y))
