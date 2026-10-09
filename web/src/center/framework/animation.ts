@@ -21,6 +21,7 @@ export class AnimationFSM {
     const landed = grounded && !wasGrounded && !down
     const hit = finite(body.hp, 100) < finite(p.hp, 100) && !down
     const offer = (name: string, duration: number, key: string, whole: boolean, priority: number, start = now) => {
+      if (start + duration <= now) return
       // New cues replace equal/lower priority, but cannot cancel a hit or dodge.
       if (this.cue && now < this.cue.end && this.cue.priority > priority) return
       this.cue = { name, start, end: start + duration, key, whole, priority }

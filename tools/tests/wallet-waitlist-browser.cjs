@@ -16,7 +16,7 @@ try{
  const context=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce',permissions:['clipboard-read','clipboard-write']})
  const page=await context.newPage(),errors=[],posted=[]
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{posted.push(r.url()+' '+JSON.stringify(r.headers())+' '+(r.postData()||''))})
- await page.goto(base+'/center');await page.locator('.ct-wallet-connect').click()
+ await page.goto(base+'/center/');await page.locator('.ct-wallet-connect').click()
  const modal=page.getByRole('dialog',{name:'Connect a wallet',exact:true});await modal.waitFor()
  assert(await modal.getByRole('button',{name:/WalletConnect QR/}).isDisabled(),'Missing relay configuration should be honest')
  assert(await modal.evaluate(e=>e.getBoundingClientRect().right<=innerWidth && e.getBoundingClientRect().left>=0),'Modal must fit 390px')
@@ -63,9 +63,10 @@ try{
  assert(!posted.some(body=>body.includes(key)),'Recovery key must never appear in any posted request')
  // The actual wizard exposes the opt-in and optional creator message at step 4.
  await page.goto(base+'/center/create/number-hunt');await page.getByRole('button',{name:'4 Fees & rewards',exact:true}).click()
- const optIn=page.getByRole('checkbox',{name:'Wallet waitlist — free, no funds involved',exact:true});await optIn.check()
- await page.getByLabel('Optional message to players',{exact:false}).fill('Local creator message: next-event list only.')
- assert.equal(await page.getByLabel('Optional message to players',{exact:false}).getAttribute('maxlength'),'280')
+ await page.getByRole('group',{name:'Explore reward types'}).getByRole('button',{name:/Waitlist form/}).click()
+ await page.getByLabel('Who sees Waitlist form?').selectOption('anyone')
+ await page.getByLabel('Message to recipient',{exact:false}).fill('Local creator message: next-event list only.')
+ assert.equal(await page.getByLabel('Message to recipient',{exact:false}).getAttribute('maxlength'),'280')
  // A real scheduled match with two participants, neither a winner: no manual finish fixture.
  await request('/wallet/vault/deposit',token,{amount:1000})
  const config={templateId:'number-hunt',name:'G H browser match',visibility:'public',mode:'preview',rules:{templateId:'number-hunt',digits:4,min:1111,max:9999,guess_budget:3,duration_seconds:15,hints:'off',target_count:1,win_mode:'first-hit',guess_cooldown_ms:300},admission:{player_cap:2,min_ready_to_start:2},access:{vault_mode:'simulated',required_amount:0,joiner_fee:0},rewards:{kind:'preview-points',slots:[]},waitlist:{enabled:true,message:'Local creator message: next-event list only.'}}
@@ -111,7 +112,7 @@ try{
   window.addEventListener('eip6963:requestProvider',()=>window.dispatchEvent(new CustomEvent('eip6963:announceProvider',{detail:{info:{uuid:'trust-fixture',name:'Trust Wallet',rdns:'com.trustwallet.app',icon:'https://never-fetch.example/icon.svg'},provider}})))
  },fixture.address)
  const icons=[];p.on('request',r=>{if(r.url().includes('never-fetch'))icons.push(r.url())})
- await p.goto(base+'/center');await p.locator('.ct-wallet-connect').click();await p.getByRole('button',{name:/Trust Wallet.*Detected/}).click();await p.locator('.ct-signout').waitFor();assert.equal(await p.locator('.ct-wallet-account').getAttribute('title'),fixture.address)
+ await p.goto(base+'/center/');await p.locator('.ct-wallet-connect').click();await p.getByRole('button',{name:/Trust Wallet.*Detected/}).click();await p.locator('.ct-signout').waitFor();assert.equal(await p.locator('.ct-wallet-account').getAttribute('title'),fixture.address)
  await p.evaluate(()=>window.__walletChanged());await p.locator('.ct-wallet-connect').waitFor();assert.equal(await p.evaluate(()=>localStorage.getItem('orbix.session.token')),null);assert.equal(icons.length,0)
  console.log('PASS: mocked EIP-6963 Trust extension signs against real backend; account-change invalidates session; provider icon URL is never fetched. Live extension hardware and WalletConnect pairing remain unproven.')
  await injected.close()

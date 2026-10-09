@@ -1,0 +1,224 @@
+{
+  "viewport": [
+    844,
+    390
+  ],
+  "portraitGate": true,
+  "inertGate": true,
+  "landscapeEntry": true,
+  "fullscreenEntryExitTwice": true,
+  "fastQuality": true,
+  "reducedMotion": true,
+  "firstThirdPerson": true,
+  "restartReady": true,
+  "accepted": [
+    "move",
+    "move",
+    "jump",
+    "dodge"
+  ],
+  "readout": "574 ms p95\nFrame intervals\np50 22.4 ms · p95 573.9 ms\n22 samples · 100 draw calls\n123,066 triangles · DPR 1.00\nAbove the 30 FPS frame target",
+  "assets": [
+    {
+      "url": "/center/assets/index-DHSREp4P.js",
+      "encodedBytes": 214405,
+      "transferBytes": 214705,
+      "durationMs": 33.59999990463257
+    },
+    {
+      "url": "/center/assets/rolldown-runtime-C_s2cVnS.js",
+      "encodedBytes": 958,
+      "transferBytes": 1258,
+      "durationMs": 23.799999952316284
+    },
+    {
+      "url": "/center/assets/index-DHZniTkk.css",
+      "encodedBytes": 19469,
+      "transferBytes": 19769,
+      "durationMs": 24.299999952316284
+    },
+    {
+      "url": "/center/assets/react-B83maXwk.js",
+      "encodedBytes": 7876,
+      "transferBytes": 8176,
+      "durationMs": 23.899999856948853
+    },
+    {
+      "url": "/center/assets/CenterApp-CCw4kIR6.js",
+      "encodedBytes": 375032,
+      "transferBytes": 375332,
+      "durationMs": 47.5
+    },
+    {
+      "url": "/center/assets/ccip-BtPzRKE8.js",
+      "encodedBytes": 72495,
+      "transferBytes": 72795,
+      "durationMs": 27.09999990463257
+    },
+    {
+      "url": "/center/assets/chain-cZ6vgtW1.js",
+      "encodedBytes": 35758,
+      "transferBytes": 36058,
+      "durationMs": 26.5
+    },
+    {
+      "url": "/center/assets/sha3-DfR2K4sp.js",
+      "encodedBytes": 2851,
+      "transferBytes": 3151,
+      "durationMs": 26.59999990463257
+    },
+    {
+      "url": "/center/assets/_u64-qA0ksYE_.js",
+      "encodedBytes": 4299,
+      "transferBytes": 4599,
+      "durationMs": 40.200000047683716
+    },
+    {
+      "url": "/center/assets/_esm-CmrPXqgS.js",
+      "encodedBytes": 118685,
+      "transferBytes": 118985,
+      "durationMs": 47.59999990463257
+    },
+    {
+      "url": "/center/assets/serializeSignature-BZ1XitlE.js",
+      "encodedBytes": 8662,
+      "transferBytes": 8962,
+      "durationMs": 40.30000019073486
+    },
+    {
+      "url": "/center/assets/secp256k1-DzX_oVuu.js",
+      "encodedBytes": 25134,
+      "transferBytes": 25434,
+      "durationMs": 47.5
+    },
+    {
+      "url": "/center/assets/x-C8aMEezJ.js",
+      "encodedBytes": 4055,
+      "transferBytes": 4355,
+      "durationMs": 69.5
+    },
+    {
+      "url": "/center/assets/sha256-CCGdtkwE.js",
+      "encodedBytes": 57,
+      "transferBytes": 357,
+      "durationMs": 71
+    },
+    {
+      "url": "/center/assets/hmac-DX0A5VYH.js",
+      "encodedBytes": 9718,
+      "transferBytes": 10018,
+      "durationMs": 70.90000009536743
+    },
+    {
+      "url": "/center/assets/wizardForms-s4UqNgh8.js",
+      "encodedBytes": 28606,
+      "transferBytes": 28906,
+      "durationMs": 68.29999995231628
+    },
+    {
+      "url": "/center/assets/wallet-C5yNOSvz.js",
+      "encodedBytes": 1140,
+      "transferBytes": 1440,
+      "durationMs": 69.59999990463257
+    },
+    {
+      "url": "/center/assets/api-IAAh_q3C.js",
+      "encodedBytes": 7320,
+      "transferBytes": 7620,
+      "durationMs": 70.80000019073486
+    },
+    {
+      "url": "/center/assets/characters-nA5rnGq5.js",
+      "encodedBytes": 1623,
+      "transferBytes": 1923,
+      "durationMs": 90
+    },
+    {
+      "url": "/center/assets/session-BZYQQqMY.js",
+      "encodedBytes": 14309,
+      "transferBytes": 14609,
+      "durationMs": 89.59999990463257
+    },
+    {
+      "url": "/center/assets/resultPresentation-ByWMIZHq.js",
+      "encodedBytes": 290,
+      "transferBytes": 590,
+      "durationMs": 89.79999995231628
+    },
+    {
+      "url": "/center/assets/CenterApp-BtFD748y.css",
+      "encodedBytes": 208942,
+      "transferBytes": 209242,
+      "durationMs": 46
+    },
+    {
+      "url": "/center/assets/GameWorld-B1ryudaU.js",
+      "encodedBytes": 5778,
+      "transferBytes": 6078,
+      "durationMs": 11.400000095367432
+    },
+    {
+      "url": "/center/assets/GameWorld-CQglA47s.css",
+      "encodedBytes": 4229,
+      "transferBytes": 4529,
+      "durationMs": 11.099999904632568
+    },
+    {
+      "url": "/center/assets/WorldScene-BTapxSoQ.js",
+      "encodedBytes": 199651,
+      "transferBytes": 199951,
+      "durationMs": 34.299999952316284
+    },
+    {
+      "url": "/center/assets/react-three-fiber.esm-2ETS53WZ.js",
+      "encodedBytes": 177049,
+      "transferBytes": 177349,
+      "durationMs": 34.700000047683716
+    },
+    {
+      "url": "/center/assets/three.module-B2R18cCg.js",
+      "encodedBytes": 746832,
+      "transferBytes": 747132,
+      "durationMs": 41.299999952316284
+    },
+    {
+      "url": "/center/assets/GLTFLoader-BlbACvEK.js",
+      "encodedBytes": 49387,
+      "transferBytes": 49687,
+      "durationMs": 30.300000190734863
+    },
+    {
+      "url": "/center/assets/SkeletonUtils-CHxfGqZJ.js",
+      "encodedBytes": 449,
+      "transferBytes": 749,
+      "durationMs": 26.399999856948853
+    },
+    {
+      "url": "/center/assets/CuteCharacter-CIseUNYC.js",
+      "encodedBytes": 14225,
+      "transferBytes": 14525,
+      "durationMs": 29.299999952316284
+    },
+    {
+      "url": "/center/assets/cartoonStyle-BsYcvIoG.js",
+      "encodedBytes": 845,
+      "transferBytes": 1145,
+      "durationMs": 41.200000047683716
+    },
+    {
+      "url": "/center/center-models/orbix-ranger.glb",
+      "encodedBytes": 1728160,
+      "transferBytes": 1728460,
+      "durationMs": 57.80000019073486
+    },
+    {
+      "url": "/center/center-models/orbix-ranger-lod.glb",
+      "encodedBytes": 1247696,
+      "transferBytes": 1247996,
+      "durationMs": 44.5
+    }
+  ],
+  "selectedAssetEncodedBytes": 5335985,
+  "pageErrors": [],
+  "renderer": "Chromium SwiftShader; touch emulation, no phone FPS/thermal claim"
+}

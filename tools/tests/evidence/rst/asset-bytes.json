@@ -1,0 +1,17 @@
+{
+  "assets": [
+    {
+      "path": "web/public/center-models/orbix-ranger.glb",
+      "bytes": 1728160,
+      "gzipBytes": 1082848
+    },
+    {
+      "path": "web/public/center-models/orbix-ranger-lod.glb",
+      "bytes": 1247696,
+      "gzipBytes": 805853
+    }
+  ],
+  "rawGLBBytes": 2975856,
+  "gzipGLBBytes": 1888701,
+  "scope": "filesystem gzip calculation; not a network measurement or a guarantee of hosting compression"
+}

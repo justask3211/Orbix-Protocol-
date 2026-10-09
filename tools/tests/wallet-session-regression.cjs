@@ -14,6 +14,7 @@ function hooks() {
     begin() { cursor = 0 },
     useState(initial) { const slot = cursor++; if (!(slot in states)) states[slot] = typeof initial === 'function' ? initial() : initial; return [states[slot], value => { states[slot] = typeof value === 'function' ? value(states[slot]) : value }] },
     useCallback(callback) { return callback },
+    lazy() { return ()=>null }, Suspense: 'suspense',
     useEffect() {},
     useRef(value) { return { current: value } },
   }
@@ -22,7 +23,7 @@ function load(file, modules) {
   const source = fs.readFileSync(path.join(root, file), 'utf8')
   const result = transformSync(file, source, { jsx: { runtime: 'automatic' }, target: 'es2022' })
   assert.deepEqual(result.errors, [])
-  const output = result.code.replace(/import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g, (_, names, name) => `const {${names.replace(/\bas\b/g, ':')}} = require(${JSON.stringify(name)});`).replace(/\bexport\s+(?=(?:function|const|class)\b)/g, '')
+  const output = result.code.replace(/import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?/g, (_, names, name) => `const {${names.replace(/\bas\b/g, ':')}} = require(${JSON.stringify(name)});`).replace(/export\s*\{[^}]*\}\s*from\s*['"][^'"]+['"];?/g, '').replace(/\bexport\s+(?=(?:function|const|class)\b)/g, '')
   const names = Array.from(source.matchAll(/export function\s+(\w+)/g), match => match[1])
   return new Function('require', `${output}\nreturn {${names.join(',')}};`)(name => { if (!(name in modules)) throw new Error(`Unexpected test import: ${name}`); return modules[name] })
 }
@@ -48,7 +49,9 @@ async function checkSession({ provider, verify, expected, emptyAccount = false }
   const react = hooks(), local = storage(), calls = []
   global.localStorage = local
   global.window = provider ? { ethereum: { request: async ({ method }) => { calls.push(method); if (method === 'eth_requestAccounts') return emptyAccount ? [] : ['0x1234567890123456789012345678901234567890']; if (provider === 'reject') throw new Error('Signature rejected'); return 'test-signature' } } } : {}
-  const sessionModule = load('web/src/center/session.ts', { react, 'viem/accounts': { privateKeyToAccount() { throw new Error('Unexpected generated wallet') } }, './api': { center: { nonce: async () => ({ nonce: 'nonce', message: 'Ownership proof' }), verify: async () => { if (verify === 'reject') throw new Error('Verification rejected'); return { token: verify === 'empty' ? '' : 'verified-test-session' } } } } })
+  const keys = {KEY_STORAGE:'orbix.wallet.key',TOKEN_STORAGE:'orbix.session.token',WALLET_KIND:'orbix.wallet.kind',loadGeneratedAccount:()=>null}
+  const connectors = {injectedConnectors:()=>window.ethereum?[{provider:window.ethereum}]:[],selectWalletProvider:()=>{},startWalletDiscovery:()=>{},activeWalletProvider:()=>null}
+  const sessionModule = load('web/src/center/session.ts', { react, './walletKeys':keys,'./walletConnectors':connectors, 'viem/accounts': { privateKeyToAccount() { throw new Error('Unexpected generated wallet') } }, './api': { center: { nonce: async () => ({ nonce: 'nonce', message: 'Ownership proof' }), verify: async () => { if (verify === 'reject') throw new Error('Verification rejected'); return { token: verify === 'empty' ? '' : 'verified-test-session' } } } } })
   react.begin()
   const session = sessionModule.useSession()
   assert.equal(await session.connectInjected(), expected)
@@ -60,7 +63,7 @@ async function checkModal(result, generated = false, alreadyConnected = false) {
   const react = hooks(); let closed = 0, notices = 0
   const connect = async () => { if (result === 'throw') throw new Error('Verification rejected'); return result }
   const session = { connected: alreadyConnected, signingIn: false, error: null, connectInjected: connect, signIn: connect, generate: () => ({ address: '0x1234567890123456789012345678901234567890', privateKey: 'unit-test-recovery-placeholder' }) }
-  const { WalletModal } = load('web/src/center/WalletModal.tsx', { react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' }, './session': { hasInjected: () => true, shortAddress: address => address }, './share': { copyText: async () => true }, './useModalFocus': { useModalFocus: () => ({ current: null }) } })
+  const { WalletModal } = load('web/src/center/WalletModal.tsx', { react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' }, './walletKeys':{accountFromRecoveryKey:()=>null}, './walletConnectors':{injectedConnectors:()=>[{id:'mock',name:'Browser wallet',brand:'metamask',provider:{}}],watchInjectedConnectors:()=>()=>{},walletConnectProjectId:()=>''}, './WalletMarks':{WalletMark:()=>null}, './session': { hasInjected: () => true, shortAddress: address => address }, './share': { copyText: async () => true }, './useModalFocus': { useModalFocus: () => ({ current: null }) } })
   const render = () => { react.begin(); return WalletModal({ session, onClose: () => closed++, onConnected: () => notices++ }) }
   let tree = render()
   if (generated) {

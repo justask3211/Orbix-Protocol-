@@ -1,5 +1,6 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from 'react'
 import './worlds.css'
+import type { FrameMetrics } from '../framework/performance'
 import type { ArenaInputRef, ArenaCameraRef } from '../ArenaControls'
 
 export type WorldGame = 'number-hunt' | 'boss-raid' | 'token-catch' | 'reaction-duel' | 'combat-duel'
@@ -48,7 +49,7 @@ export default function GameWorld(props: GameWorldProps) {
   const [sceneReady, setSceneReady] = useState(false)
   const [sceneFailed, setSceneFailed] = useState(false)
   const [quality, setQuality] = useState<WorldQuality>(() => window.matchMedia('(max-width: 799px), (pointer: coarse)').matches ? 'fast' : 'balanced')
-  const [fps, setFps] = useState<number | null>(null)
+  const [metrics, setMetrics] = useState<FrameMetrics | null>(null)
   const handleFailure = useCallback(() => setSceneFailed(true), [])
   const handleContextLost = useCallback(() => setContextLost(true), [])
   const handleReady = useCallback(() => setSceneReady(true), [])
@@ -78,11 +79,11 @@ export default function GameWorld(props: GameWorldProps) {
 
   return (
     <section className={`ow-world ow-${props.game}${props.state.arena ? ' ow-perspective-world' : ''}`} aria-label={`${world.title} 3D game environment`}>
-      <div className="ow-world-title"><span className="ow-world-dot" aria-hidden="true" /><span>{world.title}</span><small>{fps != null && props.state.arena ? `${fps} FPS` : '3D WORLD'}</small>{props.state.arena && <label className="ow-quality">Graphics<select value={quality} onChange={event => setQuality(event.target.value as WorldQuality)} title="Fast reduces resolution and shadows. Sharp uses higher resolution."><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="sharp">Sharp</option></select></label>}</div>
+      <div className="ow-world-title"><span className="ow-world-dot" aria-hidden="true" /><span>{world.title}</span><small>{metrics && props.state.arena ? `${metrics.fps} FPS` : '3D WORLD'}</small>{metrics && props.state.arena && <details className="ow-performance"><summary aria-label="Frame performance">{Math.round(metrics.p95)} ms p95</summary><div><strong>Frame intervals</strong><span>p50 {metrics.p50.toFixed(1)} ms · p95 {metrics.p95.toFixed(1)} ms</span><span>{metrics.samples} samples · {metrics.calls} draw calls</span><span>{metrics.triangles.toLocaleString()} triangles · DPR {metrics.dpr.toFixed(2)}</span><span>{metrics.p95 <= 33.3 ? 'Within the 30 FPS frame target' : 'Above the 30 FPS frame target'}</span></div></details>}{props.state.arena && <label className="ow-quality">Graphics<select value={quality} onChange={event => setQuality(event.target.value as WorldQuality)} title="Fast reduces resolution and shadows. Sharp uses higher resolution."><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="sharp">Sharp</option></select></label>}</div>
       <div className="ow-canvas-wrap">
         <WorldBoundary key={`${props.game}:${attempt}`} fallback={fallback} onFailure={handleFailure}>
           <Suspense fallback={<div className="ow-loading ow-loading-world" role="status"><span className="ow-loading-mascot" aria-hidden="true">✦</span><strong>Opening {world.title}…</strong><span>Loading the shared 3D renderer</span></div>}>
-            {contextLost ? fallback : <Scene {...props} quality={quality} onFps={setFps} reducedMotion={reducedMotion} active={visible} onContextLost={handleContextLost} onReady={handleReady} fallback={fallback} />}
+            {contextLost ? fallback : <Scene {...props} quality={quality} onMetrics={setMetrics} reducedMotion={reducedMotion} active={visible} onContextLost={handleContextLost} onReady={handleReady} fallback={fallback} />}
           </Suspense>
         </WorldBoundary>
         {!sceneReady && !contextLost && !sceneFailed && <div className="ow-loading ow-loading-assets" role="status"><span className="ow-loading-mascot" aria-hidden="true">✦</span><strong>Preparing {world.title}…</strong><span>Loading character, animations and terrain</span></div>}

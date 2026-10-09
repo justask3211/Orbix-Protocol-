@@ -1,0 +1,83 @@
+{
+  "date": "2026-10-09",
+  "checks": [
+    {
+      "command": "python -m pytest center/tests tests -q",
+      "tests": 597,
+      "exitCode": 0,
+      "note": "Explicitly includes top-level tests excluded by default pytest.ini"
+    },
+    {
+      "command": "python -m pytest",
+      "tests": 576,
+      "exitCode": 0
+    },
+    {
+      "command": "forge test",
+      "tests": 162,
+      "suites": 16,
+      "exitCode": 0
+    },
+    {
+      "command": "node --test web/src/*.test.mjs web/src/center/*.test.mjs",
+      "tests": 41,
+      "exitCode": 0
+    },
+    {
+      "command": "node tools/tests/*regression.* (each, supervised)",
+      "scripts": 17,
+      "exitCode": 0,
+      "includes": "144 actor states, 72 gait/mixer cases, 84 rendered character states"
+    },
+    {
+      "command": "web/node_modules/.bin/tsc -p web --noEmit",
+      "exitCode": 0
+    },
+    {
+      "command": "npm --prefix web run build",
+      "exitCode": 0,
+      "note": "Vite warns about existing large chunks"
+    }
+  ],
+  "existingBrowserChecks": [
+    "admin-panel-browser.cjs",
+    "rewards-wizard-browser.cjs",
+    "form-rewards-browser.cjs",
+    "wallet-waitlist-browser.cjs",
+    "walletconnect-browser.cjs",
+    "v4-worlds-browser.cjs",
+    "character-integration-browser.cjs",
+    "character-podium-browser.cjs",
+    "character-frame-regression.cjs",
+    "character-captures.cjs"
+  ],
+  "existingBrowserChecksExitCode": 0,
+  "newBrowserEvidence": [
+    "before.json",
+    "after.json",
+    "lifecycle.json",
+    "mobile.json"
+  ],
+  "qualityGates": {
+    "fixedFixtureDrawCalls": "PASS",
+    "fixedFixtureTriangles": "PASS",
+    "swiftShaderFrameInterval": "FAIL",
+    "localUncompressedSelectedAssetBytes": "FAIL",
+    "realPhonePerformance": "UNPROVEN",
+    "totalHeapVRAM": "UNPROVEN",
+    "reviewPhase1Through4": "UNPROVEN: referenced file absent"
+  },
+  "authority": "No Python/contract/wallet-session/reward source changed. Animation contact windows are cosmetic.",
+  "publish": "master:main authorized; no Railway deployment",
+  "newBrowserChecks": [
+    {
+      "script": "framework-mobile-browser.cjs",
+      "exitCode": 0
+    },
+    {
+      "script": "v4-worlds-browser.cjs",
+      "exitCode": 0
+    }
+  ],
+  "existingBrowserNote": "Final V4 rerun passed all three games after a cover-aware real sidestep was added to the displacement check."
+}

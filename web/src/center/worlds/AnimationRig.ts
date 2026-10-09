@@ -37,7 +37,7 @@ export function selectAction(rig: Rig, name: string, layer: 'lower' | 'upper', o
     // and a LOD mixer that was inactive during the transition.
     for (const [otherKey,other] of rig.actions) if(otherKey.endsWith(`:${layer}`) && !['Idle','Walk','Run','Sprint'].includes(otherKey.split(':')[0])) other.stop()
   }
-  if (prior && prior !== action && prior.isRunning()) prior.fadeOut(blend)
+  if (prior && prior !== action) prior.fadeOut(blend)
   action.reset().setLoop(once ? LoopOnce : LoopRepeat, once ? 1 : Infinity).setEffectiveTimeScale(speed).setEffectiveWeight(1)
   action.paused = false; action.enabled = true
   if (layer === 'upper' && ['Idle','Walk','Run','Sprint'].includes(name)) { const lower = rig.actions.get(`${name}:lower`); if (lower) action.syncWith(lower) }
