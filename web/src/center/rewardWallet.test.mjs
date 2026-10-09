@@ -105,3 +105,13 @@ test('friendly selectors never reveal revert payloads',async()=>{
   const message=explainError(error);assert.match(message,pattern);assert(!/0x[a-f0-9]{8}/i.test(message))
  }
 })
+
+test('multiple ERC721 IDs lock into one pool with per-ID approvals and deposits',async()=>{
+ const {calls}=mock(),cfg=config('erc721')
+ cfg.slots.push({...cfg.slots[0],rank:2,token_id:'99'})
+ await fundRewardPool(account,prepared,cfg,()=>{})
+ assert.deepEqual(sends(calls),['createPool','approve','depositERC721','approve','depositERC721'])
+ const deposits=calls.filter(c=>c.method==='eth_sendTransaction').map(c=>{try{return decodeFunctionData({abi:rewardAbi,data:c.params[0].data})}catch{return null}}).filter(c=>c?.functionName==='depositERC721')
+ assert.deepEqual(deposits.map(d=>[d.args[0],d.args[1].toLowerCase(),d.args[2]]),[[7n,token,8n],[7n,token,99n]])
+ assert(!sends(calls).includes('setApprovalForAll'))
+})

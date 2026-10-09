@@ -145,6 +145,7 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string |
 
 export const center = {
   submitWaitlist: (roomId:string,token:string,wallet:string) => request<{wallet:string;createdAt:number;replayed:boolean}>(`/rooms/${encodeURIComponent(roomId)}/waitlist`,{method:"POST",body:JSON.stringify({wallet})},token),
+  waitlistRewards: (roomId:string,token:string) => request<{wallets:string[];count:number;sourceRoomId:string}>(`/rooms/${encodeURIComponent(roomId)}/waitlist-rewards`,{},token),
   waitlist: (roomId:string,token:string) => request<{entries:{wallet:string;player:string;createdAt:number}[];count:number;uniqueWallets:number}>(`/rooms/${encodeURIComponent(roomId)}/waitlist`,{},token),
   getProfiles: (addresses: string[]) => request<Record<string,{name:string;hue?:number;showAddress?:boolean;hasImage?:boolean;character?:string;cosmetics?:Cosmetics}>>('/profiles/batch', {method:'POST',body:JSON.stringify({addresses})}),
   chooseCharacter:(roomId:string,token:string,character:string)=>request<{characters:Record<string,string>}>(`/rooms/${roomId}/character`,{method:'POST',body:JSON.stringify({character})},token),

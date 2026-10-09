@@ -362,7 +362,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       const config=saved.config, reward=saved.rewards, slot=reward.slots[0]
       setWaitlist(config.waitlist ?? {enabled:false,message:""})
       const deadline=new Date(reward.claim_deadline*1000)
-      setRewardSettings({...initialRewardSettings(),enabled:true,kind:slot.asset_kind,token:slot.asset_contract,amount:slot.amount,tokenId:slot.token_id,count:reward.slots.length,mode:reward.claim_mode,deadline:new Date(deadline.getTime()-deadline.getTimezoneOffset()*60000).toISOString().slice(0,16),recipients:reward.merkle_winners.join(', ')})
+      setRewardSettings({...initialRewardSettings(),enabled:true,kind:slot.asset_kind,token:slot.asset_contract,amount:slot.amount,tokenId:slot.token_id,count:reward.slots.length,tokenIds:reward.slots.filter(s=>s.asset_kind==='erc721').map(s=>String(s.token_id)),distribution:reward.distribution??'match',waitlistSource:reward.waitlist_source??'',mode:reward.claim_mode,deadline:new Date(deadline.getTime()-deadline.getTimezoneOffset()*60000).toISOString().slice(0,16),recipients:reward.merkle_winners.join(', ')})
       setDraft(previous=>({...previous,templateId:config.template_id,name:config.name,description:config.description??'',visibility:config.visibility,rules:config.rules,durationSeconds:config.rules.duration_seconds??previous.durationSeconds,playerCap:config.admission.player_cap,minReady:config.admission.min_ready_to_start,requiredAmount:config.access.required_amount??0,joinerFee:config.access.joiner_fee??0,absorbsJoinerFee:config.access.creator_absorbs_joiner_fee,entryToken:config.entry.kind==='erc20'?config.entry.token:'',entryAmount:config.entry.amount??0}))
       if (fromRoom) {setSourceConfig(config);setSourceLoading(false)}
       setPicking(false);setWizardStep(4)
@@ -587,9 +587,9 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       if (rewardSettings.enabled || attempt) {
         if (!session.address) throw new Error('Connect the creator wallet first.')
         const rewards = attempt?.rewards ?? rewardConfig(rewardSettings)
+        const prepared = await center.prepareRewards(config,publishNonce,session.token)
         sessionStorage.setItem(fundingAttemptKey,JSON.stringify({config,nonce:publishNonce,rewards}))
         setFundingLocked(true)
-        const prepared = await center.prepareRewards(config,publishNonce,session.token)
         funding = prepared.funding ?? await fundRewardPool(session.address,prepared,rewards,setStatus)
         setStatus('Deposit receipts confirmed. Backend is verifying pool inventory before publishing.')
       }
@@ -813,7 +813,8 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
         <h2>4 · Fees & rewards</h2>
         {fundingLocked && <p role="status">A funded publication is in progress. Publish again to resume its saved configuration and check pending receipts.</p>}
         <WaitlistSetup value={waitlist} disabled={busy || fundingLocked} onChange={value=>{setWaitlist(value);setEdited(true)}}/>
-        <FundedRewardsSetup settings={rewardSettings} disabled={busy || fundingLocked} onChange={value=>{setRewardSettings(value);setEdited(true)}}/>
+        {fundingLocked&&<button type="button" className="btn-ghost" disabled={busy} onClick={()=>{const prefix=`orbix-reward-fund:${session.address?.toLowerCase()}:`;if(Object.keys(sessionStorage).some(key=>key.startsWith(prefix))){setError('This attempt has a funding journal or pending transaction. Retry the same attempt to verify it.');return}sessionStorage.removeItem(fundingAttemptKey);setFundingLocked(false);setError(null)}}>Edit settings if no funding transaction was submitted</button>}
+        <FundedRewardsSetup session={session} templateId={draft.templateId} settings={rewardSettings} disabled={busy || fundingLocked} onChange={value=>{setRewardSettings(value);setEdited(true)}}/>
         <p className="muted">{sourceOnchain ? 'This copy retains the original onchain vault and its token units. New entry and reward funding are separate transactions.' : 'What it costs to play, what the winner takes, and who pays the joiner fee. These room fees use preview credits. Token entry, when configured, requires a separate wallet transaction.'}</p>
         <div className="ct-form">
           <div className="wz-why">The play fee is charged to YOU once at publish — it is the cost of running the room, not something players pay.</div>
@@ -868,7 +869,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
             </label>
           )}
           <ArcadeNumber label="Auto-close after (hours, 0 = never)" minimum={0} maximum={168} value={draft.closeAfterHours ?? 0} onChange={value => set('closeAfterHours',value)} error={feeErrors.closeAfterHours} />
-          {!rewardSettings.enabled && <RoomRewardsGuide funded={Boolean(sourceFunding)}>
+          {!rewardSettings.enabled && <RoomRewardsGuide funded={Boolean(sourceFunding)} onChoose={type=>{if(type==='points')return;setRewardSettings({...initialRewardSettings(),enabled:true,kind:type==='nft'?'erc721':type==='token'?'erc20':type});document.querySelector('.fr-setup')?.scrollIntoView({block:'start',behavior:'instant'})}}>
           {sourceFunding ? <div className="wz-why"><strong>Original funded prize configuration retained</strong><p>This new room needs its own confirmed prize inventory. Previous match deposits and claims stay with the original room. Fund the new room before starting.</p></div> : draft.templateId==='token-catch' && Number(draft.rules.world_version)>=3 ? <ArcadeNumber label="Total airdrop loot pool (preview units)" minimum={1} maximum={10000} value={Number(draft.rules.loot_budget)} onChange={value=>setRule('loot_budget',value)} error={ruleErrors.loot_budget} help="The complete pool is split across the scheduled airdrops. Every collector receives their final collected share as preview points. These are game units, not a wallet transfer."/> : <ArcadeNumber label={draft.templateId==='boss-raid' ? 'Total crew prize pool (preview points)' : 'Winner points (preview)'} minimum={0} value={draft.rewardPoints} onChange={value => set('rewardPoints',value)} error={feeErrors.rewardPoints} help={draft.templateId === 'boss-raid' ? 'This is the complete prize pool. The podium percentages split it between qualifying crews, then the chosen member rule divides each crew share. Game points are separate from wallet tokens.' : 'Game points are separate from wallet tokens. Set to 0 for no preview points.'} />}
           </RoomRewardsGuide>}
         </div>

@@ -78,6 +78,23 @@ class WaitlistService:
             return output.getvalue()
         return {'entries': entries, 'count': len(entries), 'uniqueWallets': len({e['wallet'] for e in entries})}
 
+    def reward_wallets(self, room_id, who):
+        listing = self.listing(room_id, who)
+        wallets = list(dict.fromkeys(e["wallet"].lower() for e in listing["entries"] if int(e["wallet"], 16)))
+        if not wallets:
+            raise CommunityError("EMPTY_WAITLIST", "This waitlist has no nonzero recipient wallets.", 409)
+        if len(wallets) > 50:
+            raise CommunityError("WAITLIST_TOO_LARGE", "This version supports up to 50 wallets per drop. No entries were omitted.", 409)
+        return wallets
+
+    def validate_reward_source(self, rewards, who):
+        if not rewards.waitlist_source:
+            return
+        wallets = self.reward_wallets(rewards.waitlist_source, who)
+        chosen = [a.lower() for a in rewards.merkle_winners]
+        if not chosen or len(chosen) != len(set(chosen)) or not set(chosen).issubset(wallets):
+            raise CommunityError("WAITLIST_MISMATCH", "Recipients must come from the creator's collected waitlist snapshot.", 409)
+
     def count(self, room_id):
         with self.store.tx() as cx:
             return cx.execute('SELECT COUNT(*) FROM room_waitlist WHERE room_id=?', (room_id,)).fetchone()[0]

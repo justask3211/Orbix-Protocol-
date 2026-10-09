@@ -49,6 +49,8 @@ class RewardRpc:
                 return '0x' + encode(['uint8[]','address[]','uint256[]','uint256[]'], [[self.kind],[self.token],[self.token_id],[self.amount]]).hex()
             if data.startswith(call_data('isClaimed(uint256,address)')[:10]):
                 return '0x' + encode(['bool'], [self.claimed]).hex()
+            if data.startswith(call_data('allocationInfo(uint256,uint256)')[:10]):
+                return '0x' + encode(['address','uint256','uint256','bool'], [self.creator,0,100,self.claimed]).hex()
             if data == call_data('authority()'):
                 return '0x' + encode(['address'], [self.signer]).hex()
             if params[0].get('from'):
@@ -256,3 +258,46 @@ def test_legacy_escrow_lookup_cannot_report_reward_engine_claim_payable(flow):
     assert response.status_code==200
     assert not response.json()['payable']
     assert 'My rewards' in response.json()['reason']
+
+
+def test_fixed_merkle_drop_is_discoverable_without_match_entitlement(flow):
+    app, client, rpc, cfg, headers, _, _, stranger = flow
+    cfg['rewards'].update(claim_mode='merkle', distribution='drop', merkle_winners=[stranger.address])
+    rpc.mode = 2
+    from center.schema import RoomConfig, normalise_keys
+    rpc.root, _ = app.state.rewards.merkle(RoomConfig(**normalise_keys(cfg)).rewards)
+    prepared = client.post(API_PREFIX+'/rooms/prepare-rewards', headers=headers, json={'config':cfg,'intentNonce':'fund-1'})
+    assert prepared.status_code == 200, prepared.text
+    rpc.room_id = prepared.json()['roomId']
+    assert publish(flow).status_code == 200
+    assert app.state.rewards.entries(rpc.room_id) == []
+    rewards = client.get(API_PREFIX+'/wallet/rewards', headers=sign_in(client,stranger)).json()['rewards']
+    assert len(rewards) == 1 and rewards[0]['payable']
+    assert rewards[0]['function'] == 'claimByMerkle'
+    assert rewards[0]['args'][2].lower() == stranger.address.lower()
+
+
+def test_multi_nft_merkle_commits_distinct_asset_indices(flow):
+    app, _, _, cfg, _, _, winner, stranger = flow
+    from center.schema import RoomConfig, normalise_keys
+    cfg['rewards'].update(claim_mode='merkle',distribution='drop',merkle_winners=[winner.address,stranger.address])
+    cfg['rewards']['slots'] = [{'rank':i+1,'asset_kind':'erc721','asset_contract':'0x'+'ab'*20,'token_id':str(2**200+i),'amount':'1'} for i in range(2)]
+    rewards = RoomConfig(**normalise_keys(cfg)).rewards
+    root, leaves = app.state.rewards.merkle(rewards)
+    from center import settlement as st
+    for i, wallet in enumerate([winner.address,stranger.address]):
+        leaf = keccak(bytes.fromhex(wallet[2:])+i.to_bytes(32,'big')+(1).to_bytes(32,'big'))
+        assert leaves[i] == leaf
+        assert st.merkle_root([leaves[0],leaves[1]]) == root
+    cfg['rewards']['slots'][1]['token_id'] = cfg['rewards']['slots'][0]['token_id']
+    with pytest.raises(ValueError,match='one prize slot'):
+        RoomConfig(**normalise_keys(cfg))
+
+
+def test_schema_rejection_does_not_create_or_bind_a_pool(flow):
+    app,client,_,cfg,headers,*_ = flow
+    cfg['rewards']['slots'][0]['asset_contract'] = 'broken'
+    response=client.post(API_PREFIX+'/rooms/prepare-rewards',headers=headers,json={'config':cfg,'intentNonce':'bad'})
+    assert response.status_code == 422
+    with app.state.store.tx() as c:
+        assert c.execute('SELECT COUNT(*) FROM reward_bindings').fetchone()[0] == 0
