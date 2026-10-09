@@ -389,7 +389,6 @@ export default function WorldScene({ active, fallback, onContextLost, onReady, q
   const detailed = Number(props.state.worldVersion) >= 4
   const [assetsReady, setAssetsReady] = useState(false)
   const handleAssetsReady = useCallback(() => setAssetsReady(true), [])
-  useEffect(() => setAssetsReady(false), [props.game])
   const fieldShadows = detailed && quality !== 'fast' && window.matchMedia('(min-width: 800px) and (pointer: fine)').matches
   const background = props.game === 'boss-raid' ? '#c5b9e0' : props.game === 'reaction-duel' ? '#f2d6ce' : props.game === 'token-catch' ? '#b5e9e5' : '#c0e6df'
   const scenes = { 'number-hunt': NumberWorld, 'boss-raid': BossWorld, 'token-catch': CatchWorld, 'reaction-duel': DuelWorld, 'combat-duel': ArenaWorld }
