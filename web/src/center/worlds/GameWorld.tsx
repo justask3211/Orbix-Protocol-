@@ -20,6 +20,7 @@ export type GameWorldProps = {
 }
 
 const Scene = lazy(() => import('./WorldScene'))
+const BabylonWorld = lazy(() => import('../babylon/BabylonWorld'))
 const WORLDS: Record<WorldGame, { title: string; note: string }> = {
   'number-hunt': { title: 'Whisperleaf Islands', note: 'Explore the mystery. Every guess is checked by the game server.' },
   'boss-raid': { title: 'Crystalheart Arena', note: 'Rally your crew. The crystal guardian reacts to confirmed damage.' },
@@ -42,6 +43,14 @@ class WorldBoundary extends Component<{ children: ReactNode; fallback: ReactNode
 
 /** The renderer loads only when a featured game is opened. DOM controls remain usable without WebGL. */
 export default function GameWorld(props: GameWorldProps) {
+  // The legacy route stays available during the adoption gates. Phase W records
+  // route promotion; no legacy scene or other game's renderer is deleted.
+  const engine = new URLSearchParams(window.location.search).get('engine')
+  if (props.game === 'token-catch' && (engine === 'babylon' || props.state._renderer === 'babylon')) return <Suspense fallback={<div className="ow-loading" role="status">Opening Sunnydrop…</div>}><BabylonWorld {...props}/></Suspense>
+  return <LegacyGameWorld {...props}/>
+}
+
+function LegacyGameWorld(props: GameWorldProps) {
   const [visible, setVisible] = useState(() => !document.hidden)
   const [motionPreference, setMotionPreference] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const [contextLost, setContextLost] = useState(false)
