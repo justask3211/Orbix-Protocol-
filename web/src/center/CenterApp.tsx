@@ -350,10 +350,24 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
   const [rewardSettings, setRewardSettings] = useState<RewardSettings>(initialRewardSettings)
   const [sourceConfig, setSourceConfig] = useState<Record<string, unknown> | null>(null)
   const [sourceLoading, setSourceLoading] = useState(Boolean(fromRoom))
+  useEffect(() => {
+    const raw = sessionStorage.getItem(fundingAttemptKey)
+    setFundingLocked(Boolean(raw))
+    if (!raw) return
+    try {
+      const saved = JSON.parse(raw) as {config:Record<string,any>;rewards:ReturnType<typeof rewardConfig>}
+      const config=saved.config, reward=saved.rewards, slot=reward.slots[0]
+      const deadline=new Date(reward.claim_deadline*1000)
+      setRewardSettings({...initialRewardSettings(),enabled:true,kind:slot.asset_kind,token:slot.asset_contract,amount:slot.amount,tokenId:slot.token_id,count:reward.slots.length,mode:reward.claim_mode,deadline:new Date(deadline.getTime()-deadline.getTimezoneOffset()*60000).toISOString().slice(0,16),recipients:reward.merkle_winners.join(', ')})
+      setDraft(previous=>({...previous,templateId:config.template_id,name:config.name,description:config.description??'',visibility:config.visibility,rules:config.rules,durationSeconds:config.rules.duration_seconds??previous.durationSeconds,playerCap:config.admission.player_cap,minReady:config.admission.min_ready_to_start,requiredAmount:config.access.required_amount??0,joinerFee:config.access.joiner_fee??0,absorbsJoinerFee:config.access.creator_absorbs_joiner_fee,entryToken:config.entry.kind==='erc20'?config.entry.token:'',entryAmount:config.entry.amount??0}))
+      if (fromRoom) {setSourceConfig(config);setSourceLoading(false)}
+      setPicking(false);setWizardStep(4)
+    } catch { setError('The saved funding attempt could not be read. Check its confirmed transactions before starting a new publication.') }
+  },[fundingAttemptKey])
   const sourceFunding = (sourceConfig?.rewards as {kind?:string} | undefined)?.kind === 'funded-assets'
   const sourceOnchain = (sourceConfig?.access as {vault_mode?:string} | undefined)?.vault_mode === 'onchain'
   useEffect(() => {
-    if (!fromRoom) return
+    if (!fromRoom || sessionStorage.getItem(fundingAttemptKey)) return
     let active = true
     setSourceLoading(true)
     center.room(fromRoom, session.token ?? undefined).then(source => {
@@ -381,6 +395,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
     return () => window.removeEventListener('beforeunload', warn)
   }, [edited, status, busy])
   const changeStep = (step: number) => {
+    if (fundingLocked) { setError('Finish your saved funded publication before editing its settings.'); return }
     if (step > 1 && !templates.data?.templates.some(template => template.templateId === draft.templateId)) { setError('Wait for game availability to load, or retry the connection.'); return }
     if (step > 1 && !isFeaturedGame(draft.templateId)) return
     if (step > 2 && (draft.name.trim().length < 3 || draft.name.trim().length > 60)) { setError('Give your room a name between 3 and 60 characters.'); return }
@@ -879,7 +894,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       <div className="ct-wizard-actions">
         <button className="btn-ghost" onClick={() => changeStep(Math.max(1, wizardStep - 1))} disabled={busy || wizardStep === 1}>Previous step</button>
         <span>Step {wizardStep} of 4</span>
-        {wizardStep < 4 ? <button className="btn-primary" onClick={() => changeStep(wizardStep + 1)} disabled={busy || currentStepErrors.length > 0 || !gameAvailable || templates.loading || !templates.data?.templates.some(template => template.templateId === draft.templateId)}>Continue</button> : <div className="ct-actions"><button className="btn-ghost" onClick={saveDraft} disabled={busy || allErrors.length > 0 || !session.token || templates.loading || Boolean(templates.error)}>Save draft</button><button className="btn-primary" onClick={session.token ? publish : onConnect} disabled={busy || allErrors.length > 0 || !gameAvailable || session.signingIn || templates.loading || Boolean(templates.error)}>{busy ? 'Publishing…' : session.token ? 'Publish room' : 'Connect to publish'}</button></div>}
+        {wizardStep < 4 ? <button className="btn-primary" onClick={() => changeStep(wizardStep + 1)} disabled={busy || currentStepErrors.length > 0 || !gameAvailable || templates.loading || !templates.data?.templates.some(template => template.templateId === draft.templateId)}>Continue</button> : <div className="ct-actions"><button className="btn-ghost" onClick={saveDraft} disabled={busy || allErrors.length > 0 || !session.token || templates.loading || Boolean(templates.error)}>Save draft</button><button className="btn-primary" onClick={session.token ? publish : onConnect} disabled={busy || !fundingLocked && allErrors.length > 0 || !gameAvailable || session.signingIn || templates.loading || Boolean(templates.error)}>{busy ? 'Publishing…' : session.token ? 'Publish room' : 'Connect to publish'}</button></div>}
       </div>
       {status && <p className="st-note ok">{status}</p>}
       {error && <p className="err" role="alert">{error}</p>}
