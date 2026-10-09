@@ -293,6 +293,14 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
     hub.frame_filter = filter_frame
 
+    def entry_gate_for(room_id: str):
+        # Existing rooms retain their historical gate and paid admission records.
+        current = app.state.entry_gate
+        pinned = store.get_setting(f"entry-gate:{room_id}") or {"address": DEPLOYED_GATE}
+        if not isinstance(current, EntryGateVerifier) or current.gate_address == pinned["address"]:
+            return current
+        return EntryGateVerifier(current.rpc, pinned["address"], chain_id=flags.chain_id)
+
     def runtime_for(room_id: str) -> RoomRuntime:
         rt = runtimes.get(room_id)
         if rt is None:
@@ -301,7 +309,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                 raise HTTPException(404, detail={"code": "NOT_FOUND", "message": "no such room"})
             runtimes[room_id] = rt
         if rt.config.entry.kind == "erc20":
-            rt.entry_verifier = lambda player: app.state.entry_gate.require(rt.room_id, player, rt.owner, rt.config.entry.token, rt.config.entry.amount, payout_mode=rt.config.access.payout_mode, payout_address=rt.config.access.payout_address)
+            rt.entry_verifier = lambda player: entry_gate_for(rt.room_id).require(rt.room_id, player, rt.owner, rt.config.entry.token, rt.config.entry.amount, payout_mode=rt.config.access.payout_mode, payout_address=rt.config.access.payout_address)
         operations=getattr(app.state,'admin_games',None)
         if operations:
             rt.action_guard=lambda who:operations.assert_can_act(room_id,who,rt.round_id)
@@ -512,6 +520,18 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
     # ------------------------------------------------------------------ rooms
 
+    @app.post(f"{API_PREFIX}/rooms/{{room_id}}/gate-authorization")
+    def gate_authorization(room_id: str, who: str = Depends(require_wallet)) -> dict:
+        rt = runtime_for(room_id)
+        if rt.owner != who:
+            raise HTTPException(403, detail={"code": "FORBIDDEN", "message": "only the room creator may bind its entry token"})
+        if rt.config.entry.kind != "erc20" or not rt.config.access.creator_absorbs_joiner_fee:
+            raise HTTPException(409, detail={"code": "ENTRY_INVALID_CONFIG", "message": "this room does not use creator-sponsored token entry"})
+        key = os.environ.get("CENTER_ROOM_BIND_SIGNER_KEY") or os.environ.get("CENTER_REWARD_SIGNER_KEY") or os.environ.get("CENTER_SIGNER_KEY")
+        if not key:
+            raise EntryGateError("ENTRY_GATE_UNAVAILABLE", "The room ownership signer is not configured.")
+        return entry_gate_for(rt.room_id).binding_authorization(rt.room_id, who, key, int(time.time()) + 1800)
+
     @app.get(f"{API_PREFIX}/rewards/capabilities")
     def reward_capabilities() -> dict:
         status = app.state.rewards.funding_status()
@@ -633,6 +653,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(400, detail={"code": "VAULT_ERROR", "message": str(exc)})
 
         rt = RoomRuntime.create(store, vault, hub, owner=who, config=config, room_id=funded_room_id)
+        if config.entry.kind == "erc20":
+            store.set_setting(f"entry-gate:{rt.room_id}", {"address": getattr(app.state.entry_gate, "gate_address", DEPLOYED_GATE)})
         if funding_binding:
             app.state.rewards.bind(funding_binding)
         community.initialize(rt.room_id, who, config.community_settings)
@@ -755,6 +777,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             "roomId": row["id"], "status": row["status"], "visibility": row["visibility"],
             "roomNumber": row["join_code"], "joinCode": row["join_code"],
             "mode": row["mode"], "owner": row["owner"], "config": config,
+            "entryGate": (store.get_setting(f"entry-gate:{rt.room_id}") or {"address": DEPLOYED_GATE})["address"],
             "timing": timing,
             "communitySettings": settings,
             "gameStatus": game_availability(store,row['template_id'])['status'],

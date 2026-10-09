@@ -14,6 +14,8 @@ import re
 from dataclasses import dataclass
 
 from eth_abi import decode, encode
+from eth_account import Account
+from eth_account.messages import encode_defunct
 from eth_utils import keccak
 
 from center.vault import JsonRpc
@@ -92,6 +94,29 @@ class EntryGateVerifier:
         if len(encoded) != len(outputs) * 32:
             raise ValueError("Unexpected static ABI response length")
         return decode(outputs, encoded)
+
+    def binding_authorization(self, room_id: str, creator: str, key: str, deadline: int) -> dict:
+        """Sign namespace ownership only. Caller must check persisted room ownership.
+
+        This never sends a transaction or authorizes a payment/allocation.
+        """
+        room = room_id_bytes32(room_id)
+        creator = _address(creator, "creator")
+        try:
+            if _quantity(self.rpc.call("eth_chainId", [])) != self.chain_id:
+                raise ValueError("wrong chain")
+            version = self._read(self.gate_address, "safetyVersion()", [], [], ["uint256"], "latest")[0]
+            authority = self._read(self.gate_address, "bindingAuthority()", [], [], ["address"], "latest")[0]
+            if version != 3 or Account.from_key(key).address.lower() != authority.lower():
+                raise ValueError("unsupported gate or signer")
+            digest = keccak(b"ORBIX_ROOM_BIND_V1" + bytes.fromhex(self.gate_address[2:])
+                            + self.chain_id.to_bytes(32, "big") + room + bytes.fromhex(creator[2:])
+                            + deadline.to_bytes(32, "big"))
+            signature = Account.sign_message(encode_defunct(primitive=digest), key).signature
+            return {"gate": self.gate_address, "chainId": self.chain_id, "creator": creator,
+                    "roomKey": "0x" + room.hex(), "deadline": deadline, "signature": "0x" + signature.hex()}
+        except Exception as exc:
+            raise EntryGateError("ENTRY_GATE_UNAVAILABLE", "Room binding requires the hardened gate and its configured ownership signer.") from exc
 
     def verify(self, room_id: str, player: str, creator: str, token: str, amount: int, *, payout_mode: str | None = None, payout_address: str | None = None) -> EntryVerification:
         block_number: int | None = None

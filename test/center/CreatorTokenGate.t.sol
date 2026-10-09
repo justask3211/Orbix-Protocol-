@@ -22,11 +22,20 @@ contract CreatorTokenGateTest is Test {
     address constant BURN = 0x000000000000000000000000000000000000dEaD;
 
     function setUp() public {
-        gate = new CreatorTokenGate(treasury);
+        gate = new CreatorTokenGate(treasury, vm.addr(0xB17D));
+        _register(room);
+        _register(room2);
         creatorToken = new MockERC20("Creator Token", "CTK", 18);
         otherToken = new MockERC20("Other", "OTH", 18);
         creatorToken.mint(joiner, 1000e18);
         creatorToken.mint(joiner2, 1000e18);
+    }
+
+    function _register(bytes32 key) internal {
+        uint256 deadline = block.timestamp + 1 days;
+        bytes32 digest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", gate.roomBindingDigest(key, creator, deadline)));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xB17D, digest);
+        gate.registerRoomCreator(key, creator, deadline, abi.encodePacked(r, s, v));
     }
 
     function _bind(bytes32 r, CreatorTokenGate.Payee payee, address payout) internal {
