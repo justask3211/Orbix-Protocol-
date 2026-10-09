@@ -24,7 +24,7 @@ const tokenAbi = parseAbi([
 export type Wallet = { request: (args: {method: string; params?: unknown[]}) => Promise<any> }
 export type Receipt = {status: string; logs: {address: string; data: Hex; topics: [Hex, ...Hex[]]}[]}
 export type RewardSlot = {rank: number; asset_kind: 'erc20'|'erc721'|'erc1155'|'eth'; asset_contract: Address; token_id: string; amount: string}
-export type FundedConfig = {kind: 'funded-assets'; claim_mode: 'auto'|'code'|'merkle'|'open'; claim_deadline: number; merkle_winners: string[]; slots: RewardSlot[]}
+export type FundedConfig = {kind: 'funded-assets'; claim_mode: 'auto'|'code'|'merkle'|'open'; claim_deadline: number; merkle_winners: string[]; distribution?:'match'|'drop'; waitlist_source?:string; slots: RewardSlot[]}
 export type Funding = {poolId: string; txHash: string}
 export type RewardClaim = {claimId: string; roomId: string; poolId: string; engine: Address; chainId: number; winner: string; assetKind: string; assetContract: string; tokenId: string; amount: string; deadline: number; payable: boolean; claimed: boolean; reason?: string; function?: string; args?: unknown[]; code?: string}
 export type RewardPlan = {poolId: string; engine: Address; mode: string; settled: boolean; allocationCount: number; allocations: {winner: string; assetIndex: number; amount: string; allocated?:boolean}[]}

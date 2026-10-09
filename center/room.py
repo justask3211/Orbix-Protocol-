@@ -535,7 +535,7 @@ class RoomRuntime:
         transcript = st.transcript_hash(self.round_id or "", actions)
         config_hash = self.store.get_room(self.room_id)["config_hash"]
 
-        entitlements = self.engine.entitlements()
+        entitlements = [] if self.config.rewards.distribution == "drop" else self.engine.entitlements()
         escrow = PLACEHOLDER_ESCROW if self.config.mode == "preview" else os.environ.get("CENTER_ESCROW", PLACEHOLDER_ESCROW)
         deadline = int(now) + int(os.environ.get("CENTER_SETTLE_SECONDS", "3600"))
         epoch = int(os.environ.get("CENTER_AUTHORITY_EPOCH", "1"))

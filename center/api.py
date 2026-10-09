@@ -491,6 +491,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/drafts")
     def create_draft(body: CreateDraft, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        waitlists.validate_reward_source(config.rewards, who)
         require_game_live(config.template_id)
         draft_id = secrets.token_hex(8)
         drafts[draft_id] = {"id": draft_id, "owner": who, "config": config.model_dump(mode="json", by_alias=True)}
@@ -514,6 +515,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms/prepare-rewards")
     def prepare_rewards(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        waitlists.validate_reward_source(config.rewards, who)
         require_game_live(config.template_id)
         if config.rewards.kind != "funded-assets" or not flags.testnet_rewards:
             raise HTTPException(409, detail={"code": "UNFUNDED_REWARD", "message": "funded rewards are disabled"})
@@ -565,6 +567,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms")
     def publish_room(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        waitlists.validate_reward_source(config.rewards, who)
         require_game_live(config.template_id)
         config_hash = "0x" + hashlib.sha256(config.config_hash_input().encode()).hexdigest()
         unit = vault.unit_for(config.access.vault_mode, config.access.token)
@@ -973,6 +976,12 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.get(f"{API_PREFIX}/rooms/{{room_id}}/waitlist")
     def get_waitlist(room_id: str, who: str = Depends(require_wallet)) -> dict:
         return waitlists.listing(room_id, who)
+
+    @app.get(f"{API_PREFIX}/rooms/{{room_id}}/waitlist-rewards")
+    def waitlist_reward_wallets(room_id: str, who: str = Depends(require_wallet)) -> dict:
+        wallets = waitlists.reward_wallets(room_id, who)
+        return {"sourceRoomId": room_id, "wallets": wallets, "count": len(wallets),
+                "mechanism": "Immutable Merkle snapshot. New entries are not added to an already funded drop."}
 
     @app.get(f"{API_PREFIX}/rooms/{{room_id}}/waitlist.csv")
     def export_waitlist(room_id: str, who: str = Depends(require_wallet)):

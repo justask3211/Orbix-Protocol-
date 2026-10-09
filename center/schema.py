@@ -368,13 +368,32 @@ class Rewards(Strict):
     claim_mode: Literal["auto", "code", "merkle", "open"] = "code"
     claim_deadline: int = Field(default=0, ge=0)
     merkle_winners: list[str] = Field(default_factory=list, max_length=50)
+    distribution: Literal["match", "drop"] = "match"
+    waitlist_source: str | None = Field(default=None, max_length=64)
 
     @model_validator(mode="after")
     def _funded_needs_assets(self) -> "Rewards":
         if self.kind == "funded-assets":
             if not self.slots:
                 raise ValueError("funded-assets rewards require at least one slot")
+            if self.distribution == "drop" and self.claim_mode not in {"merkle", "open"}:
+                raise ValueError("drops require Merkle or Open mode")
+            if self.waitlist_source and (self.distribution != "drop" or self.claim_mode != "merkle"):
+                raise ValueError("waitlist rewards require a Merkle drop")
+            nfts = set()
             for s in self.slots:
+                import re
+                if not re.fullmatch(r"0x[0-9a-fA-F]{40}", s.asset_contract or ""):
+                    raise ValueError("funded assets require a valid contract address")
+                if s.amount >= 2**256 or s.token_id >= 2**256:
+                    raise ValueError("asset amount and token ID must fit uint256")
+                if s.asset_kind == "eth" and int(s.asset_contract, 16) != 0 or s.asset_kind != "eth" and int(s.asset_contract, 16) == 0:
+                    raise ValueError("ETH uses zero address; token assets require nonzero contracts")
+                if s.asset_kind == "erc721":
+                    identity = (s.asset_contract.lower(), s.token_id)
+                    if identity in nfts:
+                        raise ValueError("a specific ERC721 can only fund one prize slot")
+                    nfts.add(identity)
                 if not s.asset_kind or s.asset_kind == "preview-points" or not s.asset_contract:
                     raise ValueError("each funded slot needs an asset_kind and asset_contract")
                 if s.amount <= 0:
@@ -458,7 +477,7 @@ class RoomConfig(Strict):
             raise ValueError("simulated vault must not name a token")
         if self.rewards.kind == "funded-assets" and self.mode != "testnet":
             raise ValueError("funded-asset rewards require mode=testnet")
-        if getattr(self.rules, 'world_version', 2) >= 3 and self.template_id in {'token-catch', 'boss-raid'} and self.rewards.kind == 'funded-assets':
+        if getattr(self.rules, 'world_version', 2) >= 3 and self.template_id in {'token-catch', 'boss-raid'} and self.rewards.kind == 'funded-assets' and self.rewards.distribution == 'match':
             if any(s.asset_kind != 'erc20' for s in self.rewards.slots) or len({(s.asset_contract or '').lower() for s in self.rewards.slots}) != 1:
                 raise ValueError('shared loot and team pools require one ERC-20 reward asset')
         ranks = [s.rank for s in self.rewards.slots]

@@ -107,3 +107,20 @@ def test_address_collection_does_not_change_gameplay_commitment():
     assert original.config_hash_input() == collecting.config_hash_input()
     with pytest.raises(ValueError):
         RoomConfig(**normalise_keys({**HUNT, 'waitlist': {'enabled': 'true'}}))
+
+
+def test_owner_reward_snapshot_dedupes_and_rejects_forged_wallets(game):
+    app,client,rid,owner,headers,winner,_ = game
+    finish(app,rid)
+    for h in headers[:2]:
+        assert client.post(f'{API_PREFIX}/rooms/{rid}/waitlist',headers=h,json={'wallet':winner.address}).status_code == 200
+    result=client.get(f'{API_PREFIX}/rooms/{rid}/waitlist-rewards',headers=owner)
+    assert result.status_code == 200 and result.json()['wallets'] == [winner.address.lower()]
+    assert client.get(f'{API_PREFIX}/rooms/{rid}/waitlist-rewards',headers=headers[0]).status_code == 403
+    from center.schema import Rewards
+    from center.community import CommunityError
+    rewards=Rewards(kind='funded-assets',distribution='drop',claim_mode='merkle',waitlist_source=rid,merkle_winners=[winner.address],slots=[{'rank':1,'asset_kind':'eth','asset_contract':'0x'+'00'*20,'amount':1}])
+    app.state.waitlists.validate_reward_source(rewards,app.state.store.get_room(rid)['owner'])
+    rewards.merkle_winners=['0x'+'ef'*20]
+    with pytest.raises(CommunityError,match='snapshot'):
+        app.state.waitlists.validate_reward_source(rewards,app.state.store.get_room(rid)['owner'])

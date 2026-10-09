@@ -97,7 +97,7 @@ class RewardFlow:
         if hit and hit[0] != room_id:
             raise ValueError("This pool is already bound to another room.")
         return {"roomId": room_id, "poolId": str(pool_id), "txHash": funding["txHash"], "blockNumber": receipt["blockNumber"], "engine": self.engine,
-                "mode": rewards.claim_mode, "deadline": info[3], "assets": [{"kind": k, "contract": a, "tokenId": str(i), "amount": str(n)} for k, a, i, n in zip(kinds, contracts, ids, amounts)]}
+                "mode": rewards.claim_mode, "distribution": rewards.distribution, "deadline": info[3], "assets": [{"kind": k, "contract": a, "tokenId": str(i), "amount": str(n)} for k, a, i, n in zip(kinds, contracts, ids, amounts)]}
 
     def bind(self, binding):
         with self.store.tx() as c:
@@ -111,12 +111,15 @@ class RewardFlow:
             raise ValueError("Merkle mode requires a fixed recipient for every reward slot before funding.")
         if len(set(a.lower() for a in rewards.merkle_winners)) != len(rewards.merkle_winners):
             raise ValueError("Merkle mode permits one claim per wallet.")
-        # Funding aggregates identical assets; support a single asset for this fixed distribution.
-        if len({(s.asset_kind, s.asset_contract.lower(), s.token_id) for s in rewards.slots}) != 1:
-            raise ValueError("Merkle distribution requires one shared asset.")
-        if any(len(a) != 42 or not a.startswith("0x") or int(a[2:], 16) == 0 for a in rewards.merkle_winners):
-            raise ValueError("Merkle recipients must be valid nonzero wallet addresses.")
-        leaves = [keccak(bytes.fromhex(a[2:]) + (0).to_bytes(32, "big") + s.amount.to_bytes(32, "big")) for a, s in zip(rewards.merkle_winners, rewards.slots)]
+        indices = {}
+        leaves = []
+        for wallet, slot in zip(rewards.merkle_winners, rewards.slots):
+            import re
+            if not re.fullmatch(r"0x[0-9a-fA-F]{40}", wallet) or int(wallet[2:], 16) == 0:
+                raise ValueError("Merkle recipients must be valid nonzero wallet addresses.")
+            identity = (slot.asset_kind, slot.asset_contract.lower(), slot.token_id)
+            asset_index = indices.setdefault(identity, len(indices))
+            leaves.append(keccak(bytes.fromhex(wallet[2:]) + asset_index.to_bytes(32, "big") + slot.amount.to_bytes(32, "big")))
         return st.merkle_root(leaves), leaves
 
     def entries(self, room_id):
@@ -129,10 +132,10 @@ class RewardFlow:
             return None
         info = self.info(binding["poolId"])
         rows = self.entries(room_id)
-        if binding["mode"] == "open":
+        if binding["mode"] == "open" or binding.get("distribution") == "drop":
             from center.schema import RoomConfig
             rewards = RoomConfig(**self.store.get_room(room_id)["config"]).rewards
-            rows = [{"claim_id": "0x" + keccak(text=f"ORBIX_OPEN:{room_id}:{i}").hex(), "winner": ZERO,
+            rows = [{"claim_id": "0x" + keccak(text=f"ORBIX_OPEN:{room_id}:{i}").hex(), "winner": rewards.merkle_winners[i].lower() if binding["mode"] == "merkle" else ZERO,
                      "asset_kind": s.asset_kind, "asset_contract": s.asset_contract, "token_id": s.token_id, "amount": s.amount}
                     for i, s in enumerate(rewards.slots)]
         allocations = []
@@ -154,7 +157,7 @@ class RewardFlow:
                     allocation["allocated"] = True
                     used.add(i)
                     break
-        return {**binding, "allocations": allocations, "allocationCount": sum(a["allocated"] for a in allocations), "chainAllocationCount": info[5], "settled": bool(self.store.room_round(room_id) and self.store.room_round(room_id).get("ended_at"))}
+        return {**binding, "allocations": allocations, "allocationCount": sum(a["allocated"] for a in allocations), "chainAllocationCount": info[5], "settled": binding.get("distribution") == "drop" or bool(self.store.room_round(room_id) and self.store.room_round(room_id).get("ended_at"))}
 
     def allocation_logs(self, binding):
         topic = "0x" + keccak(text="AllocationSet(uint256,address,uint256,uint256)").hex()
@@ -165,6 +168,18 @@ class RewardFlow:
         self.chain()
         with self.store.tx() as c:
             rooms = [r[0] for r in c.execute("SELECT DISTINCT room_id FROM entitlements WHERE lower(winner)=?", (who.lower(),)).fetchall()]
+        # Fixed drops are discoverable by collected wallet, without requiring a game win.
+        # Public drops are listed for every signed-in wallet until their deadline.
+        with self.store.tx() as c:
+            bindings = [json.loads(row[0]) for row in c.execute("SELECT binding_json FROM reward_bindings")]
+        from center.schema import RoomConfig
+        for binding in bindings:
+            if binding.get("distribution") != "drop":
+                continue
+            rid = binding["roomId"]
+            rewards = RoomConfig(**self.store.get_room(rid)["config"]).rewards
+            if binding["mode"] == "open" or who.lower() in {a.lower() for a in rewards.merkle_winners}:
+                if rid not in rooms: rooms.append(rid)
         if room_id and room_id not in rooms:
             binding = self.binding(room_id)
             if binding and binding["mode"] == "open":
@@ -180,11 +195,13 @@ class RewardFlow:
             rewards = RoomConfig(**self.store.get_room(rid)["config"]).rewards
             logs = self.allocation_logs(plan) if plan["mode"] != "merkle" else []
             root, leaves = self.merkle(rewards)
+            used_matches = set()
             for e in plan["allocations"]:
                 if plan["mode"] != "open" and e["winner"].lower() != who.lower():
                     continue
                 claimed = self.read("isClaimed(uint256,address)", ["uint256", "address"], [int(plan["poolId"]), who], ["bool"])[0]
                 item = {**e, "winner": who if plan["mode"] == "open" else e["winner"], "roomId": rid, "poolId": plan["poolId"], "engine": self.engine, "chainId": self.chain_id, "deadline": plan["deadline"], "mode": plan["mode"], "claimed": claimed, "payable": False}
+                if plan["mode"] not in {"merkle", "open"}: claimed = False
                 if claimed:
                     item["reason"] = "Already claimed on chain."
                 elif plan["deadline"] < time.time():
@@ -200,11 +217,14 @@ class RewardFlow:
                     for i, log in enumerate(logs):
                         winner = "0x" + log["topics"][2][-40:]
                         ai, amount = decode(["uint256", "uint256"], bytes.fromhex(log["data"][2:]))
-                        if winner.lower() == (ZERO if plan["mode"] == "open" else who.lower()) and ai == e["assetIndex"] and str(amount) == e["amount"]:
+                        if i not in used_matches and winner.lower() == (ZERO if plan["mode"] == "open" else who.lower()) and ai == e["assetIndex"] and str(amount) == e["amount"]:
                             match = i
+                            used_matches.add(i)
                             break
                     if match is None:
                         item["reason"] = "Waiting for the creator to confirm the winner allocation."
+                    elif self.read("allocationInfo(uint256,uint256)", ["uint256", "uint256"], [int(plan["poolId"]), match], ["address", "uint256", "uint256", "bool"])[3]:
+                        item.update(claimed=True, reason="This allocation has already been claimed.")
                     elif plan["mode"] == "open":
                         item.update(payable=True, function="claimOpen", args=[plan["poolId"], match])
                     else:
