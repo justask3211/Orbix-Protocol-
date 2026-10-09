@@ -22,7 +22,7 @@ SCHEMA_VERSION = 1
 Visibility = Literal["public", "unlisted", "private"]
 Mode = Literal["preview", "testnet"]
 BotPolicy = Literal["discouraged", "allowlisted", "allowed"]
-AssetKind = Literal["erc20", "erc721", "erc1155", "preview-points"]
+AssetKind = Literal["erc20", "erc721", "erc1155", "eth", "preview-points"]
 
 
 # --------------------------------------------------------------------- rules
@@ -365,6 +365,9 @@ class RewardSlot(Strict):
 class Rewards(Strict):
     kind: Literal["preview-points", "funded-assets"] = "preview-points"
     slots: list[RewardSlot] = Field(default_factory=list, max_length=50)
+    claim_mode: Literal["auto", "code", "merkle", "open"] = "code"
+    claim_deadline: int = Field(default=0, ge=0)
+    merkle_winners: list[str] = Field(default_factory=list, max_length=50)
 
     @model_validator(mode="after")
     def _funded_needs_assets(self) -> "Rewards":
@@ -374,8 +377,10 @@ class Rewards(Strict):
             for s in self.slots:
                 if not s.asset_kind or s.asset_kind == "preview-points" or not s.asset_contract:
                     raise ValueError("each funded slot needs an asset_kind and asset_contract")
-                if s.asset_kind == "erc20" and s.amount <= 0:
-                    raise ValueError("erc20 slots need amount > 0")
+                if s.amount <= 0:
+                    raise ValueError("funded slots need amount > 0")
+                if s.asset_kind == "erc721" and s.amount != 1:
+                    raise ValueError("ERC721 reward amount must be one")
         return self
 
 

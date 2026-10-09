@@ -681,7 +681,7 @@ class Store:
                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     e["claim_id"], e["round_id"], e["room_id"], e["winner"], e["slot_id"], e.get("points", 0),
-                    e.get("asset_kind"), e.get("asset_contract"), e.get("token_id", 0), str(e.get("amount", 0)),
+                    e.get("asset_kind"), e.get("asset_contract"), (hex(e.get("token_id", 0)) if e.get("token_id", 0) > 2**63 - 1 else e.get("token_id", 0)), str(e.get("amount", 0)),
                     json.dumps(e.get("proof", [])), e.get("claimed_tx"), time.time(),
                 ),
             )

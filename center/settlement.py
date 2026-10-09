@@ -33,7 +33,7 @@ SETTLEMENT_TYPE = (
     "bytes32 transcriptHash,uint64 deadline,uint32 epoch)"
 )
 
-ASSET_KIND_ID = {"erc20": 0, "erc721": 1, "erc1155": 2, "preview-points": 0}
+ASSET_KIND_ID = {"erc20": 0, "erc721": 1, "erc1155": 2, "eth": 3, "preview-points": 0}
 
 
 def b32(value: str | bytes) -> bytes:
