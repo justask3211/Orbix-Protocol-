@@ -37,3 +37,4 @@ arcade/server/.venv/
 __pycache__/
 # Local export bundles (large, not source)
 *.tar.gz
+broadcast/
