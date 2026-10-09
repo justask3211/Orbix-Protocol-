@@ -1,0 +1,21 @@
+{
+  "created": "2026-10-09",
+  "geometry": "Original Orbix procedural geometry; no external mesh or texture downloads.",
+  "source": "web/src/center/worlds/CuteCharacter.ts",
+  "sourceSha256": "aad4788b55c7aad796b00d1898004488ccda895b63963568d869421d5758c5ec",
+  "rig": "Existing CC0 Orbix Ranger skeleton, bone inverses and all 20 in-place clips; see orbix-ranger.manifest.json and NOTICE.md.",
+  "characters": [
+    "blob",
+    "knight",
+    "cat-blob",
+    "duckling",
+    "astronaut",
+    "toy-robot",
+    "pancake",
+    "jelly-ninja",
+    "sprout",
+    "marshmallow"
+  ],
+  "lod": "12x8 sphere primitives near; 6x4 distant; grouped into at most five palette draw groups.",
+  "ownership": "Actor owns merged geometry, palette materials and cloned skeleton; source geometry/maps remain shared and untouched."
+}
