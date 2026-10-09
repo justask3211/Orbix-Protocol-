@@ -1,3 +1,4 @@
+import type {FormStatus} from './FormRewards'
 import type { GateAuthorization } from './gate'
 import type { Funding, RewardClaim, RewardPlan } from './rewardWallet'
 import type { Appearance, Cosmetics } from './characters'
@@ -146,7 +147,10 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string |
 }
 
 export const center = {
-  submitWaitlist: (roomId:string,token:string,wallet:string) => request<{wallet:string;createdAt:number;replayed:boolean}>(`/rooms/${encodeURIComponent(roomId)}/waitlist`,{method:"POST",body:JSON.stringify({wallet})},token),
+  submitWaitlist: (roomId:string,token:string,wallet:string,fields:string[]=[]) => request<{wallet:string;createdAt:number;replayed:boolean}>(`/rooms/${encodeURIComponent(roomId)}/waitlist`,{method:"POST",body:JSON.stringify({wallet,fields})},token),
+  formStatus: (roomId:string,token:string) => request<{forms:FormStatus[]}>(`/rooms/${encodeURIComponent(roomId)}/forms/status`,{},token),
+  submitQA: (roomId:string,token:string,answers:string[]) => request<{saved:boolean;edited:boolean}>(`/rooms/${encodeURIComponent(roomId)}/qa-form`,{method:'POST',body:JSON.stringify({answers})},token),
+  qaResponses: (roomId:string,token:string) => request<{count:number;entries:{player:string;answers:string[];createdAt:number;updatedAt:number}[]}>(`/rooms/${encodeURIComponent(roomId)}/qa-form`,{},token),
   waitlistRewards: (roomId:string,token:string) => request<{wallets:string[];count:number;sourceRoomId:string}>(`/rooms/${encodeURIComponent(roomId)}/waitlist-rewards`,{},token),
   waitlist: (roomId:string,token:string) => request<{entries:{wallet:string;player:string;createdAt:number}[];count:number;uniqueWallets:number}>(`/rooms/${encodeURIComponent(roomId)}/waitlist`,{},token),
   getProfiles: (addresses: string[]) => request<Record<string,{name:string;hue?:number;showAddress?:boolean;hasImage?:boolean;character?:string;cosmetics?:Cosmetics}>>('/profiles/batch', {method:'POST',body:JSON.stringify({addresses})}),
@@ -203,7 +207,7 @@ export const center = {
   adminArchiveUnused: (token: string, proof: string) => request<{ count: number }>('/admin/rooms/archive-unused', { method: 'POST', headers: { 'X-Admin-Proof': proof } }, token),
   rooms: () => request<{ rooms: RoomSummary[] }>('/rooms'),
   myRooms: (token: string) =>
-    request<{ rooms: { roomId: string; name: string; templateId: string; status: string; visibility: string; players: number; openAt: number | null; closeAt: number | null; scheduled: string | null; expiring: string | null; active: boolean; waitlistEnabled:boolean; waitlistCount:number }[] }>(
+    request<{ rooms: { roomId: string; name: string; templateId: string; status: string; visibility: string; players: number; openAt: number | null; closeAt: number | null; scheduled: string | null; expiring: string | null; active: boolean; waitlistEnabled:boolean; waitlistCount:number; formKinds:('waitlist-form'|'qa-form')[]; responseCounts:Record<string,number> }[] }>(
       '/my/rooms', {}, token),
   closeRoom: (roomId: string, token: string) =>
     request<{ status: string }>(`/rooms/${roomId}/close`, { method: 'POST' }, token),

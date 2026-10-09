@@ -1,3 +1,4 @@
+import {CreatorFormResponses, type FormReward} from './FormRewards'
 import { CreatorWaitlist } from "./Waitlist"
 // Two option cards under the header: Create | Join.
 // Create shows the creator's active rooms on top so they can jump back in.
@@ -18,6 +19,8 @@ type MyRoom = {
   closeAt: number | null
   scheduled: string | null
   expiring: string | null
+  formKinds?: FormReward['kind'][]
+  responseCounts?: Record<string,number>
   waitlistEnabled?: boolean
   waitlistCount?: number
   active: boolean
@@ -157,6 +160,7 @@ export function ActionCards({ session, go }: {
                 No active rooms yet. Create one and it will show here for quick access.
               </p>
             )}
+            {session.token && myRooms.filter(r=>r.formKinds?.length).map(r=><div key={r.roomId}><b>{r.name}</b>{r.formKinds!.map(kind=><CreatorFormResponses key={kind} roomId={r.roomId} token={session.token!} kind={kind} count={r.responseCounts?.[kind]}/>)}</div>)}
             {session.token && myRooms.filter(r=>r.waitlistEnabled).map(r=><div key={r.roomId}><b>{r.name}</b><CreatorWaitlist roomId={r.roomId} token={session.token!} count={r.waitlistCount}/></div>)}
             {!session.token && (
               <p className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>

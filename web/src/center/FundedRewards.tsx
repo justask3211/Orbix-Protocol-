@@ -86,7 +86,7 @@ function RewardCard({claim,session,onRefresh}:{claim:RewardClaim;session:{addres
     {claim.reason&&<p>{claim.reason}</p>}{status&&<p role="status">{status}</p>}{error&&<p className="err" role="alert">{error}</p>}
   </article>
 }
-export function MyRewards({session,roomId}:{session:{address:string|null;token:string|null};roomId?:string}) {
+export function MyRewards({session,roomId,onContinue}:{session:{address:string|null;token:string|null};roomId?:string;onContinue?:()=>void}) {
   const [claims,setClaims]=useState<RewardClaim[]>([]),[code,setCode]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(false),[revision,setRevision]=useState(0)
   const refresh=()=>setRevision(v=>v+1)
   const walletToken=useRef(session.token)
@@ -113,7 +113,7 @@ export function MyRewards({session,roomId}:{session:{address:string|null;token:s
     try{const {claim}=await center.rewardLookup(code.trim(),requestedToken);if(walletToken.current!==requestedToken)return;setClaims(previous=>[claim,...previous.filter(c=>c.claimId!==claim.claimId)])}
     catch(e){setError(explainError(e))}finally{setLoading(false)}
   }
-  return <section className="fr-rewards" aria-label="My rewards"><h3>My rewards</h3>{!session.token?<p>Sign in with your winning wallet to view rewards.</p>:<><label>Paste a claim code<textarea value={code} onChange={e=>setCode(e.target.value)} placeholder="OR3-…"/></label><div className="ct-actions"><button className="btn-ghost" disabled={loading||!code.trim()} onClick={()=>void lookup()}>Find reward</button><button className="btn-ghost" disabled={loading} onClick={refresh}>Refresh rewards</button></div>{loading&&<p role="status">Verifying rewards on chain…</p>}{error&&<p role="alert" className="err">{error}</p>}{!loading&&!error&&!claims.length&&<p>No allocated rewards for this wallet yet.</p>}{claims.map(claim=><RewardCard key={`${session.address}:${claim.claimId}`} claim={claim} session={session} onRefresh={()=>window.dispatchEvent(new Event('orbix-rewards-changed'))}/>)}</>}</section>
+  return <section className="fr-rewards" aria-label="My rewards"><h3>My rewards</h3>{!session.token?<p>Sign in with your winning wallet to view rewards.</p>:<><label>Paste a claim code<textarea value={code} onChange={e=>setCode(e.target.value)} placeholder="OR3-…"/></label><div className="ct-actions"><button className="btn-ghost" disabled={loading||!code.trim()} onClick={()=>void lookup()}>Find reward</button><button className="btn-ghost" disabled={loading} onClick={refresh}>Refresh rewards</button></div>{loading&&<p role="status">Verifying rewards on chain…</p>}{error&&<p role="alert" className="err">{error}</p>}{!loading&&!error&&!claims.length&&<p>No allocated rewards for this wallet yet.</p>}{claims.map(claim=><RewardCard key={`${session.address}:${claim.claimId}`} claim={claim} session={session} onRefresh={()=>window.dispatchEvent(new Event('orbix-rewards-changed'))}/>) }{onContinue&&!loading&&<button className="btn-primary" onClick={onContinue}>Continue to form rewards</button>}</>}</section>
 }
 export function CreatorRewardAllocation({session,roomId}:{session:{address:string|null;token:string|null};roomId:string}) {
   const [plan,setPlan]=useState<RewardPlan|null>(null),[status,setStatus]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[revision,setRevision]=useState(0)

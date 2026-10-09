@@ -24,7 +24,7 @@ from eth_account import Account
 from eth_account.messages import encode_defunct
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from center import lifecycle as lc
@@ -70,6 +70,11 @@ def env_flag(name: str, default: bool = False) -> bool:
 
 class WaitlistSubmission(BaseModel):
     wallet: str = Field(max_length=42)
+    fields: list[str] = Field(default_factory=list, max_length=3)
+
+
+class QASubmission(BaseModel):
+    answers: list[str] = Field(max_length=5)
 
 
 class Flags(BaseModel):
@@ -727,6 +732,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                 "active": row["status"] not in ("closed", "cancelled"),
                 "waitlistEnabled": cfg.get("waitlist", {}).get("enabled", False),
                 "waitlistCount": waitlists.count(row["id"]),
+                "formKinds": [f["kind"] for f in cfg.get("rewards", {}).get("forms", [])],
+                "responseCounts": waitlists.response_counts(row["id"]),
             })
         return {"rooms": mine}
 
@@ -1002,11 +1009,11 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         rt = runtime_for(room_id)
         return waitlists.submit(room_id, who, body.wallet,
             finished=bool(rt.engine and rt.engine.finished and rt.finished_at),
-            players=list(rt.engine.participants) if rt.engine else [])
+            players=list(rt.engine.participants) if rt.engine else [], results=rt._result_rows(), fields=body.fields)
 
     @app.get(f"{API_PREFIX}/rooms/{{room_id}}/waitlist")
     def get_waitlist(room_id: str, who: str = Depends(require_wallet)) -> dict:
-        return waitlists.listing(room_id, who)
+        return JSONResponse(waitlists.listing(room_id, who), headers={"Cache-Control": "no-store"})
 
     @app.get(f"{API_PREFIX}/rooms/{{room_id}}/waitlist-rewards")
     def waitlist_reward_wallets(room_id: str, who: str = Depends(require_wallet)) -> dict:
@@ -1018,6 +1025,25 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     def export_waitlist(room_id: str, who: str = Depends(require_wallet)):
         return PlainTextResponse(waitlists.listing(room_id, who, export=True), media_type="text/csv",
             headers={"Content-Disposition": 'attachment; filename="orbix-waitlist.csv"', "Cache-Control": "no-store"})
+
+    @app.get(f"{API_PREFIX}/rooms/{{room_id}}/forms/status")
+    def form_status(room_id: str, who: str = Depends(require_wallet)):
+        rt = runtime_for(room_id)
+        return waitlists.status(room_id, who, finished=bool(rt.engine and rt.engine.finished and rt.finished_at), results=rt._result_rows())
+
+    @app.post(f"{API_PREFIX}/rooms/{{room_id}}/qa-form")
+    def submit_qa_form(room_id: str, body: QASubmission, who: str = Depends(require_wallet)):
+        rt = runtime_for(room_id)
+        return waitlists.submit_qa(room_id, who, body.answers, finished=bool(rt.engine and rt.engine.finished and rt.finished_at), results=rt._result_rows())
+
+    @app.get(f"{API_PREFIX}/rooms/{{room_id}}/qa-form")
+    def qa_responses(room_id: str, who: str = Depends(require_wallet)):
+        return JSONResponse(waitlists.qa_listing(room_id, who), headers={"Cache-Control": "no-store"})
+
+    @app.get(f"{API_PREFIX}/rooms/{{room_id}}/qa-form.csv")
+    def qa_export(room_id: str, who: str = Depends(require_wallet)):
+        return PlainTextResponse(waitlists.qa_listing(room_id, who, export=True), media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="orbix-qa-responses.csv"', "Cache-Control": "no-store"})
 
     @app.get(f"{API_PREFIX}/rooms/{{room_id}}/results")
     def results(room_id: str) -> dict:
