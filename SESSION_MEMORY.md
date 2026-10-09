@@ -189,3 +189,14 @@ today for any wallet that can actually transfer ORBIX.
 - 4 V4-documented templates are absent from the 19-format catalog (D1).
 - G21–G24 chance/prediction games remain legally gated / demo-only.
 - No mainnet anywhere, by design.
+
+## 2026-10-09 — Phase P: forms are the rewards
+
+User intent, verbatim essence: “the REWARD ITSELF is a form the winner fills in”; waitlist and Q&A are pure information collection, no funds move. Creators choose winners only / top 3 / everyone / custom top N. Forms belong beside token/NFT/ETH in step 4. Q&A answers are private to the creator, never public or shared with other players. A funded claim comes first, then forms. English only; no Railway deployment (Hermes deploys).
+
+- Rewards now accept `waitlist-form` and `qa-form` with validated `forms` definitions, or append either/both definitions to `funded-assets`. Pure form rewards have no slots and issue no asset/point claims. Questions: 1–5; optional waitlist fields: up to 3; placement checks use authoritative engine eligibility/ranking.
+- Extended durable waitlist storage with custom values; separate durable Q&A table dedupes room/player and replaces one response until room closure or scheduled expiry. Authenticated owner-only JSON/CSV endpoints; no private values in public room/results, websocket state or audits. Exports escape spreadsheet formulas. Creator my-rooms exposes per-form response counts and copy/export.
+- Step 4 cards + builders, FREE language, prefilled address, sequential post-finish dialogs, Q&A replacement. Funded room shows claim cards first, then an explicit Continue to form rewards button; no claim transaction is required to answer. Dialog portal avoids result stacking contexts.
+- Validation: full Python suite **574 passed**, full Foundry **162 passed**, `tsc -b --noEmit`, production build to `/tmp/orbix-phase-p-dist`, authenticated form browser end-to-end, existing funded/NFT wizard browser regression. Captures `/tmp/orbix-p-forms-wizard.png`, `/tmp/orbix-p-private-responses.png`. Local software browser only, no real fund transactions.
+- Engine v2 `0xe818724e94b06cf5bf429d13fca377355ef1a7a3` and Gate v3 `0xe0752bce0b7c991f8fef731af502d6e64a5cad81`: user reports live and env-wired. No contract/env changes or Railway deployment in this phase.
+- Workspace was not clean on arrival: pre-existing tracked Python bytecode, generated dist/site bundles, and untracked deployment broadcasts. Preserved and excluded from phase source commits. Builds use temporary output directories.

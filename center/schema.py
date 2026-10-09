@@ -362,8 +362,37 @@ class RewardSlot(Strict):
     amount: int = Field(default=0, ge=0)
 
 
+class FormReward(Strict):
+    kind: Literal["waitlist-form", "qa-form"]
+    eligibility: Literal["winners-only", "top3", "anyone", "custom"] = "winners-only"
+    custom_count: int = Field(default=1, ge=1, le=100, strict=True)
+    message: str = Field(default="", max_length=280)
+    fields: list[str] = Field(default_factory=list, max_length=3)
+    questions: list[str] = Field(default_factory=list, max_length=5)
+
+    @model_validator(mode="after")
+    def _form(self) -> "FormReward":
+        for text in [self.message, *self.fields, *self.questions]:
+            if any(ord(c) < 32 and c not in "\n\t" for c in text):
+                raise ValueError("form text must be readable")
+        for text in [*self.fields, *self.questions]:
+            if not text.strip() or len(text) > 160:
+                raise ValueError("field labels and questions require 1–160 characters")
+        self.fields = [s.strip() for s in self.fields]
+        self.questions = [s.strip() for s in self.questions]
+        self.message = self.message.strip()
+        if self.kind == "qa-form" and (not self.questions or self.fields):
+            raise ValueError("Q&A requires 1–5 questions and no wallet fields")
+        if self.kind == "waitlist-form" and self.questions:
+            raise ValueError("waitlist forms use custom fields, not questions")
+        if len(set(self.fields)) != len(self.fields) or len(set(self.questions)) != len(self.questions):
+            raise ValueError("form labels must be distinct")
+        return self
+
+
 class Rewards(Strict):
-    kind: Literal["preview-points", "funded-assets"] = "preview-points"
+    kind: Literal["preview-points", "funded-assets", "waitlist-form", "qa-form"] = "preview-points"
+    forms: list[FormReward] = Field(default_factory=list, max_length=2)
     slots: list[RewardSlot] = Field(default_factory=list, max_length=50)
     claim_mode: Literal["auto", "code", "merkle", "open"] = "code"
     claim_deadline: int = Field(default=0, ge=0)
@@ -373,6 +402,12 @@ class Rewards(Strict):
 
     @model_validator(mode="after")
     def _funded_needs_assets(self) -> "Rewards":
+        kinds = [form.kind for form in self.forms]
+        if len(kinds) != len(set(kinds)):
+            raise ValueError("only one form of each type per room")
+        if self.kind in {"waitlist-form", "qa-form"}:
+            if self.slots or self.waitlist_source or self.kind not in kinds:
+                raise ValueError("form rewards require a matching form and no asset/point slots")
         if self.kind == "funded-assets":
             if not self.slots:
                 raise ValueError("funded-assets rewards require at least one slot")
@@ -541,5 +576,4 @@ def normalise_keys(raw: object) -> object:
     if isinstance(raw, list):
         return [normalise_keys(v) for v in raw]
     return raw
-
 
