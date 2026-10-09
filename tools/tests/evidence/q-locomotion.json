@@ -1,0 +1,650 @@
+[
+  {
+    "character": "cat",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.000000000000001,
+    "relativeError": 1.1102230246251565e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000004,
+    "relativeError": 8.881784197001252e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000018,
+    "relativeError": 2.220446049250313e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "turtle",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 0.999999999999995,
+    "relativeError": 4.9960036108132044e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "turtle",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 4.999999999999989,
+    "relativeError": 2.1316282072803005e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "turtle",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 7.9999999999999725,
+    "relativeError": 3.4416913763379853e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "blob",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "blob",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "blob",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "knight",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "knight",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "knight",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat-blob",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat-blob",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat-blob",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "duckling",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "duckling",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "duckling",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "astronaut",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "astronaut",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "astronaut",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "toy-robot",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "toy-robot",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "toy-robot",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "pancake",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "pancake",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "pancake",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "jelly-ninja",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "jelly-ninja",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "jelly-ninja",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "sprout",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "sprout",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "sprout",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "marshmallow",
+    "lod": false,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "marshmallow",
+    "lod": false,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "marshmallow",
+    "lod": false,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.000000000000001,
+    "relativeError": 1.1102230246251565e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000004,
+    "relativeError": 8.881784197001252e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000018,
+    "relativeError": 2.220446049250313e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "turtle",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 0.999999999999995,
+    "relativeError": 4.9960036108132044e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "turtle",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 4.999999999999989,
+    "relativeError": 2.1316282072803005e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "turtle",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 7.9999999999999725,
+    "relativeError": 3.4416913763379853e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "blob",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "blob",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "blob",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "knight",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "knight",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "knight",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat-blob",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat-blob",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "cat-blob",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "duckling",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "duckling",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "duckling",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "astronaut",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "astronaut",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "astronaut",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "toy-robot",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "toy-robot",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "toy-robot",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "pancake",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "pancake",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "pancake",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "jelly-ninja",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "jelly-ninja",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "jelly-ninja",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "sprout",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "sprout",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "sprout",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  },
+  {
+    "character": "marshmallow",
+    "lod": true,
+    "clip": "Walk",
+    "worldSpeed": 1,
+    "footSpeed": 1.0000000000000062,
+    "relativeError": 6.217248937900877e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "marshmallow",
+    "lod": true,
+    "clip": "Run",
+    "worldSpeed": 5,
+    "footSpeed": 5.000000000000023,
+    "relativeError": 4.618527782440651e-15,
+    "combatWeight": 0
+  },
+  {
+    "character": "marshmallow",
+    "lod": true,
+    "clip": "Sprint",
+    "worldSpeed": 8,
+    "footSpeed": 8.000000000000002,
+    "relativeError": 2.220446049250313e-16,
+    "combatWeight": 0
+  }
+]

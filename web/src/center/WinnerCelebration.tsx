@@ -43,11 +43,12 @@ const PodiumScene = lazy(async () => {
     const owned = useMemo(() => {
       const character = cute.buildCuteCharacter(gltf, winner, false)
       const model = character.scene, mixer = new three.AnimationMixer(model)
-      return {model, mixer, release:character.release, mounted:false}
+      const idle=character.animations.find(c=>c.name==='Idle');if(idle){mixer.clipAction(idle).play();mixer.update(.35)}
+      return {model, mixer, animations:character.animations, release:character.release, mounted:false}
     }, [gltf, winner.character, JSON.stringify(winner.cosmetics)])
     useEffect(() => {
       owned.mounted = true
-      const idle = gltf.animations.find(animation => animation.name === 'Idle')
+      const idle = owned.animations.find(animation => animation.name === 'Idle')
       if (idle) { owned.mixer.clipAction(idle).reset().play(); owned.mixer.update(.35) }
       return () => {
       owned.mounted = false

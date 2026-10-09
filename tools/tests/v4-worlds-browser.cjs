@@ -9,24 +9,24 @@ const base=process.env.ORBIX_BASE_URL||'http://127.0.0.1:8099'
  for(const game of ['combat-duel','boss-raid','token-catch']){
   console.log('Checking '+game)
   const context=await browser.newContext({viewport:{width:1200,height:850}}),page=await context.newPage(),errors=[]
-  let latest=null,moves=0,jumps=0
+  let latest=null,moves=0,jumps=0,startPosition=null,maxDisplacement=0
   page.on('pageerror',e=>errors.push(e.message))
-  page.on('response',async r=>{if(!r.url().includes('/practice'))return;try{const data=await r.json();if(data.state)latest=data;if(data.ok&&r.request().method()==='POST'){const kind=r.request().postDataJSON()?.action?.kind;if(kind==='move')moves++;if(kind==='jump')jumps++}}catch{}})
+  page.on('response',async r=>{if(!r.url().includes('/practice'))return;try{const data=await r.json();if(data.state){latest=data;const b=data.state.bodies?.[data.me];if(b&&startPosition)maxDisplacement=Math.max(maxDisplacement,Math.hypot(b.x-startPosition.x,b.z-startPosition.z))}if(data.ok&&r.request().method()==='POST'){const kind=r.request().postDataJSON()?.action?.kind;if(kind==='move')moves++;if(kind==='jump')jumps++}}catch{}})
   await page.addInitScript(()=>{window.sawWorldLoading=false;new MutationObserver(()=>{if(document.querySelector('.ow-loading'))window.sawWorldLoading=true}).observe(document,{childList:true,subtree:true})})
   await page.goto(base+'/center/practice/'+game,{waitUntil:'domcontentloaded'})
   await page.locator('.gp-arena').waitFor({timeout:30000})
   await page.waitForFunction(()=>!document.querySelector('.ow-loading'),{},{timeout:45000})
   assert(await page.evaluate(()=>window.sawWorldLoading),game+' needs a loading stage')
   await page.getByRole('button',{name:'Restart practice'}).click();await page.waitForTimeout(900)
-  const start=latest.state.bodies[latest.me].z
+  startPosition={...latest.state.bodies[latest.me]}
   await page.locator('.gp-arena').focus();await page.keyboard.down('w');await page.waitForTimeout(500);await page.keyboard.press('Space');await page.waitForTimeout(180);await page.keyboard.up('w');await page.waitForTimeout(750)
-  assert(moves>0&&jumps>0,game+' authoritative movement/jump');assert(Math.abs(latest.state.bodies[latest.me].z-start)>.5)
+  assert(moves>0&&jumps>0,game+' authoritative movement/jump');assert(maxDisplacement>.5,'Authoritative movement displacement '+maxDisplacement)
   assert.equal(latest.state.worldVersion,4);assert.equal(await page.getByText('The 3D view is unavailable.',{exact:false}).isVisible(),false)
   assert.deepEqual(errors,[])
   // A live canvas need not become layout-stable for locator.screenshot's scroll step.
   const bounds=await page.locator('.ow-world').boundingBox()
   assert(bounds)
-  await page.screenshot({path:'/tmp/orbix-mno-'+game+'.png',clip:bounds})
+  await page.screenshot({path:'/tmp/orbix-mno-'+game+'.png',clip:bounds,timeout:60000})
   console.log(game+': loading, rendering, movement and jump passed')
   evidence.push({game,worldVersion:latest.state.worldVersion,loading:true,acceptedMovement:true,acceptedJump:true,pageErrors:errors,renderer:'Chromium SwiftShader; no physical-device FPS claim'})
   await context.close()

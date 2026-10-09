@@ -101,7 +101,7 @@ def test_batch_profiles(tmp_path):
     assert a2 not in p or p[a2].get("name") == ""
 
 
-@pytest.mark.parametrize('character', ['blob','knight','cat-blob','duckling','astronaut','toy-robot','pancake','jelly-ninja','sprout','marshmallow'])
+@pytest.mark.parametrize('character', ['cat','turtle','blob','knight','cat-blob','duckling','astronaut','toy-robot','pancake','jelly-ninja','sprout','marshmallow'])
 def test_customized_character_preserves_profile_and_restarts(tmp_path, character):
     client = _client(tmp_path)
     headers, address = _sign_in(client)

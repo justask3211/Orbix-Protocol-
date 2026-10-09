@@ -1,5 +1,5 @@
 """Original cosmetic catalog; no gameplay statistics or client-owned positions."""
-CHARACTERS = ('blob', 'knight', 'cat-blob', 'duckling', 'astronaut', 'toy-robot',
+CHARACTERS = ('cat', 'turtle', 'blob', 'knight', 'cat-blob', 'duckling', 'astronaut', 'toy-robot',
               'pancake', 'jelly-ninja', 'sprout', 'marshmallow')
 DEFAULT_COSMETICS = {'hat': 'none', 'glasses': 'none', 'outfit': 'default', 'accessory': 'none'}
 OPTIONS = {'hat': {'none', 'cap', 'crown', 'bow'}, 'glasses': {'none', 'round', 'visor'},
@@ -9,7 +9,7 @@ OPTIONS = {'hat': {'none', 'cap', 'crown', 'bow'}, 'glasses': {'none', 'round', 
 
 def validate_customization(character, cosmetics):
     if not isinstance(character, str) or character not in CHARACTERS:
-        raise ValueError('Choose one of the ten Orbix characters.')
+        raise ValueError('Choose an available Orbix character.')
     if not isinstance(cosmetics, dict) or set(cosmetics) - set(OPTIONS):
         raise ValueError('Unknown cosmetic option.')
     result = {**DEFAULT_COSMETICS, **cosmetics}

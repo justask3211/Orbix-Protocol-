@@ -72,3 +72,53 @@ Blender renders reviewed Idle, Sprint, PunchCross, Death and Kick after retarget
 and optimization. Browser integration still requires review of camera framing,
 weapon grip, blending and mobile performance; these renders do not establish
 50-client performance or AAA visual quality.
+
+## Original mascot family (2026-10-09)
+
+The visible character meshes now come from `web/src/center/worlds/CuteCharacter.ts`,
+using the existing CC0 skeleton as their shared foundation. Maple (`cat`) and Tuck
+(`turtle`) join the ten existing original characters. New meshes, facial features,
+shell panels, fur shader and locomotion tracks are original procedural work; no new
+external art downloads are involved. `original-characters.manifest.json` records
+source hashes and ownership.
+
+`characterRig.ts` shortens presentation legs (cat 0.76, turtle 0.62, others 0.82),
+adjusts pelvis translation tracks, and detaches cloned inverse matrices before
+rebinding. This detachment is essential: Three's Skeleton clone shares that array.
+`locomotion.ts` authors in-place Walk/Run/Sprint with an IK foot path and relaxed
+arm swing. Cadence is calibrated from backward planted-foot velocity and includes
+the presentation group's Z scale. Other source clips remain available with
+retargeted pelvis offsets. Authority, collision, health, speed and rewards stay on
+the Python server.
+
+`AnimationRig.ts` owns split upper/lower actions, synchronizes gait phase, seeds idle
+before rendering, and removes expired combat contributions on return to movement.
+Decorative idle freezes under reduced motion; essential locomotion still plays.
+
+Near geometry uses 16×10 spheres; distant geometry uses 8×5 with less face/tail
+detail. The default near characters peak at 14,072 triangles in the browser
+fixture, with at most five material groups. Customized geometry is bounded by the
+regressions too. Fur is surface grain, fiber colour variation and rim shading in
+existing passes. It has no strand silhouette or transparent shell overdraw.
+
+Reproduce from the repository root:
+
+```bash
+node tools/tests/original-character-regression.mjs
+node tools/tests/locomotion-regression.mjs
+node tools/tests/actor-state-regression.mjs
+# Start Vite in web at port 5188, then:
+node tools/tests/character-frame-regression.cjs
+node tools/tests/character-podium-browser.cjs
+# Local API serves the final built SPA at port 8100:
+node tools/tests/character-integration-browser.cjs
+ORBIX_BASE_URL=http://127.0.0.1:8100 node tools/tests/v4-worlds-browser.cjs
+```
+
+These checks cover actual rigs, layered clips, finite skinning, cached-source
+ownership, cleanup, frame captures and authenticated selection. The podium browser
+uses placement fixtures, while the integration browser uses a real authoritative
+match. SwiftShader browser results do not establish physical-phone performance or
+literal parity with the banner's offline render detail. Curated before/after images
+and metadata live in `tools/tests/evidence`; full frame sets are regenerated under
+`/tmp/orbix-q-frames`.

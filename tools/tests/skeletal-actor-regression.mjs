@@ -1,8 +1,9 @@
+import {locomotion} from './locomotion-fixture.mjs'
 /* Actual GLTF/mixer regression for animation binding and StrictMode effect rehearsal.
  * Run: node tools/tests/skeletal-actor-regression.mjs
  * The texture bitmap fixture replaces decoding only; no renderer/FPS claims are made.
  */
-import {buildCuteCharacter} from './original-character-regression.mjs'
+import {buildCuteCharacter,animationRig} from './original-character-regression.mjs'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
@@ -40,6 +41,8 @@ const modules = {
   three: THREE,
   'three/addons/loaders/GLTFLoader.js': { GLTFLoader },
   'three/addons/utils/SkeletonUtils.js': skeletonUtils,
+  './locomotion': {locomotion},
+  './AnimationRig': animationRig,
   './CuteCharacter': {buildCuteCharacter},
   './terrain': { stateGround: () => 0 },
   './motion': require('./motion-regression.cjs'),
@@ -102,3 +105,5 @@ assert.equal(full.scene.getObjectByName('upperarm_r').quaternion.angleTo(bindQua
 finalCleanup(); await Promise.resolve()
 assert.equal(props.handOutputs.has('player'), false, 'Genuine unmount releases the actor attachment')
 process.stdout.write('Skeletal regression passed: actual GLTF binding, StrictMode animation survival, idle input, Kick availability and unmount cleanup.\n')
+
+export {makeRig,selectAction,releaseRig,full,lod,THREE,RigActor,frames,effects,props,camera};

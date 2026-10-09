@@ -200,3 +200,30 @@ User intent, verbatim essence: “the REWARD ITSELF is a form the winner fills i
 - Validation: full Python suite **574 passed**, full Foundry **162 passed**, `tsc -b --noEmit`, production build to `/tmp/orbix-phase-p-dist`, authenticated form browser end-to-end, existing funded/NFT wizard browser regression. Captures `/tmp/orbix-p-forms-wizard.png`, `/tmp/orbix-p-private-responses.png`. Local software browser only, no real fund transactions.
 - Engine v2 `0xe818724e94b06cf5bf429d13fca377355ef1a7a3` and Gate v3 `0xe0752bce0b7c991f8fef731af502d6e64a5cad81`: user reports live and env-wired. No contract/env changes or Railway deployment in this phase.
 - Workspace was not clean on arrival: pre-existing tracked Python bytecode, generated dist/site bundles, and untracked deployment broadcasts. Preserved and excluded from phase source commits. Builds use temporary output directories.
+
+## 2026-10-09 — Phase Q: original mascot models and locomotion overhaul
+
+User intent, verbatim essence: “running animation looks like punching while sliding”; “characters are bad”; wants banner-quality characters **IN GAME**, a cute 3D cat with fur-textured detail and turtle-like characters “like the banner, 100 percent.” Existing visuals were unacceptable. Server authority must stay intact, reduced motion must work, no copyrighted downloads, no Railway deploy; Hermes handles deployment.
+
+Diagnosis and before/after:
+
+- Source manifest maps Run to `Jog_Fwd_Loop`, not PunchCross. No evidence of a wrong clip-name mapping or double horizontal root displacement. The old jogging upper body held bent arms near the chest. The layered mixer could retain expired combat weight during a movement crossfade or after an inactive LOD; cadence used unmeasured fixed speeds (5.12/8.57) with a 1.5 cap.
+- Replaced Walk/Run/Sprint presentation tracks with original two-bone IK foot paths and relaxed opposite arm swing. Lower/upper gait phases sync; playback scales to measured backward planted-foot velocity, including the character group's Z scale. Expired combat contributions stop on locomotion return. Actual accepted attacks still animate while legs move; fake combat is not introduced by walking. An initial fully weighted idle prevents bind/T-pose flashes.
+- Maple (`cat`) has a tabby palette, layered eyes, muzzle/nose, whiskers, shaped ears, cheek tufts, continuous curved tail, shirt/vest, scarf and belt. Fur uses original surface grain/fibre colour variation plus rim light in existing material passes. Tuck (`turtle`) has a domed shell with hexagonal raised scutes and seam/rim detail, segmented plastron, stubby legs/paws, claws and expressive face. Both use the shared 20-clip topology and appear in profile selection, authenticated lobby, live game and podium.
+- Audited all ten previous models. Puff/Marshmallow and Bolt/Robot were the hardest box shapes; rounded those surfaces. Enlarged faces/eyes throughout; moved eyes outside helmet/visor surfaces; improved Peep, Flip, Wisp and Bud silhouettes/palettes. All twelve use shorter presentation legs, owned inverse matrices and retargeted pelvis tracks. Physics, hitboxes, movement rules, scores, settlement and reward authority are unchanged.
+- Ownership review found Three's Skeleton clone shares the inverse array. Detach it before calculating proportion-specific inverses; a regression now checks that every character leaves cached source bindings intact.
+- Reduced motion freezes decorative idle in preview/lobby/podium/actors and disables squash/recoil. Essential movement and accepted action animations continue.
+
+Evidence and limits:
+
+- **597 Python tests** (center plus top-level tests), **162 Foundry tests**, `tsc -b --noEmit`, production build and local static-site assembly passed. Existing motion/jitter/envelope, podium and result regressions passed.
+- **72** real mixer/LOD gait cases: Walk/Run/Sprint on all twelve characters; no expired combat contribution, synchronized layers, measured planted-foot speed within the 6% regression tolerance. **144** real RigActor state/reduced-motion checks. **84** software-WebGL frame captures: seven states per character, zero browser/shader errors, plus combat→run recovery and turtle shell review. Full regenerated frames: `/tmp/orbix-q-frames`; curated versions and metadata: `tools/tests/evidence`.
+- Authenticated browser: Maple/Tuck profile previews, selection persistence, real lobby appearances, two actual authoritative bodies and live match rendering/finish. Production podium renders both using placement fixtures; that fixture does not establish a real winner. All three V4 practice worlds pass visible loading/rendering and accepted movement/jump with zero JS errors.
+- Near default geometry peaks at **14,072 triangles**, at most **5 material groups**; distant geometry stays below **4,000 triangles** in the regression. Geometry/shader sources and hashes are recorded in `web/public/center-models/original-characters.manifest.json`.
+- **Honest limitation:** these are original stylized game models, not a literal reproduction of the banner's offline fur/detail fidelity. Fur has surface detail and rim softness, not true strands or transparent shell silhouettes. This avoids extra fur passes/overdraw; physical mid-phone FPS, thermals and memory remain **unproven**. No claim of 100% visual parity or measured device performance.
+
+Shipping:
+
+- Phase P commit: `24a8cd00`. Phase Q is a separate commit including the final renderer, regressions, captured review evidence and refreshed checked-in cockpit/Center bundles. The deployment Docker image consumes those bundles, so rebuilding them is necessary for Hermes to ship the new UI.
+- Pre-existing generated bundles were backed up before replacement at `/tmp/orbix-preexisting-generated-bundles.tar`. Pre-existing tracked Python bytecode and deployment broadcast receipts remain untouched/uncommitted. No Railway command or on-chain transaction was issued.
+- Security note: an existing credential embedded in the Git remote appeared during remote inspection. It was not copied into repo artifacts; subsequent Git output is redacted. Rotate that credential.

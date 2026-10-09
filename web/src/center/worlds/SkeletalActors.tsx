@@ -1,53 +1,20 @@
 import { useFrame, useLoader } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { AnimationAction, AnimationClip, AnimationMixer, Color, Frustum, Group, InstancedMesh, LoopOnce, LoopRepeat, Material, MathUtils, Matrix4, Object3D, Sphere, Vector3 } from 'three'
+import { Color, Frustum, Group, InstancedMesh, MathUtils, Matrix4, Object3D, Sphere, Vector3 } from 'three'
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
 import type { GameWorldProps } from './GameWorld'
 import { CARTOON_TEAMS, CARTOON_PROPORTIONS } from './cartoonStyle'
 import { HeldItems, type GripBones } from './ItemMeshes'
 import { MotionTrack, type MotionPose } from './motion'
 import { stateGround } from './terrain'
-import { buildCuteCharacter } from './CuteCharacter'
-import type { Cosmetics } from '../characters'
+import {makeRig,releaseRig,selectAction} from './AnimationRig'
 
 type Pose = MotionPose
 type Props = GameWorldProps & { poses: Map<string, Pose>; onReady?: () => void }
 type Body = Record<string, any>
-type Rig = { scene: Object3D; mixer: AnimationMixer; actions: Map<string, AnimationAction>; hand: Object3D | undefined; leftHand: Object3D | undefined; materials: Material[]; current: Record<'upper' | 'lower', string>; release: () => void }
 type Cue = { name: string; until: number; key: string; whole: boolean }
 const num = (value: unknown, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
 const TEAM_COLORS = CARTOON_TEAMS
-const lowerTrack = (name: string) => /^(root|pelvis|thigh_[lr]|calf_[lr]|foot_[lr]|ball(?:_leaf)?_[lr])\./.test(name)
-
-function makeRig(gltf: GLTF, character: string, _team: string, cosmetics: Cosmetics = {}, distant = false): Rig {
-  const owned = buildCuteCharacter(gltf, {character, cosmetics}, distant)
-  const scene = owned.scene, mixer = new AnimationMixer(scene), actions = new Map<string, AnimationAction>()
-  for (const clip of gltf.animations) for (const layer of ['lower', 'upper'] as const) {
-    const tracks = clip.tracks.filter(track => lowerTrack(track.name) === (layer === 'lower'))
-    if (tracks.length) actions.set(`${clip.name}:${layer}`, mixer.clipAction(new AnimationClip(`${clip.name}:${layer}`, clip.duration, tracks)))
-  }
-  return {scene, mixer, actions, hand: scene.getObjectByName('hand_r'), leftHand: scene.getObjectByName('hand_l'), materials: owned.materials, release: owned.release, current:{upper:'',lower:''}}
-}
-
-function releaseRig(rig: Rig) {
-  rig.mixer.stopAllAction(); rig.mixer.uncacheRoot(rig.scene)
-  rig.release()
-
-}
-
-function selectAction(rig: Rig, name: string, layer: 'lower' | 'upper', once: boolean, eventKey: string, speed = 1) {
-  const key = `${name}:${layer}`, identity = `${key}:${eventKey}`, action = rig.actions.get(key) || rig.actions.get(`Idle:${layer}`)
-  if (!action) return
-  action.setEffectiveTimeScale(speed)
-  if (rig.current[layer] === identity) return
-  const previousKey = rig.current[layer].split(':').slice(0, 2).join(':'), prior = rig.actions.get(previousKey)
-  if (prior && prior !== action) prior.fadeOut(once ? .07 : .10)
-  action.reset().setLoop(once ? LoopOnce : LoopRepeat, once ? 1 : Infinity).setEffectiveTimeScale(speed).setEffectiveWeight(1)
-  action.paused = false; action.enabled = true
-  if (layer === 'upper' && ['Idle','Run','Sprint'].includes(name)) { const lower = rig.actions.get(`${name}:lower`); if (lower) action.syncWith(lower) }
-  action.clampWhenFinished = once; action.fadeIn(once ? .07 : .10).play(); rig.current[layer] = identity
-}
-
 function PoseMotion({ state, me, inputRef, poses }: Props) {
   const tracks = useRef(new Map<string, MotionTrack>()), round = useRef(state.roundId)
   const entries = useMemo(() => Object.entries(state.bodies ?? {}).slice(0, 50) as [string, Body][], [state.bodies])
@@ -129,7 +96,7 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
     attack.current = num(body.lastAttackAt); dodge.current = num(body.dodgeUntil); loot.current = num(body.lootReadyAt); health.current = num(body.hp, 100); grounded.current = onGround
     if (event) cue.current = event
     if (cue.current && now >= cue.current.until) cue.current = null
-    let lower = pose.moving > .2 ? body.sprinting || local && props.inputRef?.current.sprint ? 'Sprint' : 'Run' : 'Idle', upper = lower
+    let lower = num(pose.speed) > .08 ? body.sprinting || local && props.inputRef?.current.sprint ? 'Sprint' : num(pose.speed) < 2 ? 'Walk' : 'Run' : 'Idle', upper = lower
     let once = false, key = '', speed = 1
     if (body.weapon === 'gun' && pose.moving < .2) upper = 'PistolAim'
     else if (['sword', 'spear'].includes(body.weapon) && pose.moving < .2) upper = 'SwordIdle'
@@ -141,9 +108,10 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
     else if (elastic.current) elastic.current.rotation.z = MathUtils.damp(elastic.current.rotation.z, 0, 20, rawDelta)
     if (props.state.finished && !down) { lower = upper = 'Idle'; cue.current = null }
     if (down) { lower = upper = 'Death'; once = true; key = `down-${num(body.respawnAt)}`; speed = 1.5 }
-    gaitSpeed.current = num(pose.speed) < .08 ? 0 : MathUtils.damp(gaitSpeed.current, num(pose.speed), 22, Math.min(rawDelta,.1))
-    selectAction(rig, lower, 'lower', once && lower === upper, once && lower === upper ? key : '', once && lower === upper ? speed : ['Run','Sprint'].includes(lower) ? MathUtils.clamp(gaitSpeed.current / (lower === 'Sprint' ? 8.57 : 5.12), 0, 1.5) : 1)
-    selectAction(rig, upper, 'upper', once || upper === 'Guard' || upper === 'PistolAim', key, !once && ['Run','Sprint'].includes(upper) ? MathUtils.clamp(gaitSpeed.current / (upper === 'Sprint' ? 8.57 : 5.12), 0, 1.5) : speed)
+    gaitSpeed.current = num(pose.speed) < .08 ? 0 : num(pose.speed)
+    selectAction(rig, lower, 'lower', once && lower === upper, once && lower === upper ? key : '', once && lower === upper ? speed : ['Walk','Run','Sprint'].includes(lower) ? gaitSpeed.current / (rig.gaitSpeeds[lower] * CARTOON_PROPORTIONS[2]) : 1)
+    selectAction(rig, upper, 'upper', once || upper === 'Guard' || upper === 'PistolAim', key, !once && ['Walk','Run','Sprint'].includes(upper) ? gaitSpeed.current / (rig.gaitSpeeds[upper] * CARTOON_PROPORTIONS[2]) : speed)
+    if(props.reducedMotion && lower==='Idle' && upper==='Idle')for(const layer of ['lower','upper']){const idle=rig.actions.get(`Idle:${layer}`);if(idle){idle.time=.35;idle.setEffectiveTimeScale(0)}}
     accumulated.current += Math.min(rawDelta, .1)
     if (!visible) { accumulated.current = 0; return }
     if (selected === 1 && accumulated.current < .05 && selected === selection.current) return
