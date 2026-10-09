@@ -136,6 +136,10 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
     if (body.blocking) upper = 'Guard'
     if (!onGround) { lower = 'JumpLoop'; upper = 'JumpLoop' }
     if (cue.current) { upper = cue.current.name; if (cue.current.whole) lower = upper; once = true; key = cue.current.key; speed = upper === 'Dodge' ? 3 : upper === 'JumpStart' ? 4 : upper === 'JumpLand' ? 5 : upper === 'Interact' ? 4 : upper === 'SwordAttack' ? 2.5 : 1.5 }
+    // Add a procedural recoil above the split skeleton layers, never to root movement.
+    if (elastic.current && !props.reducedMotion && !down && cue.current?.name === 'Hit') elastic.current.rotation.z = Math.sin((cue.current.until - now) * .035) * .06
+    else if (elastic.current) elastic.current.rotation.z = MathUtils.damp(elastic.current.rotation.z, 0, 20, rawDelta)
+    if (props.state.finished && !down) { lower = upper = 'Idle'; cue.current = null }
     if (down) { lower = upper = 'Death'; once = true; key = `down-${num(body.respawnAt)}`; speed = 1.5 }
     gaitSpeed.current = num(pose.speed) < .08 ? 0 : MathUtils.damp(gaitSpeed.current, num(pose.speed), 22, Math.min(rawDelta,.1))
     selectAction(rig, lower, 'lower', once && lower === upper, once && lower === upper ? key : '', once && lower === upper ? speed : ['Run','Sprint'].includes(lower) ? MathUtils.clamp(gaitSpeed.current / (lower === 'Sprint' ? 8.57 : 5.12), 0, 1.5) : 1)

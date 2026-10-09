@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { BufferAttribute, CanvasTexture, Color, InstancedMesh, Object3D, PlaneGeometry, RepeatWrapping, SRGBColorSpace, Vector2 } from 'three'
+import { BufferAttribute, CanvasTexture, Color, InstancedMesh, Object3D, PlaneGeometry, RepeatWrapping, SRGBColorSpace, Vector2, MeshStandardMaterial } from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import type { GameWorldProps } from './GameWorld'
 import { terrainHeight, type TerrainTheme } from './terrain'
@@ -44,8 +44,23 @@ function useSurfaceTextures() {
 }
 
 /** Shared geometry/material draw calls for foliage, grass and stones, rather than one draw call per prop. */
-function Batch({ entries, shape = 'sphere', shadows = false, roughness = .96 }: { entries: Instance[]; shape?: 'sphere' | 'trunk' | 'grass' | 'box'; shadows?: boolean; roughness?: number }) {
+function Batch({ entries, shape = 'sphere', shadows = false, roughness = .96, wind = false, reducedMotion = false }: { entries: Instance[]; shape?: 'sphere' | 'trunk' | 'grass' | 'box'; shadows?: boolean; roughness?: number; wind?: boolean; reducedMotion?: boolean }) {
   const ref = useRef<InstancedMesh>(null), transform = useMemo(() => new Object3D(), []), color = useMemo(() => new Color(), [])
+  const material = useRef<MeshStandardMaterial>(null), windTime = useMemo(() => ({value: 0}), [])
+  useEffect(() => {
+    if (!wind || !material.current) return
+    const mat = material.current
+    mat.onBeforeCompile = shader => {
+      shader.uniforms.orbixWindTime = windTime
+      shader.vertexShader = 'uniform float orbixWindTime;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+        transformed.x += sin(orbixWindTime * 1.4 + instanceMatrix[3].x * .4 + instanceMatrix[3].z * .3) * .045 * max(position.y, 0.0);
+        #endif`)
+    }
+    mat.customProgramCacheKey = () => 'orbix-wind-v1'
+    mat.needsUpdate = true
+  }, [wind, windTime])
+  useFrame(({clock}) => { windTime.value = reducedMotion ? 0 : clock.elapsedTime })
   useEffect(() => {
     if (!ref.current) return
     entries.forEach((entry, index) => {
@@ -58,7 +73,7 @@ function Batch({ entries, shape = 'sphere', shadows = false, roughness = .96 }: 
   }, [entries, transform, color])
   return <instancedMesh ref={ref} args={[undefined, undefined, Math.max(1, entries.length)]} castShadow={shadows} receiveShadow>
     {shape === 'trunk' ? <cylinderGeometry args={[.7, 1, 1, 7]} /> : shape === 'grass' ? <coneGeometry args={[.5, 1, 3]} /> : shape === 'box' ? <boxGeometry /> : <icosahedronGeometry args={[1, 1]} />}
-    <meshStandardMaterial roughness={roughness} />
+    <meshStandardMaterial ref={material} roughness={roughness} />
   </instancedMesh>
 }
 
@@ -95,7 +110,7 @@ function Ground({ theme, hasTerrain }: { theme: TerrainTheme; hasTerrain: boolea
   return <mesh geometry={geometry} receiveShadow><meshStandardMaterial vertexColors map={textures.color} normalMap={textures.normal} normalScale={new Vector2(.35, .35)} roughness={.98} /></mesh>
 }
 
-function Vegetation({ theme, hasTerrain }: { theme: TerrainTheme; hasTerrain: boolean }) {
+function Vegetation({ theme, hasTerrain, reducedMotion }: { theme: TerrainTheme; hasTerrain: boolean; reducedMotion?: boolean }) {
   const palette = PALETTES[theme]
   const scenery = useMemo(() => {
     const trunks: Instance[] = [], crowns: Instance[] = [], stones: Instance[] = [], grasses: Instance[] = [], flowers: Instance[] = []
@@ -128,7 +143,7 @@ function Vegetation({ theme, hasTerrain }: { theme: TerrainTheme; hasTerrain: bo
     }
     return { trunks, crowns, stones, grasses, flowers }
   }, [theme, hasTerrain, palette])
-  return <><Batch entries={scenery.trunks} shape="trunk" /><Batch entries={scenery.crowns} /><Batch entries={scenery.stones} /><Batch entries={scenery.grasses} shape="grass" /><Batch entries={scenery.flowers} /></>
+  return <><Batch entries={scenery.trunks} shape="trunk" /><Batch entries={scenery.crowns} wind reducedMotion={reducedMotion} /><Batch entries={scenery.stones} /><Batch entries={scenery.grasses} shape="grass" wind reducedMotion={reducedMotion} /><Batch entries={scenery.flowers} /></>
 }
 
 /** Decorative contact detail stays inside the exact published cover volume. */
@@ -222,6 +237,26 @@ function Water({ theme, reducedMotion }: { theme: TerrainTheme; reducedMotion?: 
   return <mesh position={[0, -1.6, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[350, 350]} /><meshStandardMaterial color={PALETTES[theme].water} normalMap={texture} normalScale={new Vector2(.42, .42)} roughness={.3} metalness={.35} /></mesh>
 }
 
+/** A single bounded batch of original birds, guardian motes or outpost kites.
+ * Decorative motion lives outside collision space; nothing here can score. */
+function HorizonLife({theme, reducedMotion}: {theme: TerrainTheme; reducedMotion?: boolean}) {
+  const ref = useRef<InstancedMesh>(null), transform = useMemo(() => new Object3D(), [])
+  useFrame(({clock}) => {
+    if (!ref.current) return
+    const time = reducedMotion ? 0 : clock.elapsedTime
+    for (let i = 0; i < 24; i++) {
+      const phase = i * 2.39996 + time * .045, radius = 26 + (i % 5) * 2
+      transform.position.set(Math.sin(phase) * radius, 7 + i % 4 + Math.sin(time * .6 + i) * .25, Math.cos(phase) * radius)
+      transform.rotation.set(0, -phase, reducedMotion ? .1 : Math.sin(time * 2 + i) * .2)
+      transform.scale.set(theme === 'guardian' ? .09 : .28, .05, .16)
+      transform.updateMatrix(); ref.current.setMatrixAt(i, transform.matrix)
+    }
+    ref.current.instanceMatrix.needsUpdate = true
+    ref.current.computeBoundingSphere()
+  })
+  return <instancedMesh ref={ref} args={[undefined, undefined, 24]}><octahedronGeometry args={[1,0]} /><meshStandardMaterial color={theme === 'guardian' ? '#a6ead5' : theme === 'island' ? '#efba78' : '#f5e7c5'} emissive={theme === 'guardian' ? '#517e69' : '#000000'} emissiveIntensity={.3} roughness={.8} /></instancedMesh>
+}
+
 /** Field-v1 is a small multiplayer arena with a much larger visual horizon, never a client-owned reward simulation. */
 export default function FieldEnvironment({ state, game, reducedMotion }: EnvironmentProps) {
   const theme: TerrainTheme = game === 'boss-raid' ? 'guardian' : game === 'combat-duel' ? 'courtyard' : 'island'
@@ -229,7 +264,8 @@ export default function FieldEnvironment({ state, game, reducedMotion }: Environ
   return <group>
     <Ground theme={theme} hasTerrain={hasTerrain} />
     <Water theme={theme} reducedMotion={reducedMotion} />
-    <Vegetation theme={theme} hasTerrain={hasTerrain} />
+    <Vegetation theme={theme} hasTerrain={hasTerrain} reducedMotion={reducedMotion} />
+    <HorizonLife theme={theme} reducedMotion={reducedMotion} />
     <VistaArchitecture theme={theme} hasTerrain={hasTerrain} />
     {(state.obstacles ?? []).slice(0, 40).map((item: Record<string, any>) => <AuthoritativeCover key={item.id || `${item.x}:${item.z}`} item={item} theme={theme} />)}
   </group>

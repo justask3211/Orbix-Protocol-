@@ -35,6 +35,7 @@ import { AdminPanel } from './AdminPanel'
 import { bindRoomOnChain, payJoinToken as payJoinTokenGated } from './gate'
 import { TxPreview } from './funds'
 import { SharePanel } from './SharePanel'
+import { RoundImmersion } from './RoundImmersion'
 import { CharacterBadge } from './CharacterBadge'
 import { ProfileAvatar, ProfileModal } from './ProfilePanel'
 import { CreatorTokenFees, RoomRewardsGuide } from './CreatorEconomy'
@@ -651,7 +652,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
                 disabled={Boolean(t.playStatus && t.playStatus !== 'live')}
                 aria-pressed={draft.templateId === t.templateId}
               >
-                <img src={`${import.meta.env.BASE_URL}center-art/${t.templateId === 'combat-duel' ? 'reaction-duel' : t.templateId}.webp`} alt="" width="320" height="200" loading="lazy" />
+                <img src={`${import.meta.env.BASE_URL}center-art/${t.templateId}.webp`} alt="" width="320" height="200" loading="lazy" />
                 <b>{FEATURED_GAMES.find((game) => game.id === t.templateId)?.name ?? t.label}</b>
                 {t.playStatus && t.playStatus !== 'live' && <span className="ct-game-status-tag">{t.playStatus === 'maintenance' ? 'Under maintenance' : 'Offline'}</span>}
                 <span>{FEATURED_GAMES.find(game => game.id === t.templateId)?.description ?? t.blurb}</span>
@@ -1333,8 +1334,8 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
         {!Stage && <p className="muted">Waiting for the room configuration…</p>}
         {Stage && !hasRoundState && <><RoundPending status={room?.status} />{isFeaturedGame(templateId) && <Suspense fallback={<p className="muted">Preparing your world…</p>}><LobbyWorld game={templateId as 'number-hunt' | 'boss-raid' | 'token-catch' | 'reaction-duel'} state={room?.config?.rules ?? {}} me={me} players={players} /></Suspense>}</>}
         {Stage && hasRoundState && (
-          <Stage
-            state={{ ...state, _roomId: roomId, _roundId: state.roundId, _spectating: !amPlayer, _adminObserver: adminObserver, _hidePlayers: room?.communitySettings?.hidePlayers, _hideGuesses: room?.communitySettings?.hideGuesses, _canAct: amPlayer && channel.status === 'open' && room?.status === 'running', _connection: channel.status, _actionError: reject }}
+          <RoundImmersion active={!finished && room?.status==='running'} roundId={currentRound}>{blocked => <Stage
+            state={{ ...state, _roomId: roomId, _roundId: state.roundId, _spectating: !amPlayer, _adminObserver: adminObserver, _hidePlayers: room?.communitySettings?.hidePlayers, _hideGuesses: room?.communitySettings?.hideGuesses, _canAct: !blocked && amPlayer && channel.status === 'open' && room?.status === 'running', _connection: channel.status, _actionError: reject }}
             me={me}
             players={players}
             finished={finished}
@@ -1342,7 +1343,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
               setReject(null)
               channel.act(payload)
             }}
-          />
+          />}</RoundImmersion>
         )}
         {reject && <p className="st-note err">Server refused that action: {reject}</p>}
         {channel.lastError && <p className="st-note ok">{channel.lastError}</p>}

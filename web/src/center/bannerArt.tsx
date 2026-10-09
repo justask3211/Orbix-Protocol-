@@ -123,22 +123,6 @@ function HashScene({ hue }: SceneProps) {
 }
 
 /** raid / co-op family: boss-raid */
-function BossScene({ hue }: SceneProps) {
-  return (
-    <svg className="gcard-art" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <rect width={W} height={H} fill="#0a0b0d" />
-      <polygon points={`${W / 2},14 ${W / 2 + 66},58 ${W / 2 + 42},${H - 18} ${W / 2 - 42},${H - 18} ${W / 2 - 66},58`}
-        fill="none" stroke={hue} strokeWidth="1.5" strokeOpacity="0.85" />
-      <polygon points={`${W / 2},30 ${W / 2 + 48},62 ${W / 2 + 30},${H - 28} ${W / 2 - 30},${H - 28} ${W / 2 - 48},62`}
-        fill={hue} fillOpacity="0.12" stroke={hue} strokeOpacity="0.4" />
-      <circle cx={W / 2} cy={H / 2 - 8} r="12" fill={hue} fillOpacity="0.9" />
-      <rect x={W / 2 - 80} y="18" width="160" height="7" rx="3.5" fill="#15171a" />
-      <rect x={W / 2 - 80} y="18" width="102" height="7" rx="3.5" fill={hue} />
-      <text x={W / 2 + 84} y="25" fill="#85888d" fontSize="9" fontFamily="'DM Mono',monospace">HP 72%</text>
-    </svg>
-  )
-}
-
 /** sprint / path family: puzzle-sprint, maze-race, pattern-recall */
 function PathScene({ hue, seed }: SceneProps) {
   const rnd = mulberry(seed)
@@ -196,28 +180,32 @@ function QuestScene({ hue, seed }: SceneProps) {
   )
 }
 
-function CombatScene() {
+/** Original vector scenes echo the actual field palettes and landmarks. */
+function FieldBanner({world}: {world:'courtyard'|'guardian'|'island'}) {
+  const sky = world === 'guardian' ? '#b9d4cc' : '#eadcc5', earth = world === 'island' ? '#8ca768' : '#999582'
   return <svg className="gcard-art" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <rect width={W} height={H} fill="#514694"/><ellipse cx={W/2} cy={H*.8} rx={W*.43} ry={H*.28} fill="#9b8bd7"/>
-    {[{x:W*.3,c:'#9be5e9',flip:1},{x:W*.7,c:'#ffae96',flip:-1}].map(({x,c,flip})=><g key={x} transform={`translate(${x},${H*.52}) scale(${flip},1)`}>
-      <ellipse cy={H*.23} rx="31" ry="9" fill="#3b2d77" opacity=".35"/><rect x="-18" y="6" width="36" height="32" rx="13" fill={c}/><circle cy="-10" r="23" fill={c}/>
-      <path d="M-19-20L-18-40L-4-28M7-27L19-40L21-17" fill={c}/><circle cx="8" cy="-12" r="3" fill="#243047"/><circle cx="-7" cy="-12" r="3" fill="#243047"/>
-      <path d="M16 17L47-10" stroke="#e9eeff" strokeWidth="9" strokeLinecap="round"/><path d="M28 14L40 26" stroke="#e7c467" strokeWidth="6"/>
-      <rect x="-15" y="35" width="12" height="20" rx="5" fill="#354562"/><rect x="5" y="35" width="12" height="20" rx="5" fill="#354562"/>
-    </g>)}<text x={W/2} y="29" textAnchor="middle" fontSize="18" fontWeight="800" fill="#f0eaff">MEET IN THE ARENA</text>
+    <rect width={W} height={H} fill={sky}/><circle cx="342" cy="30" r="24" fill="#fff1c9"/>
+    <path d="M0 90L50 48L92 76L139 30L193 85L258 43L310 75L370 39L420 65V150H0Z" fill="#78988b"/>
+    <path d="M0 110Q95 68 210 98T420 87V150H0Z" fill={earth}/><path d="M140 150L194 101H228L300 150" fill="#c5b18d"/>
+    {[20,52,368,401].map((x,i)=><g key={x}><rect x={x} y={72+i%2*9} width="6" height="47" fill="#75634e"/><ellipse cx={x+3} cy={69+i%2*9} rx="23" ry="30" fill={i%2?'#587c52':'#698951'}/></g>)}
+    {world === 'courtyard' ? <g fill="#aaa28c"><path d="M85 96V49H120V96M300 96V49H335V96M90 59V44H98V59M106 59V44H115V59M305 59V44H313V59M322 59V44H331V59"/><rect x="108" y="78" width="204" height="11"/><path d="M97 88V61H106V88M314 88V61H323V88" fill="#865947"/></g> : world === 'guardian' ? <g><path d="M155 94V39H174V94M246 94V39H265V94M149 38H272V52H149" fill="#838b80"/><path d="M211 16L227 32L211 48L195 32Z" fill="#86cabb"/><path d="M209 72L231 87L238 124H182L188 87Z" fill="#647e79"/><path d="M209 86L220 100L209 115L198 100Z" fill="#b7edcf"/></g> : <g><rect x="158" y="61" width="105" height="43" fill="#97a28b"/><path d="M151 62L266 55L275 66H151" fill="#6b7d74"/><rect x="177" y="74" width="25" height="16" fill="#83b9bf"/><rect x="224" y="74" width="22" height="30" fill="#49686c"/><path d="M255 59V21M243 27L268 39" stroke="#5a7274" strokeWidth="3"/><ellipse cx="210" cy="133" rx="32" ry="8" fill="#577987"/><rect x="188" y="105" width="44" height="24" rx="3" fill="#dfa960"/><path d="M189 105L205 80L232 105" fill="#f2dbac"/></g>}
+    {[world==='island'?126:108,world==='island'?303:309].map((x,i)=><g key={x} transform={`translate(${x},100)`}><ellipse cy="36" rx="18" ry="5" fill="#4b614c" opacity=".3"/><rect x="-10" y="7" width="20" height="24" rx="8" fill={i?'#8bafd0':'#dcaa72'}/><circle cy="-3" r="14" fill={i?'#bad4dc':'#f4cd94'}/><path d="M-12-12L-11-25L-3-17M5-16L13-24L13-10" fill={i?'#bad4dc':'#f4cd94'}/><circle cx="-5" cy="-4" r="2" fill="#354b53"/><circle cx="5" cy="-4" r="2" fill="#354b53"/>{world!=='island'&&<path d="M11 16L27-5" stroke="#eef1db" strokeWidth="4"/>}</g>)}
   </svg>
 }
+function CombatScene(){return <FieldBanner world="courtyard"/>}
+function GuardianScene(){return <FieldBanner world="guardian"/>}
+function OutpostScene(){return <FieldBanner world="island"/>}
 
 const SCENES: Record<string, (p: SceneProps) => ReactElement> = {
   'combat-duel': CombatScene,
   'number-hunt': TargetScene,
   'live-quiz': TargetScene,
   'memory-match': GridScene,
-  'token-catch': FallingField,
+  'token-catch': OutpostScene,
   'reaction-duel': VersusScene,
   'puzzle-sprint': PathScene,
   'hash-hunt': HashScene,
-  'boss-raid': BossScene,
+  'boss-raid': GuardianScene,
   'rps-duel': VersusScene,
   'reward-grid': GridScene,
   'logo-bingo': GridScene,
