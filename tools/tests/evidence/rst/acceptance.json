@@ -37,6 +37,10 @@
       "command": "npm --prefix web run build",
       "exitCode": 0,
       "note": "Vite warns about existing large chunks"
+    },
+    {
+      "command": "Compare package/public/dist/HTTP cannon-es MIT notice",
+      "exitCode": 0
     }
   ],
   "existingBrowserChecks": [

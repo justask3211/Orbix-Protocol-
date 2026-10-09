@@ -321,3 +321,8 @@ evidence, push master:main, and NO Railway deployment.
 - V4 browser movement regression now tries a real sidestep if a spawn faces solid
   cover, retaining the original >0.5 m displacement assertion. This corrects a
   clear-path assumption without changing collision or gameplay rules.
+
+- The Phase T push to master:main succeeded. A packaging follow-up includes the
+  exact cannon-es MIT notice in public/dist licenses as well as the source ledger,
+  because minification drops its ordinary source comment. No runtime behavior
+  changes; served notice bytes are checked against the installed package license.
