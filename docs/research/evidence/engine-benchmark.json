@@ -1,0 +1,70 @@
+{
+  "environment": {
+    "node": "v22.22.2",
+    "platform": "linux",
+    "arch": "x64",
+    "fixture": "40 static boxes + floor + 50 dynamic spheres; 120 warmup, 600 timed steps at 60Hz; CPU only, no rendering, not device evidence"
+  },
+  "bundles": [
+    {
+      "package": "@babylonjs/core",
+      "version": "9.30.0",
+      "license": "Apache-2.0",
+      "bytes": 8189759,
+      "gzipBytes": 1838719,
+      "scope": "full public API; not a minimal tree-shaken scene"
+    },
+    {
+      "package": "playcanvas",
+      "version": "2.23.1",
+      "license": "MIT",
+      "bytes": 2519436,
+      "gzipBytes": 655607,
+      "scope": "full public API; not a minimal tree-shaken scene"
+    },
+    {
+      "package": "@dimforge/rapier3d-compat",
+      "version": "0.21.0",
+      "license": "Apache-2.0",
+      "bytes": 4337165,
+      "gzipBytes": 1645473,
+      "scope": "full public API; not a minimal tree-shaken scene"
+    },
+    {
+      "package": "cannon-es",
+      "version": "0.20.0",
+      "license": "MIT",
+      "bytes": 123555,
+      "gzipBytes": 36161,
+      "scope": "full public API; not a minimal tree-shaken scene"
+    },
+    {
+      "package": "jolt-physics",
+      "version": "1.1.0",
+      "license": "MIT",
+      "bytes": 3998819,
+      "gzipBytes": 952524,
+      "scope": "full public API; not a minimal tree-shaken scene"
+    }
+  ],
+  "steps": [
+    {
+      "name": "Rapier",
+      "p50Ms": 0.11648000000059255,
+      "p95Ms": 5.197236999998495,
+      "maxMs": 12.242439999999988
+    },
+    {
+      "name": "cannon-es/SAP",
+      "p50Ms": 0.3596250000009604,
+      "p95Ms": 6.3710769999997865,
+      "maxMs": 9.36406899999929
+    },
+    {
+      "name": "Jolt",
+      "p50Ms": 0.18066400000134308,
+      "p95Ms": 2.215653999999631,
+      "maxMs": 6.21719099999973
+    }
+  ]
+}
