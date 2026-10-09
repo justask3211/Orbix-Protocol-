@@ -1,8 +1,10 @@
 import { activeWalletProvider } from './walletConnectors.ts'
 import { decodeEventLog, encodeFunctionData, parseAbi, type Address, type Hex } from 'viem'
 
-export const REWARD_ENGINE: Address = '0x5b8d41421b9a6701cb7948e724234cb9b1eb8e1b'
+export const REWARD_ENGINE: Address = ((import.meta as unknown as {env?:Record<string,string>}).env?.VITE_REWARD_ENGINE ?? '0x5b8d41421b9a6701cb7948e724234cb9b1eb8e1b').toLowerCase() as Address
 export const rewardAbi = parseAbi([
+  'function safetyVersion() view returns (uint256)',
+  'function reclaimExpired(uint256 poolId)',
   'function createPool(bytes32 roomId,uint8 mode,uint64 claimDeadline,uint32 maxOpenClaims,bytes32 merkleRoot,string message) returns (uint256)',
   'function depositERC20(uint256 poolId,address token,uint256 amount)',
   'function depositERC721(uint256 poolId,address token,uint256 tokenId)',
@@ -60,6 +62,12 @@ export async function rewardWallet(address: string, injected?: Wallet): Promise<
   if (accounts[0]?.toLowerCase() !== address.toLowerCase()) throw new Error('Select the wallet you connected to Orbix before continuing.')
   return wallet
 }
+async function requireSafeEngine(wallet:Wallet) {
+  try {
+    const raw=await wallet.request({method:'eth_call',params:[{to:REWARD_ENGINE,data:encodeFunctionData({abi:rewardAbi,functionName:'safetyVersion'})},'latest']})
+    if(BigInt(raw)!==2n)throw new Error('Unsupported safety version')
+  }catch{throw new Error('New reward funding is not available yet: the configured RewardEngine lacks the audited pool-isolation fixes. No transaction was submitted.')}
+}
 async function confirmed(wallet: Wallet, address: string, to: Address, data: Hex, progress: (s: string)=>void, key: string, value?: string) {
   const saved = storage()?.getItem(key)
   let hash = saved
@@ -76,9 +84,22 @@ async function confirmed(wallet: Wallet, address: string, to: Address, data: Hex
   storage()?.removeItem(key)
   return {hash,receipt}
 }
+function assetInvalid(slot:RewardSlot) {
+ try{return BigInt(slot.amount)<=0n || BigInt(slot.amount)>=2n**256n || BigInt(slot.token_id)<0n || BigInt(slot.token_id)>=2n**256n || slot.asset_kind==='erc721'&&BigInt(slot.amount)!==1n}catch{return true}
+}
 export async function fundRewardPool(address: string, prepared: {roomId:string;roomKey:Hex;engine:Address;merkleRoot:Hex}, config: FundedConfig, progress: (s:string)=>void, injected?: Wallet): Promise<Funding> {
   if (prepared.engine.toLowerCase() !== REWARD_ENGINE) throw new Error('Unexpected reward contract. Refresh before funding.')
+  const assets = new Map<string,RewardSlot>()
+  for (const slot of config.slots) {
+    const identity = `${slot.asset_kind}:${slot.asset_contract.toLowerCase()}:${slot.token_id}`
+    const old = assets.get(identity)
+    if(assetInvalid(slot)||slot.asset_kind==='erc721'&&old)throw new Error('Invalid or duplicate reward inventory.')
+    assets.set(identity,{...slot,amount:(BigInt(slot.amount)+BigInt(old?.amount??0)).toString()})
+  }
+  const grouped = [...assets.values()]
+  if(grouped.some(asset=>BigInt(asset.amount)>=2n**256n))throw new Error('Total reward amount exceeds uint256.')
   const wallet = await rewardWallet(address, injected)
+  await requireSafeEngine(wallet)
   const key = `orbix-reward-fund:${address.toLowerCase()}:${prepared.roomId}`
   let journal: {poolId?:string; deposited:number; txHash?:string} = JSON.parse(storage()?.getItem(key) ?? '{"deposited":0}')
   if (journal.poolId === undefined) {
@@ -91,13 +112,6 @@ export async function fundRewardPool(address: string, prepared: {roomId:string;r
     journal = {poolId:decoded.args.poolId.toString(),deposited:0}
     storage()?.setItem(key,JSON.stringify(journal))
   }
-  const assets = new Map<string,RewardSlot>()
-  for (const slot of config.slots) {
-    const identity = `${slot.asset_kind}:${slot.asset_contract.toLowerCase()}:${slot.token_id}`
-    const old = assets.get(identity)
-    assets.set(identity,{...slot,amount:(BigInt(slot.amount)+BigInt(old?.amount??0)).toString()})
-  }
-  const grouped = [...assets.values()]
   for (let i=journal.deposited;i<grouped.length;i++) {
     const asset = grouped[i], poolId=BigInt(journal.poolId!)
     if (asset.asset_kind !== 'eth') {

@@ -188,9 +188,7 @@ contract CreatorTokenGateTest is Test {
         vm.prank(joiner);
         creatorToken.approve(address(gate), FEE);
 
-        bytes32 raw = keccak256(
-            abi.encodePacked("ORBIX_CREATOR_JOIN_V1", address(gate), block.chainid, room, joiner, uint256(1))
-        );
+        bytes32 raw = gate.joinDigest(room, joiner, 1);
         bytes32 digest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", raw));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xA11CE1, digest); // wrong key
         vm.expectRevert();
@@ -206,9 +204,7 @@ contract CreatorTokenGateTest is Test {
         vm.prank(player);
         creatorToken.approve(address(gate), FEE);
 
-        bytes32 raw = keccak256(
-            abi.encodePacked("ORBIX_CREATOR_JOIN_V1", address(gate), block.chainid, room, player, uint256(7))
-        );
+        bytes32 raw = gate.joinDigest(room, player, 7);
         bytes32 digest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", raw));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(playerPk, digest);
         bytes memory sig = abi.encodePacked(r, s, v);

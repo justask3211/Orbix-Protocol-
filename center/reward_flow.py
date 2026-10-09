@@ -37,7 +37,10 @@ def call_data(signature, types=(), values=()):
 class RewardFlow:
     def __init__(self, store, rpc, chain_id=46630):
         self.store, self.rpc, self.chain_id = store, rpc, chain_id
-        self.engine = ENGINE
+        self.engine = os.environ.get("CENTER_REWARD_ENGINE", ENGINE).lower()
+        import re
+        if not re.fullmatch(r"0x[0-9a-f]{40}", self.engine) or int(self.engine, 16) == 0:
+            raise ValueError("CENTER_REWARD_ENGINE must be a nonzero EVM contract address")
         with store.tx() as c:
             c.execute("CREATE INDEX IF NOT EXISTS reward_winners ON entitlements(lower(winner),room_id)")
             c.execute("CREATE TABLE IF NOT EXISTS reward_bindings (room_id TEXT PRIMARY KEY, pool_id TEXT UNIQUE NOT NULL, binding_json TEXT NOT NULL)")
@@ -53,6 +56,22 @@ class RewardFlow:
         if int(str(self.rpc.call("eth_chainId", [])), 16) != self.chain_id:
             raise ChainError("Reward reader is on the wrong chain.")
 
+    def funding_status(self):
+        try:
+            self.chain()
+            version = self.read("safetyVersion()", [], [], ["uint256"])[0]
+            if version != 2:
+                raise ChainError("unsupported safety version")
+            return {"available": True, "engine": self.engine, "chainId": self.chain_id, "safetyVersion": version}
+        except (ChainError, OSError, ValueError):
+            return {"available": False, "engine": self.engine, "chainId": self.chain_id,
+                    "reason": "New reward funding is not available yet. The configured RewardEngine lacks the pool-isolation fixes from the rewards audit. Deploy the hardened version and configure both services before funding."}
+
+    def require_safe_funding(self):
+        status = self.funding_status()
+        if not status["available"]:
+            raise ValueError(status["reason"])
+
     def info(self, pool_id, block="latest"):
         return self.read("poolInfo(uint256)", ["uint256"], [int(pool_id)],
                          ["address", "bytes32", "uint8", "uint64", "uint8", "uint256", "bytes32", "string"], block)
@@ -63,6 +82,7 @@ class RewardFlow:
         return json.loads(row[0]) if row else None
 
     def verify_funding(self, room_id, creator, rewards, funding):
+        self.require_safe_funding()
         self.chain()
         pool_id = int(funding["poolId"])
         receipt = self.rpc.call("eth_getTransactionReceipt", [funding["txHash"]])
@@ -75,7 +95,7 @@ class RewardFlow:
                 raise ValueError("Open pool capacity does not match the configured prize slots.")
         if info[0].lower() != creator.lower() or info[1] != room_key(room_id):
             raise ValueError("Reward pool creator or room binding does not match.")
-        if info[2] != MODES[rewards.claim_mode] or info[3] != rewards.claim_deadline or info[4] != 0 or info[3] <= time.time() + 3600:
+        if info[2] != MODES[rewards.claim_mode] or info[3] != rewards.claim_deadline or info[4] != 0 or info[5] != 0 or info[3] <= time.time() + 3600:
             raise ValueError("Reward pool mode, active state or deadline does not match.")
         kinds, contracts, ids, amounts = self.read("poolAssets(uint256)", ["uint256"], [pool_id], ["uint8[]", "address[]", "uint256[]", "uint256[]"])
         expected, actual = defaultdict(int), defaultdict(int)
@@ -83,6 +103,12 @@ class RewardFlow:
             expected[(KINDS[slot.asset_kind], slot.asset_contract.lower(), slot.token_id)] += slot.amount
         for k, a, i, n in zip(kinds, contracts, ids, amounts):
             actual[(k, a.lower(), i)] += n
+        if any(n >= 2**256 for n in expected.values()):
+            raise ValueError("Total asset inventory exceeds uint256.")
+        expected_order = list(expected)
+        actual_order = [(k, a.lower(), i) for k, a, i in zip(kinds, contracts, ids)]
+        if actual_order != expected_order:
+            raise ValueError("Pool assets must use the canonical aggregated inventory and committed indices.")
         if dict(expected) != dict(actual):
             raise ValueError("Pool asset inventory does not match the promised rewards.")
         # Tie the submitted receipt to this pool, rather than accepting any old deposit.
@@ -199,9 +225,8 @@ class RewardFlow:
             for e in plan["allocations"]:
                 if plan["mode"] != "open" and e["winner"].lower() != who.lower():
                     continue
-                claimed = self.read("isClaimed(uint256,address)", ["uint256", "address"], [int(plan["poolId"]), who], ["bool"])[0]
+                claimed = self.read("isClaimed(uint256,address)", ["uint256", "address"], [int(plan["poolId"]), who], ["bool"])[0] if plan["mode"] in {"merkle", "open"} else False
                 item = {**e, "winner": who if plan["mode"] == "open" else e["winner"], "roomId": rid, "poolId": plan["poolId"], "engine": self.engine, "chainId": self.chain_id, "deadline": plan["deadline"], "mode": plan["mode"], "claimed": claimed, "payable": False}
-                if plan["mode"] not in {"merkle", "open"}: claimed = False
                 if claimed:
                     item["reason"] = "Already claimed on chain."
                 elif plan["deadline"] < time.time():

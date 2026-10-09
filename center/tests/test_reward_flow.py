@@ -51,6 +51,8 @@ class RewardRpc:
                 return '0x' + encode(['bool'], [self.claimed]).hex()
             if data.startswith(call_data('allocationInfo(uint256,uint256)')[:10]):
                 return '0x' + encode(['address','uint256','uint256','bool'], [self.creator,0,100,self.claimed]).hex()
+            if data == call_data('safetyVersion()'):
+                return '0x'+encode(['uint256'],[2]).hex()
             if data == call_data('authority()'):
                 return '0x' + encode(['address'], [self.signer]).hex()
             if params[0].get('from'):
@@ -162,6 +164,23 @@ def test_chain_failure_is_not_claimable(flow):
     h=sign_in(client,winner)
     rpc.chain='0x1'
     assert client.get(API_PREFIX+'/wallet/rewards',headers=h).status_code==503
+
+
+def test_claimed_wallet_flag_does_not_hide_an_unclaimed_code_allocation(flow):
+    _, client, rpc, _, _, _, winner, _ = flow
+    assert publish(flow).status_code == 200
+    settle(flow)
+    rpc.allocate(winner.address)
+    rpc.claimed = True  # The wallet already redeemed another allocation in this pool.
+    original = rpc.call
+    def per_slot(method, params):
+        if method == 'eth_call' and params[0]['data'].startswith(call_data('allocationInfo(uint256,uint256)')[:10]):
+            return '0x' + encode(['address', 'uint256', 'uint256', 'bool'], [winner.address, 0, 100, False]).hex()
+        return original(method, params)
+    rpc.call = per_slot
+    claim = client.get(API_PREFIX+'/wallet/rewards', headers=sign_in(client, winner)).json()['rewards'][0]
+    assert claim['payable'] and not claim['claimed']
+    assert claim['function'] == 'claimByCode'
 
 
 @pytest.mark.parametrize('kind,asset_id,token', [('eth',3,ZERO),('erc721',1,'0x'+'cd'*20),('erc1155',2,'0x'+'ef'*20)])
@@ -301,3 +320,33 @@ def test_schema_rejection_does_not_create_or_bind_a_pool(flow):
     assert response.status_code == 422
     with app.state.store.tx() as c:
         assert c.execute('SELECT COUNT(*) FROM reward_bindings').fetchone()[0] == 0
+
+
+def test_legacy_engine_cannot_request_new_funding_or_wallet_tx(flow):
+    app,client,rpc,cfg,headers,*_=flow
+    original=rpc.call
+    def legacy(method,params):
+        if method=='eth_call' and params[0]['data']==call_data('safetyVersion()'):
+            raise ChainError('legacy engine')
+        return original(method,params)
+    rpc.call=legacy
+    caps=client.get(API_PREFIX+'/rewards/capabilities').json()
+    assert not caps['available'] and 'pool-isolation' in caps['reason']
+    response=client.post(API_PREFIX+'/rooms/prepare-rewards',headers=headers,json={'config':cfg,'intentNonce':'no-legacy-funds'})
+    assert response.status_code==400 and 'not available yet' in response.text
+    assert app.state.rewards.binding(rpc.room_id) is None
+
+
+def test_pool_inventory_order_cannot_change_merkle_indices(flow):
+    app,_,rpc,cfg,_,host,*_=flow
+    from center.schema import RoomConfig, normalise_keys
+    cfg['rewards']['slots'].append({'rank':2,'asset_kind':'erc20','asset_contract':'0x'+'cd'*20,'amount':50})
+    rewards=RoomConfig(**normalise_keys(cfg)).rewards
+    original=rpc.call
+    def reordered(method,params):
+        if method=='eth_call' and params[0]['data'].startswith(call_data('poolAssets(uint256)')[:10]):
+            return '0x'+encode(['uint8[]','address[]','uint256[]','uint256[]'],[[0,0],['0x'+'cd'*20,rpc.token],[0,0],[50,100]]).hex()
+        return original(method,params)
+    rpc.call=reordered
+    with pytest.raises(ValueError,match='canonical'):
+        app.state.rewards.verify_funding(rpc.room_id,host.address,rewards,{'poolId':'7','txHash':'0x'+'12'*32})

@@ -512,6 +512,13 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
     # ------------------------------------------------------------------ rooms
 
+    @app.get(f"{API_PREFIX}/rewards/capabilities")
+    def reward_capabilities() -> dict:
+        status = app.state.rewards.funding_status()
+        if not flags.testnet_rewards:
+            status.update(available=False, reason="Funded rewards are not enabled on this deployment. You can review the setup; no funding transaction will be requested.")
+        return status
+
     @app.post(f"{API_PREFIX}/rooms/prepare-rewards")
     def prepare_rewards(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
@@ -525,6 +532,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         intent = publication_intent(who, config_hash, body.intentNonce)
         from center.reward_flow import room_key
         try:
+            app.state.rewards.require_safe_funding()
             root, _ = app.state.rewards.merkle(config.rewards)
         except ValueError as exc:
             raise HTTPException(400, detail={"code": "INVALID_CONFIG", "message": str(exc)})
