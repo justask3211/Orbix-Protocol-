@@ -8,7 +8,7 @@ const stage=process.argv[2]||'after',base=process.env.ORBIX_REVIEW_URL||'http://
   const page=await browser.newPage({viewport:{width:960,height:640}}),errors=[]
   page.on('pageerror',e=>errors.push(e.message));await page.goto(base)
   await page.waitForFunction(()=>window.orbixReview?.stats.ready,{},{timeout:60000});await page.waitForTimeout(2500)
-  await page.screenshot({path:`tools/tests/evidence/rst/${stage}.png`})
+  await page.screenshot({path:`tools/tests/evidence/rst/${stage}.png`,timeout:60000})
   await page.evaluate(()=>window.orbixReview.stats.frames.length=0);await page.waitForTimeout(10000)
   const stats=await page.evaluate(()=>{const s=window.orbixReview.stats,frames=s.frames.slice().sort((a,b)=>a-b);return {samples:frames.length,p50:frames[Math.floor(frames.length*.5)],p95:frames[Math.floor(frames.length*.95)],calls:s.calls,triangles:s.triangles}})
   assert.deepEqual(errors,[]);assert(stats.samples>=5,'Need at least five measured rendered intervals, not a synthetic FPS gate')

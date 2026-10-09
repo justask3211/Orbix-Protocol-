@@ -4,11 +4,12 @@ import { BufferAttribute, CanvasTexture, Color, InstancedMesh, Object3D, PlaneGe
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import type { GameWorldProps } from './GameWorld'
 import { terrainHeight, type TerrainTheme } from './terrain'
+import TokenOutpost, { outpostPathDistance } from '../framework/TokenOutpost'
 
 type EnvironmentProps = Pick<GameWorldProps, 'state' | 'game' | 'reducedMotion'>
 type Instance = { x: number; y: number; z: number; sx: number; sy: number; sz: number; yaw?: number; roll?: number; color: string }
 const PALETTES = {
-  island: { grass: '#73974c', earth: '#c5b080', stone: '#92907e', leaves: '#558147', shadowLeaves: '#2f6546', trunk: '#726049', water: '#367e99', metal: '#728b86', accent: '#e6af54' },
+  island: { grass: '#82b565', earth: '#e1c696', stone: '#a3a994', leaves: '#6aa45c', shadowLeaves: '#468566', trunk: '#8a6d52', water: '#3b9dab', metal: '#578e9e', accent: '#f1be70' },
   guardian: { grass: '#617961', earth: '#a89a81', stone: '#747d7b', leaves: '#486b61', shadowLeaves: '#305649', trunk: '#695e52', water: '#476d78', metal: '#788785', accent: '#87dcd0' },
   courtyard: { grass: '#70834d', earth: '#b8a486', stone: '#999488', leaves: '#627b48', shadowLeaves: '#496440', trunk: '#78614a', water: '#487b8d', metal: '#6d7375', accent: '#e6b867' },
 }
@@ -95,7 +96,7 @@ function Ground({ theme, hasTerrain }: { theme: TerrainTheme; hasTerrain: boolea
     for (let index = 0; index < positions.count; index++) {
       const x = positions.getX(index), z = positions.getZ(index), y = landscapeHeight(x, z, theme, hasTerrain)
       positions.setY(index, y)
-      const paths = Math.min(Math.abs(x - Math.sin(z * .12) * 2), Math.abs(z - Math.cos(x * .1) * 2.5))
+      const paths = theme === 'island' ? outpostPathDistance(x, z) : Math.min(Math.abs(x - Math.sin(z * .12) * 2), Math.abs(z - Math.cos(x * .1) * 2.5))
       const clearing = theme === 'courtyard' ? 1 - smooth(15, 23, Math.hypot(x, z)) : theme === 'guardian' ? 1 - smooth(4, 10, Math.hypot(x, z)) : 0
       const dirtMix = Math.max((1 - smooth(1.2, 3.3, paths)) * .85, clearing * .88, smooth(22, 40, Math.max(Math.abs(x), Math.abs(z))) * (theme === 'island' ? .98 : .35))
       color.copy(grass).lerp(dirt, dirtMix)
@@ -135,7 +136,7 @@ function Vegetation({ theme, hasTerrain, reducedMotion }: { theme: TerrainTheme;
     }
     for (let index = 0; index < 540; index++) {
       const x = (hash(index + 513) - .5) * 48, z = (hash(index + 915) - .5) * 48
-      const paths = Math.min(Math.abs(x - Math.sin(z * .12) * 2), Math.abs(z - Math.cos(x * .1) * 2.5))
+      const paths = theme === 'island' ? outpostPathDistance(x, z) : Math.min(Math.abs(x - Math.sin(z * .12) * 2), Math.abs(z - Math.cos(x * .1) * 2.5))
       if (paths < 2.4 || (theme === 'guardian' && Math.hypot(x, z) < 6) || (theme === 'courtyard' && Math.hypot(x, z) < 16)) continue
       const y = landscapeHeight(x, z, theme, hasTerrain), height = .12 + hash(index + 214) * .25
       for (let blade = 0; blade < 3; blade++) grasses.push({ x: x + blade * .035, y: y + height / 2, z, sx: .065, sy: height, sz: .02, yaw: index + blade * 1.2, roll: (blade - 1) * .18, color: blade === 1 ? palette.grass : palette.leaves })
@@ -153,8 +154,8 @@ function AuthoritativeCover({ item, theme }: { item: Record<string, any>; theme:
   useEffect(() => () => geometry.dispose(), [geometry])
   const bunker = item.kind === 'bunker'
   return <group position={[num(item.x), num(item.baseY), num(item.z)]}>
-    <mesh geometry={geometry} position={[0, height / 2, 0]} castShadow receiveShadow><meshStandardMaterial color={bunker ? palette.metal : palette.stone} roughness={bunker ? .65 : .98} metalness={bunker ? .22 : 0} /></mesh>
-    <mesh position={[0, height - .025, 0]}><boxGeometry args={[width * .87, .025, depth * .88]} /><meshStandardMaterial color={bunker ? '#aec2b7' : palette.grass} roughness={1} /></mesh>
+    <mesh geometry={geometry} position={[0, height / 2, 0]} castShadow receiveShadow><meshStandardMaterial color={theme === 'island' ? bunker ? '#5794a6' : '#cfb58a' : bunker ? palette.metal : palette.stone} roughness={bunker ? .65 : .98} metalness={bunker ? .22 : 0} /></mesh>
+    <mesh position={[0, height - .025, 0]}><boxGeometry args={[width * .87, .025, depth * .88]} /><meshStandardMaterial color={theme === 'island' ? bunker ? '#f0ba74' : '#e8d9ae' : bunker ? '#aec2b7' : palette.grass} roughness={1} /></mesh>
     {[.25, .64].map((part, index) => <mesh key={part} position={[0, height * part, depth / 2 - .005]}><boxGeometry args={[width * .98, index ? .045 : .025, .012]} /><meshStandardMaterial color={bunker ? palette.accent : '#686c62'} roughness={.8} /></mesh>)}
     {bunker && [-1, 1].map(side => <mesh key={side} position={[side * width * .34, height * .57, depth / 2 - .004]}><boxGeometry args={[.09, height * .62, .018]} /><meshStandardMaterial color="#334c52" roughness={.6} /></mesh>)}
   </group>
@@ -173,9 +174,9 @@ function VistaArchitecture({ theme, hasTerrain }: { theme: TerrainTheme; hasTerr
   if (theme === 'island') return <>
     <Batch entries={posts} shape="box" />
     <group position={[0, landscapeHeight(0, -27, theme, hasTerrain), -27]}>
-      <mesh position={[0, 1.5, 0]} castShadow><boxGeometry args={[8, 3, 4]} /><meshStandardMaterial color="#9aa790" roughness={.9} /></mesh>
-      <mesh position={[0, 3.1, 0]} rotation={[0, 0, .07]} castShadow><boxGeometry args={[9.2, .24, 5.2]} /><meshStandardMaterial color="#747c77" metalness={.2} roughness={.7} /></mesh>
-      <mesh position={[0, 1.4, 2.015]}><boxGeometry args={[2, 2.8, .035]} /><meshStandardMaterial color="#425c62" /></mesh>
+      <mesh position={[0, 1.5, 0]} castShadow><boxGeometry args={[8, 3, 4]} /><meshStandardMaterial color="#e1c799" roughness={.9} /></mesh>
+      <mesh position={[0, 3.1, 0]} rotation={[0, 0, .07]} castShadow><boxGeometry args={[9.2, .24, 5.2]} /><meshStandardMaterial color="#cc825d" metalness={.2} roughness={.7} /></mesh>
+      <mesh position={[0, 1.4, 2.015]}><boxGeometry args={[2, 2.8, .035]} /><meshStandardMaterial color="#527c8b" /></mesh>
       {[-1, 1].map(side => <mesh key={side} position={[side * 2.6, 1.75, 2.035]}><boxGeometry args={[1.7, 1, .05]} /><meshStandardMaterial color="#83b0b4" metalness={.4} roughness={.3} /></mesh>)}
       <mesh position={[3, 4.4, 0]}><cylinderGeometry args={[.07, .07, 3, 8]} /><meshStandardMaterial color="#4e666b" metalness={.6} /></mesh>
       <mesh position={[3, 5.6, 0]} rotation={[0, .4, .65]}><torusGeometry args={[.65, .055, 5, 16]} /><meshStandardMaterial color="#c5cebd" metalness={.3} /></mesh>
@@ -262,6 +263,7 @@ export default function FieldEnvironment({ state, game, reducedMotion }: Environ
   const theme: TerrainTheme = game === 'boss-raid' ? 'guardian' : game === 'combat-duel' ? 'courtyard' : 'island'
   const hasTerrain = state.terrain?.kind === 'field-v1'
   return <group>
+    {game === 'token-catch' && <TokenOutpost state={state} />}
     <Ground theme={theme} hasTerrain={hasTerrain} />
     <Water theme={theme} reducedMotion={reducedMotion} />
     <Vegetation theme={theme} hasTerrain={hasTerrain} reducedMotion={reducedMotion} />
