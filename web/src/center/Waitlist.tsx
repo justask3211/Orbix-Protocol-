@@ -28,7 +28,7 @@ function SubmitDialog({ roomId, options, session, onClose }: {roomId:string; opt
     catch (failure) { setError(explainError(failure)) }
     finally {setBusy(false)}
   }
-  return <div className="wl-backdrop" onClick={onClose} role="presentation"><div ref={dialog} tabIndex={-1} className="wl-modal" role="dialog" aria-modal="true" aria-label="Join the wallet waitlist" onClick={e=>e.stopPropagation()}>
+  return <div className="wl-backdrop" onClick={onClose} role="presentation"><div ref={dialog} tabIndex={-1} className="wl-modal ct-waitlist-modal" role="dialog" aria-modal="true" aria-label="Join the wallet waitlist" onClick={e=>e.stopPropagation()}>
     <button className="wl-close" onClick={onClose} aria-label="Close waitlist">×</button>
     <h3>Join the wallet waitlist</h3>
     {options.message && <p className="ct-waitlist-message">{options.message}</p>}
@@ -55,6 +55,12 @@ export function CreatorWaitlist({roomId,token,count}: {roomId:string;token:strin
   const [error,setError] = useState('')
   const [busy,setBusy] = useState(false)
   const [copied,setCopied] = useState(false)
+  useEffect(()=>{
+    if(count !== undefined)return
+    let active=true
+    center.waitlist(roomId,token).then(result=>{if(active)setData(result)}).catch(()=>{})
+    return ()=>{active=false}
+  },[roomId,token,count])
   const dialog = useModalFocus(()=>setOpen(false),open)
   const load = async () => {
     setOpen(true);setBusy(true);setError('');setCopied(false)
@@ -69,7 +75,7 @@ export function CreatorWaitlist({roomId,token,count}: {roomId:string;token:strin
       link.href=url;link.download='orbix-waitlist.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
     }catch(failure){setError(explainError(failure))}finally{setBusy(false)}
   }
-  return <><button className="btn-ghost" onClick={()=>void load()}>View waitlist ({data?.count ?? count ?? 0})</button>{open && <div className="wl-backdrop" onClick={()=>setOpen(false)} role="presentation"><div ref={dialog} tabIndex={-1} className="wl-modal" role="dialog" aria-modal="true" aria-label="Collected wallet waitlist" onClick={e=>e.stopPropagation()}>
+  return <><button className="btn-ghost" onClick={()=>void load()}>View waitlist ({data?.count ?? count ?? "…"})</button>{open && <div className="wl-backdrop" onClick={()=>setOpen(false)} role="presentation"><div ref={dialog} tabIndex={-1} className="wl-modal ct-waitlist-modal" role="dialog" aria-modal="true" aria-label="Collected wallet waitlist" onClick={e=>e.stopPropagation()}>
     <button className="wl-close" onClick={()=>setOpen(false)} aria-label="Close collected waitlist">×</button><h3>Collected wallet waitlist</h3>
     {busy && <p role="status">Loading…</p>}{data && <><p>{data.count} submissions · {data.uniqueWallets} unique addresses</p>{!data.count && <p>No player has submitted an address yet.</p>}<div className="ct-waitlist-entries">{data.entries.map(entry=><p className="ct-waitlist-wallet" key={entry.player}>{entry.wallet}</p>)}</div><div className="ct-actions"><button className="btn-primary" disabled={!data.count || busy} onClick={()=>void copyText([...new Set(data.entries.map(e=>e.wallet))].join('\n')).then(setCopied)}>{copied?'Copied':'Copy all addresses'}</button><button className="btn-ghost" disabled={busy} onClick={()=>void download()}>Download CSV</button></div></>}
     {error && <p className="err" role="alert">{error}</p>}<button className="btn-ghost" disabled={busy} onClick={()=>void load()}>Refresh list</button>

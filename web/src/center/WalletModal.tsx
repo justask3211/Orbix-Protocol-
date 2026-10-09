@@ -1,15 +1,29 @@
-// Wallet connect modal: connect an injected wallet OR generate a new one.
+// Wallet connect modal: injected/QR connectors, local generation and recovery.
 // The generate path reveals the private key exactly once with a copy button
 // and an unmissable warning; localStorage restores it on every later visit.
 
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { SessionState, GeneratedWallet } from './session'
-import { hasInjected, shortAddress } from './session'
+import { shortAddress } from './session'
+import { accountFromRecoveryKey } from './walletKeys'
+import { injectedConnectors, watchInjectedConnectors, walletConnectProjectId } from './walletConnectors'
+import { WalletMark } from './WalletMarks'
+const WalletQr = lazy(()=>import('./WalletQr'))
 import { copyText } from './share'
 import { useModalFocus } from './useModalFocus'
 
 export function WalletModal({ session, onClose, onConnected }: { session: SessionState; onClose: () => void; onConnected?: () => void }) {
   const [generated, setGenerated] = useState<GeneratedWallet | null>(null)
+  const [pairingUri,setPairingUri] = useState('')
+  const pairingAbort = useRef<AbortController | null>(null)
+  useEffect(()=>()=>{pairingAbort.current?.abort()},[])
+  const [connectors,setConnectors] = useState(injectedConnectors)
+  const [recovering,setRecovering] = useState(false)
+  const [recoveryKey,setRecoveryKey] = useState('')
+  let recoveryAddress = ''
+  let recoveryError = ''
+  if(recoveryKey)try{recoveryAddress=accountFromRecoveryKey(recoveryKey).address}catch(error){recoveryError=(error as Error).message}
+  useEffect(()=>watchInjectedConnectors(()=>setConnectors(injectedConnectors())),[])
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
   const [dismissError, setDismissError] = useState<string | null>(null)
@@ -17,9 +31,15 @@ export function WalletModal({ session, onClose, onConnected }: { session: Sessio
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   const dismiss = () => {
     if (generated && !copied) { setDismissError('Copy and save your recovery key before closing.'); return }
+    pairingAbort.current?.abort()
     onClose()
   }
   const dialog = useModalFocus(dismiss)
+  useEffect(()=>{
+    if(!pairingUri)return
+    const frame=requestAnimationFrame(()=>dialog.current?.querySelector<HTMLButtonElement>('.wl-pairing button')?.focus())
+    return ()=>cancelAnimationFrame(frame)
+  },[pairingUri,dialog])
   const connect = async (method: () => Promise<boolean>) => {
     if (busy || session.signingIn) return
     setBusy(true)
@@ -34,6 +54,13 @@ export function WalletModal({ session, onClose, onConnected }: { session: Sessio
     }
   }
 
+  const connectQr = () => {
+    const abort=new AbortController();pairingAbort.current=abort
+    void connect(async()=>{
+      try{return await session.connectWalletConnect(uri=>{if(mounted.current)setPairingUri(uri)},abort.signal)}
+      finally{if(mounted.current)setPairingUri('');pairingAbort.current=null}
+    })
+  }
   const doGenerate = () => {
     const w = session.generate()
     if (w) {
@@ -50,7 +77,7 @@ export function WalletModal({ session, onClose, onConnected }: { session: Sessio
 
   return (
     <div className="wl-backdrop" onClick={dismiss} role="presentation">
-      <div ref={dialog} tabIndex={-1} className="wl-modal" role="dialog" aria-modal="true" aria-label="Connect a wallet" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialog} tabIndex={-1} className="wl-modal wl-wallet-modal" role="dialog" aria-modal="true" aria-label="Connect a wallet" onClick={(e) => e.stopPropagation()}>
         <button className="wl-close" onClick={dismiss} aria-label="Close">✕</button>
         {dismissError && <p className="err" role="alert">{dismissError}</p>}
 
@@ -59,43 +86,42 @@ export function WalletModal({ session, onClose, onConnected }: { session: Sessio
             <h3>Connect a wallet</h3>
             <p className="wl-sub">Choose your wallet for Orbix. Signing in proves ownership with a message; it does not send a transaction.</p>
 
-            <button className="wl-option primary" disabled={busy || session.signingIn} onClick={() => { void connect(session.connectInjected) }}>
-              <span className="wl-icon wl-icon-metamask" aria-hidden="true">
-                <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-                  <path d="M23 3.5l-8.2 6.1 1.5-3.6L23 3.5z" fill="#E2761B"/>
-                  <path d="M3 3.5l8.1 6.2-1.4-3.7L3 3.5z" fill="#E4761B"/>
-                  <path d="M19.9 17.2l-2.2 3.4 4.7 1.3 1.4-4.6-3.9-.1zM2.2 17.3l1.4 4.6 4.7-1.3-2.2-3.4-3.9.1z" fill="#E4761B"/>
-                  <path d="M8 11.6l-1.3 2 4.6.2-.2-5L8 11.6zM18 11.6l-3.2-4.9-.1 5.1 4.6-.2-1.3-2z" fill="#E4761B"/>
-                  <path d="M8.3 20.6l2.8-1.4-2.4-1.9-.4 3.3zM14.9 19.2l2.8 1.4-.4-3.3-2.4 1.9z" fill="#D7C1B3"/>
-                  <path d="M17.7 20.6l-2.8-1.4.2 1.8v1.3l2.6-1.7zM8.3 20.6l2.6 1.7v-1.3l.2-1.8-2.8 1.4z" fill="#233447"/>
-                  <path d="M11 16.2l-2.3-.7 1.6-.8.7 1.5zM15 16.2l.7-1.5 1.6.8-2.3.7z" fill="#CD6116"/>
-                  <path d="M8.3 20.6l.5-3.4-2.6.1 2.1 3.3zM17.2 17.2l.5 3.4 2.1-3.3-2.6-.1zM19.3 13.6l-4.6.2.4 2.4.7-1.5 1.6.8-1.9-1.9zM8.7 15.5l1.6-.8.7 1.5.4-2.4-4.6-.2 1.9 1.9z" fill="#E4751F"/>
-                  <path d="M6.8 13.6l1.9 3.7-.1-1.8-1.8-1.9zM17.4 15.5l-.1 1.8 1.9-3.7-1.8 1.9zM11.4 13.8l-.4 2.4.5 2.6.1-3.4v-1.6zM14.7 13.8l-.2 1.6.1 3.4.5-2.6-.4-2.4z" fill="#233447"/>
-                </svg>
-              </span>
-              <span>
-                <b>Browser wallet</b>
-                <small>{hasInjected() ? 'MetaMask, Rainbow, Rabby — one signature to sign in.' : 'No wallet detected — installing MetaMask takes a minute.'}</small>
-              </span>
-              <span className="wl-arrow" aria-hidden="true">→</span>
-            </button>
+            <div hidden={Boolean(pairingUri)}>
+            <section aria-label="Connect an existing wallet" className="wl-connect-section">
+              <h4>Connect</h4>
+              {connectors.length ? connectors.map(connector=><button key={connector.id} className={`wl-option wl-tile-${connector.brand}`} disabled={busy || session.signingIn} onClick={()=>void connect(()=>session.connectInjected(connector.provider))}>
+                <span className="wl-icon"><WalletMark brand={connector.brand}/></span><span><b>{connector.name}</b><small>Detected in this browser · sign a message to continue</small></span><span className="wl-arrow" aria-hidden="true">→</span>
+              </button>) : <button className="wl-option wl-tile-metamask" disabled={busy || session.signingIn} onClick={()=>void connect(()=>session.connectInjected())}>
+                <span className="wl-icon"><WalletMark brand="metamask"/></span><span><b>MetaMask / browser wallet</b><small>No extension detected. MetaMask, Rainbow and Trust are supported.</small></span><span className="wl-arrow" aria-hidden="true">→</span>
+              </button>}
+              <button className="wl-option wl-tile-walletconnect" disabled={busy || session.signingIn || !walletConnectProjectId()} onClick={connectQr}>
+                <span className="wl-icon"><WalletMark brand="walletconnect"/></span><span><b>WalletConnect QR</b><small>{walletConnectProjectId()?'Scan with a mobile wallet · no connection fee':'QR connection is currently unavailable'}</small></span><span className="wl-arrow" aria-hidden="true">→</span>
+              </button>
+            </section>
+            <section aria-label="Generate or recover a wallet" className="wl-local-section">
+              <h4>Your Orbix wallet</h4>
+              <button className="wl-option wl-tile-generate" disabled={busy || session.signingIn} onClick={doGenerate}>
+                <span className="wl-icon"><WalletMark brand="generate"/></span><span><b>Generate new wallet</b><small>Created in this browser. Save the recovery key to return on any device.</small></span><span className="wl-arrow" aria-hidden="true">→</span>
+              </button>
+              <button className="wl-option wl-tile-recover" disabled={busy || session.signingIn} aria-expanded={recovering} onClick={()=>{setRecovering(!recovering);setRecoveryKey('')}}>
+                <span className="wl-icon"><WalletMark brand="recover"/></span><span><b>Recover with key</b><small>Bring back your saved wallet and profile. The key stays in this browser.</small></span><span className="wl-arrow" aria-hidden="true">{recovering?'−':'+'}</span>
+              </button>
+              {recovering && <form className="wl-import" onSubmit={e=>{e.preventDefault();const key=recoveryKey;setRecoveryKey('');void connect(()=>session.recover(key))}}>
+                <label>Saved private key<input type="password" value={recoveryKey} onChange={e=>setRecoveryKey(e.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder="0x + 64 hexadecimal characters" aria-invalid={Boolean(recoveryError)}/></label>
+                {recoveryError && <p className="err" role="alert">{recoveryError}</p>}
+                {recoveryAddress && <p className="wl-recovered-address">Wallet: {shortAddress(recoveryAddress,6)}</p>}
+                <p className="muted">Orbix-generated wallets use a private key, not a seed phrase. Recovery signs you in locally; only your address and signature go to Orbix.</p>
+                <button className="btn-primary" disabled={!recoveryAddress || busy || session.signingIn}>Recover and sign in</button>
+              </form>}
+            </section>
 
-            <button className="wl-option" disabled={busy || session.signingIn} onClick={doGenerate}>
-              <span className="wl-icon wl-icon-generate" aria-hidden="true">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="9" stroke="#ff6b22" strokeWidth="1.5" strokeOpacity="0.55" />
-                  <path d="M12 6.5l1.6 3.4 3.4 1.6-3.4 1.6L12 16.5l-1.6-3.4L7 11.5l3.4-1.6L12 6.5z" fill="#ff6b22" />
-                  <circle cx="12" cy="12" r="2.1" fill="#0e1012" />
-                  <circle cx="12" cy="12" r="1.1" fill="#ffd166" />
-                </svg>
-              </span>
-              <span>
-                <b>Generate new wallet</b>
-                <small>One tap. We create an EVM key in this browser and save it — you get a recovery key to copy.</small>
-              </span>
-              <span className="wl-arrow" aria-hidden="true">→</span>
-            </button>
-
+            </div>
+            {pairingUri && <div className="wl-pairing" role="region" aria-label="WalletConnect pairing">
+              <h4>Scan with your mobile wallet</h4>
+              <Suspense fallback={<p role="status">Preparing your QR code…</p>}><WalletQr uri={pairingUri}/></Suspense>
+              <p className="muted">Approve the connection, then sign the Orbix sign-in message in your wallet. No transaction is requested.</p>
+              <div className="ct-actions"><button className="btn-ghost" onClick={()=>void copyText(pairingUri)}>Copy connection link</button><button className="btn-ghost" onClick={()=>pairingAbort.current?.abort()}>Cancel QR connection</button></div>
+            </div>}
             {busy && <p className="muted">Waiting for your wallet…</p>}
           </>
         ) : (

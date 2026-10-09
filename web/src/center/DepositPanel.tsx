@@ -1,3 +1,4 @@
+import { activeWalletProvider } from './walletConnectors'
 // Deposit flow — real contract invocation from the connected wallet.
 //
 // Contract deposit (default tab):
@@ -47,7 +48,7 @@ type EthProvider = {
 }
 
 async function eth(): Promise<EthProvider> {
-  const p = (window as any).ethereum as EthProvider | undefined
+  const p = activeWalletProvider() ?? (window as any).ethereum as EthProvider | undefined
   if (!p) throw new Error('Connect a browser wallet to make a contract deposit.')
   return p
 }

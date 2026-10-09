@@ -1,3 +1,4 @@
+import { activeWalletProvider } from './walletConnectors.ts'
 import { decodeEventLog, encodeFunctionData, parseAbi, type Address, type Hex } from 'viem'
 
 export const REWARD_ENGINE: Address = '0x5b8d41421b9a6701cb7948e724234cb9b1eb8e1b'
@@ -44,7 +45,7 @@ export async function waitRewardReceipt(wallet: Wallet, hash: string, timeout = 
   throw new Error(`Transaction is still pending. Retry to check its receipt (${hash}).`)
 }
 export async function rewardWallet(address: string, injected?: Wallet): Promise<Wallet> {
-  const wallet = injected ?? (window as unknown as {ethereum?: Wallet}).ethereum
+  const wallet = injected ?? activeWalletProvider() ?? (window as unknown as {ethereum?: Wallet}).ethereum
   if (!wallet) throw new Error('Connect a browser wallet to fund or claim rewards.')
   if (String(await wallet.request({method:'eth_chainId'})).toLowerCase() !== '0xb626') {
     try { await wallet.request({method:'wallet_switchEthereumChain', params:[{chainId:'0xb626'}]}) }
