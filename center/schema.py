@@ -384,6 +384,18 @@ class Rewards(Strict):
         return self
 
 
+class Waitlist(Strict):
+    enabled: bool = Field(default=False, strict=True)
+    message: str = Field(default="", max_length=280)
+
+    @model_validator(mode="after")
+    def _readable(self) -> "Waitlist":
+        if any(ord(char) < 32 and char not in "\n\t" for char in self.message):
+            raise ValueError("waitlist message must contain readable text")
+        self.message = self.message.strip()
+        return self
+
+
 class Branding(Strict):
     preset: Literal["solar", "teal", "graphite"] = "solar"
     logo_asset_id: str | None = None
@@ -426,6 +438,7 @@ class RoomConfig(Strict):
     access: Access = Field(default_factory=Access)
     entry: Entry = Field(default_factory=Entry)
     rewards: Rewards = Field(default_factory=Rewards)
+    waitlist: Waitlist = Field(default_factory=Waitlist)
     branding: Branding = Field(default_factory=Branding)
     community_settings: CommunityOptions = Field(default_factory=CommunityOptions)
 
@@ -483,9 +496,9 @@ class RoomConfig(Strict):
 
         Includes hidden answers so a settled round is bound to the exact quiz key.
         """
-        # Moderation and creator hints are mutable room community metadata. They
+        # Moderation, creator hints and optional address collection are room metadata. They
         # must not change a gameplay/reward commitment or its restart hash.
-        return json.dumps(self.model_dump(mode="json", by_alias=True, exclude={"community_settings"}), sort_keys=True, separators=(",", ":"))
+        return json.dumps(self.model_dump(mode="json", by_alias=True, exclude={"community_settings", "waitlist"}), sort_keys=True, separators=(",", ":"))
 
     def reward_slot_count(self) -> int:
         if self.rewards.kind == "funded-assets":

@@ -1,3 +1,4 @@
+import { CreatorWaitlist } from "./Waitlist"
 // Two option cards under the header: Create | Join.
 // Create shows the creator's active rooms on top so they can jump back in.
 // Join shows the room-ID box and the list of public rooms below it.
@@ -17,6 +18,8 @@ type MyRoom = {
   closeAt: number | null
   scheduled: string | null
   expiring: string | null
+  waitlistEnabled?: boolean
+  waitlistCount?: number
   active: boolean
 }
 
@@ -154,6 +157,7 @@ export function ActionCards({ session, go }: {
                 No active rooms yet. Create one and it will show here for quick access.
               </p>
             )}
+            {session.token && myRooms.filter(r=>r.waitlistEnabled).map(r=><div key={r.roomId}><b>{r.name}</b><CreatorWaitlist roomId={r.roomId} token={session.token!} count={r.waitlistCount}/></div>)}
             {!session.token && (
               <p className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>
                 Connect a wallet to create a room and track it here.

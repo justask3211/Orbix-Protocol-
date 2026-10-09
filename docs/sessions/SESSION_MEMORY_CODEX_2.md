@@ -204,3 +204,11 @@ Deployed to Railway by the Hermes agent session after this file was pushed:
 **Contract constraints:** The requested Auto prompt uses Code mode on the same engine because deployed Auto cannot redeem a code. Creator-only `setAllocation` is exposed as a confirmed host-wallet step after authoritative results. Merkle recipients must be committed before funding. Open pools do not reserve rewards for winners. Private-key delivery remains unimplemented; its UI explains off-chain setup and blocks publishing it as a funded pool.
 
 **Verification:** 525 pytest tests, 15 mocked-wallet tests, `tsc -b --noEmit` and production build passed; desktop/390/320 px Chromium verified the non-money UI. Live `eth_call` verified RewardEngine authority and zero pool count on Robinhood 46630; pool/claim paths used mocked chain readers. **No live transactions were performed. No Railway deployment.** Unrelated pre-existing source and build edits were excluded from these commits.
+
+## 2026-10-09 — Phase G + H: waitlist collection and wallet overhaul
+
+User intent (verbatim summary): waitlist collection option + wallet import/recovery + connector overhaul.
+
+Phase G adds optional `waitlist.enabled` and a creator message of up to 280 characters. After an authoritative finished match, every actual participant can explicitly submit any valid EVM address; no address is collected automatically, and no reward is promised. The first entry is retained per player per room. Owner-only JSON and CSV reads include submission/unique-address counts, with durable rate limiting and hash-chain audit entries. Step 4, results and creator room listings expose the flow. Waitlist metadata does not alter gameplay or settlement commitments.
+
+Phase G checks: eight backend regressions pass (disabled/bounds, winner and non-winner, arbitrary address, validation, explicit submission, dedupe, persistence, owner-only CSV/JSON, rate limit and audit integrity); `tsc --noEmit` passes. Final full-suite and browser evidence will be recorded with Phase H. Existing working-tree edits and generated artifacts were present at task start and are preserved outside the phase commit.

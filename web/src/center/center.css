@@ -832,3 +832,14 @@ html{scroll-behavior:smooth}
 .guess-log-number{color:#f2f0ec;font-weight:600}
 .guess-log-hit{color:#a4d46d;font-size:11px}
 .guess-log-hint{color:#ffd166;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+
+/* Explicit address sharing: all text remains readable on narrow phones. */
+.ct-waitlist-setup{border:1px solid var(--line);border-radius:14px;padding:16px;margin:0 0 20px;min-width:0}
+.ct-waitlist-setup legend{padding:0 6px;font-weight:700}
+.ct-waitlist-setup input[type=checkbox]{width:auto;margin-right:8px}
+.ct-waitlist-setup textarea{display:block;width:100%;box-sizing:border-box;margin-top:8px}
+.ct-waitlist-message{white-space:pre-wrap;overflow-wrap:anywhere;border-left:3px solid var(--orange);padding-left:12px}
+.ct-waitlist-wallet{font-family:monospace;overflow-wrap:anywhere;font-size:12px}
+.ct-waitlist-entries{max-height:35dvh;overflow:auto}
+.wl-modal{max-height:calc(100dvh - 32px);overflow:auto;box-sizing:border-box}
+.wl-modal input{width:100%;box-sizing:border-box;min-width:0;margin-top:8px}

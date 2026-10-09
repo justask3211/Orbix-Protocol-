@@ -1,3 +1,4 @@
+import { WaitlistSetup, ResultWaitlist, CreatorWaitlist, type WaitlistOptions } from "./Waitlist"
 import { FundedRewardsSetup, MyRewards, CreatorRewardAllocation, initialRewardSettings, rewardConfig, type RewardSettings } from './FundedRewards'
 import { fundRewardPool, type Funding } from './rewardWallet'
 // Orbix Center — the creator game/quiz platform inside orbixcore.fun.
@@ -347,6 +348,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
   const [edited, setEdited] = useState(false)
   const [communityOptions, setCommunityOptions] = useState({mute_chat: false, hide_players: false, hide_guesses: false})
   const [timedHints, setTimedHints] = useState<{delay_seconds: number; text: string}[]>([])
+  const [waitlist, setWaitlist] = useState<WaitlistOptions>({enabled:false,message:""})
   const [rewardSettings, setRewardSettings] = useState<RewardSettings>(initialRewardSettings)
   const [sourceConfig, setSourceConfig] = useState<Record<string, unknown> | null>(null)
   const [sourceLoading, setSourceLoading] = useState(Boolean(fromRoom))
@@ -357,6 +359,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
     try {
       const saved = JSON.parse(raw) as {config:Record<string,any>;rewards:ReturnType<typeof rewardConfig>}
       const config=saved.config, reward=saved.rewards, slot=reward.slots[0]
+      setWaitlist(config.waitlist ?? {enabled:false,message:""})
       const deadline=new Date(reward.claim_deadline*1000)
       setRewardSettings({...initialRewardSettings(),enabled:true,kind:slot.asset_kind,token:slot.asset_contract,amount:slot.amount,tokenId:slot.token_id,count:reward.slots.length,mode:reward.claim_mode,deadline:new Date(deadline.getTime()-deadline.getTimezoneOffset()*60000).toISOString().slice(0,16),recipients:reward.merkle_winners.join(', ')})
       setDraft(previous=>({...previous,templateId:config.template_id,name:config.name,description:config.description??'',visibility:config.visibility,rules:config.rules,durationSeconds:config.rules.duration_seconds??previous.durationSeconds,playerCap:config.admission.player_cap,minReady:config.admission.min_ready_to_start,requiredAmount:config.access.required_amount??0,joinerFee:config.access.joiner_fee??0,absorbsJoinerFee:config.access.creator_absorbs_joiner_fee,entryToken:config.entry.kind==='erc20'?config.entry.token:'',entryAmount:config.entry.amount??0}))
@@ -376,6 +379,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       const config = source.config, rules = config.rules as Record<string,unknown>, access = config.access as Record<string,unknown>, entry = config.entry as Record<string,unknown>, admission = config.admission as Record<string,unknown>, rewards = config.rewards as {kind:string;slots?:{points?:number}[]}
       const templateId = String(config.template_id)
       setSourceConfig(config)
+      setWaitlist((config.waitlist as WaitlistOptions) ?? {enabled:false,message:""})
       if (rewards.kind === 'funded-assets') {
         const original = config.rewards as unknown as {claim_mode?:RewardSettings['mode'];merkle_winners?:string[];slots:{asset_kind:RewardSettings['kind'];asset_contract:string;amount:string|number;token_id:string|number}[]}
         const slot = original.slots[0]
@@ -539,6 +543,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
         ? { kind: 'erc20' as const, token: draft.entryToken.trim(), amount: draft.entryAmount }
         : { kind: 'free' as const },
       rewards: { kind: 'preview-points', slots: Number(draft.rules.world_version)>=3 && ['token-catch','boss-raid'].includes(draft.templateId) ? [{rank:1,points:draft.templateId==='token-catch'?Number(draft.rules.loot_budget):draft.rewardPoints}] : [{ rank: 1, points: draft.rewardPoints }, { rank: 2, points: Math.round(draft.rewardPoints / 2) }] },
+      waitlist,
       branding: { preset: 'solar' },
       community_settings: {...communityOptions, timed_hints: timedHints.filter(h => h.text.trim()).map(h => ({...h, text: h.text.trim()}))},
     }
@@ -806,6 +811,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       <section className="ct-panel" id="wiz-fees" hidden={wizardStep !== 4}>
         <h2>4 · Fees & rewards</h2>
         {fundingLocked && <p role="status">A funded publication is in progress. Publish again to resume its saved configuration and check pending receipts.</p>}
+        <WaitlistSetup value={waitlist} disabled={busy || fundingLocked} onChange={value=>{setWaitlist(value);setEdited(true)}}/>
         <FundedRewardsSetup settings={rewardSettings} disabled={busy || fundingLocked} onChange={value=>{setRewardSettings(value);setEdited(true)}}/>
         <p className="muted">{sourceOnchain ? 'This copy retains the original onchain vault and its token units. New entry and reward funding are separate transactions.' : 'What it costs to play, what the winner takes, and who pays the joiner fee. These room fees use preview credits. Token entry, when configured, requires a separate wallet transaction.'}</p>
         <div className="ct-form">
@@ -1349,6 +1355,8 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       {rewardKind === 'funded-assets' && isHost && finished && <CreatorRewardAllocation session={session} roomId={roomId}/>}
       {isHost && finished && room && <section className="ct-rematch-panel"><div><span>KEEP THE CREW TOGETHER</span><h2>One more round?</h2><p>{room.rematch?.supported ? 'Keep this room and its players. Each match gets its own result, and everyone confirms readiness again.' : 'This room uses a financial entry or funded reward. A fresh room and funding are required for the next match.'}</p></div><div className="ct-actions">{room.rematch?.supported ? <><button className="btn-primary" disabled={busy} onClick={() => void playAgain()}>Play again · same settings</button><button className="btn-ghost" disabled={busy} onClick={() => setEditingRematch(true)}>Edit next match</button></> : <button className="btn-primary" onClick={() => go(`/center/create/${templateId}?from=${roomId}`)}>Prepare a fresh room</button>}</div></section>}
       {editingRematch && room && <Suspense fallback={<p role="status">Opening next-match settings…</p>}><RematchSettings room={room} onClose={() => setEditingRematch(false)} onSave={playAgain} /></Suspense>}
+      {isHost && session.token && Boolean((room?.config.waitlist as WaitlistOptions | undefined)?.enabled) && <CreatorWaitlist roomId={roomId} token={session.token}/>}
+      {finished && amPlayer && session.token && Boolean((room?.config.waitlist as WaitlistOptions | undefined)?.enabled) && <ResultWaitlist key={`${roomId}:${me}`} roomId={roomId} roundId={currentRound} options={room!.config.waitlist as WaitlistOptions} session={session}/>}
       {finished && <section ref={resultElement} className="ct-round-results" tabIndex={-1} aria-label="Round results">
       {!settlement && <div role="status"><h2>Round complete</h2><p>{room?.settlementAccess === 'session-required' ? 'Sign in with the wallet you used for this round to view your results and rewards. Your session may have expired.' : room?.settlementAccess === 'admission-required' ? 'Results and rewards are available to admitted players. This wallet did not join this round.' : 'The server is finalizing placements. You can retry while settlement completes.'}</p><button className="btn-ghost" onClick={() => void refresh()}>Retry results</button></div>}
       {settlement && podium.length > 0 && <Suspense fallback={<p role="status">Raising the winners’ podium…</p>}><WinnerCelebration winners={podium} me={me} localPlacement={placement} onPresented={onPodiumPresented} teamMode={templateId === 'boss-raid'} /></Suspense>}
