@@ -227,3 +227,97 @@ Shipping:
 - Phase P commit: `24a8cd00`. Phase Q is a separate commit including the final renderer, regressions, captured review evidence and refreshed checked-in cockpit/Center bundles. The deployment Docker image consumes those bundles, so rebuilding them is necessary for Hermes to ship the new UI.
 - Pre-existing generated bundles were backed up before replacement at `/tmp/orbix-preexisting-generated-bundles.tar`. Pre-existing tracked Python bytecode and deployment broadcast receipts remain untouched/uncommitted. No Railway command or on-chain transaction was issued.
 - Security note: an existing credential embedded in the Git remote appeared during remote inspection. It was not copied into repo artifacts; subsequent Git output is redacted. Rotate that credential.
+
+## 2026-10-09 — Phases R0/R1/R2/S/T: engine analysis and shared V4 framework
+
+User directive, verbatim essence: “Use the open source things and engines it
+mentioned: Babylon.js, PlayCanvas, Godot engine and more — proper analysis, plan,
+and extract everything's skills and all stuff, and everything mapped, and upgrade
+the entire thing.” User explicitly required analysis BEFORE runtime code, a system
+migration map, shared framework, one polished slice, untouched server authority
+and money flows, CC0/MIT additions, per-phase commits, full verification/browser
+evidence, push master:main, and NO Railway deployment.
+
+- R0 `b02234ef`: primary-source engine analysis and an external pinned benchmark.
+  R1 `6125b9a8`: every controller/animation/camera/environment/health/loading/netcode/
+  asset system mapped. R2 `776d74ad`: shared presentation implementation. S
+  `4a068703`: Sunnydrop Token Catch connected routes and instanced outpost dressing.
+  T carries final telemetry, mobile Dodge, lifecycle/acceptance evidence and rebuilt
+  checked-in web bundles. Python/contract sources and wallet/session/reward source
+  are unchanged; pre-existing tracked bytecode is excluded from commits.
+- Keep Three.js/R3F + existing Python authority. Babylon runtime REJECTED: duplicate
+  renderer/resource ownership, migration cost, Apache-2.0 outside this task's license
+  rule. PlayCanvas runtime REJECTED as redundant; MIT engine/editor GLB hierarchy
+  export is a documented optional authoring workflow. Godot web runtime REJECTED:
+  rewrite/WASM/embedding costs, Compatibility WebGL2 and threaded export isolation
+  constraints; single-thread export exists. Godot MIT offline GLB authoring accepted
+  as an option; no editor roundtrip was performed.
+- Rapier is **Apache-2.0, not MIT** (installed 0.21.0); REJECTED by the license rule
+  and measured full-API compat payload 1,645,473 gzip bytes. Jolt MIT REJECTED for
+  952,524 gzip bytes/native binding ownership when dynamic physics is unnecessary.
+  Selected cannon-es 0.20.0 MIT: full API 36,161 gzip bytes, actual ten-ray/forty-box
+  camera queries p95 .0627 ms on Node/Linux x64. No `World.step`, actor rigid bodies
+  or client outcome simulation. Full-API sizes are not minimal tree-shaken bundles;
+  dynamic solver benchmark is noisy and cannot rank phone performance.
+- Read actual MIT VRM Game Starter FootIK/CameraRig/BVHEcctrl and OpenCombat server
+  movement/lifecycle sources at pinned revisions. Independently adopted stance IK,
+  collision-after-easing, bounded response and intent/state separation techniques;
+  no reference code/models copied. Mixamo/VRoid samples REJECTED (not CC0/MIT).
+  Existing 20 Quaternius CC0 clips/GLBs unchanged; original procedural assets only.
+  See docs/research/framework-license-ledger.md and docs/licenses/cannon-es-MIT.txt.
+- All three V4 games consume typed two-layer animation FSM/blend times, one-shot
+  cosmetic contact windows, bounded foot stance IK, static surface/camera queries,
+  look-ahead and shared published-HP feedback for players AND guardian. Texture/
+  shader/actual-frame warmup is shared. Token Catch chosen because pickups, terrain,
+  cover and rival combat exercise the whole layer; only its composition is rebuilt.
+  Reduced motion suppresses decorative recoil/flash/contact/lead. The touch Dodge
+  button uses the existing authoritative action; no server or money behavior changes.
+- Physical acceleration/automatic cover step-up/new roll displacement are deliberately
+  NOT claimed: current authority uses immediate velocity, support/jump and dodge.
+  Camera/gait response, slope/step foot placement and accepted dodge are implemented.
+  Changing simulation requires a separate server rules change, conflicting with this
+  task's server-untouched instruction. Animation windows never inflict damage.
+- Stray tools/tests/framework-browser.cjs and web/framework-review.html were inspected
+  and retained/repaired as development review tools, with a deterministic actual V4
+  scene and mount/update API. The requested ChatGPT review is absent in the checkout
+  and searchable local Git history; exact Phase 1–4 compliance remains UNPROVEN.
+  animation-loading-research.md was recovered verbatim from commit 3e3fb98e.
+- Final checks: complete `pytest center/tests tests` **597 tests**, all pass; default
+  center run separately **576 passed**; full Forge **162 passed** in 16 suites;
+  all web/Center Node unit tests **41 passed**; **17 regression scripts passed**
+  including 144 actor states, 72 real gait/mixer cases and 84 rendered character
+  frames; TypeScript noEmit and production Vite build pass. Existing browser flows
+  cover all three actual V4 practice worlds, authenticated character lobby/match,
+  podium fixtures, reward/form wizards, admin, wallet recovery/waitlist/CSV and mocked
+  WalletConnect with real server signatures. Old test harness imports/selectors were
+  updated to the current UI without removing security/consent/export assertions.
+- Five actual scene unmount/remount cycles: renderer counts stable at 70 geometries/
+  6 textures mounted, 1/1 unmounted; this does not measure total heap or VRAM. Shared
+  health screenshot uses synthetic published HP only. Before/after fixed scene:
+  58→63 calls and 122,464→124,246 triangles, within scene ceilings; SwiftShader
+  p95 1410.5→813.6 ms, **frame-time gate FAILS**. No speed/device-performance claim.
+  Telemetry includes long frames and uses bounded DPR hysteresis down to .65.
+- Older per-character 10k/one-palette-draw target is exceeded by existing mascots
+  (peak 14,072 triangles/five groups). Phone GPU/thermal/latency, heap/texture bytes,
+  animation CPU, controlled cold-network launch, offline editor roundtrips and live
+  relay/hardware/funded on-chain flows remain unproven. GLBs total 2,975,856 raw,
+  1,888,701 filesystem-gzip bytes; excludes code and is not hosting compression.
+  See docs/research/framework-validation.md and tools/tests/evidence/rst.
+- Shipping destination is master:main; push verification is reported in the final
+  response. No Railway command/deployment or on-chain transaction was issued.
+- Mobile touch-emulation browser passed portrait/inert gating, landscape entry,
+  reduced motion/fast tier, accepted move/jump/dodge, first/third-person and two
+  fullscreen entry/exit cycles. Native fullscreen emulation uses a landscape
+  screen matching rotation. Selected asset network responses totaled 5,335,985
+  encoded bytes (5.09 MiB) on the uncompressed local host: **3 MiB budget FAILS**
+  there; no production-compression or reference-phone certification.
+
+- Final mobile capture check exposed camera pointer capture stealing the performance
+  disclosure click. Interactive controls now bypass camera drag and Space on the
+  disclosure uses native activation; the browser checks pointer/keyboard opening
+  without submitting a gameplay jump. The final capture waits for restarted-world
+  warmup, rather than retaining a loading-screen image.
+
+- V4 browser movement regression now tries a real sidestep if a spawn faces solid
+  cover, retaining the original >0.5 m displacement assertion. This corrects a
+  clear-path assumption without changing collision or gameplay rules.

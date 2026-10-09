@@ -1,0 +1,57 @@
+{
+  "cycles": [
+    {
+      "unmounted": {
+        "geometries": 1,
+        "textures": 1
+      },
+      "mounted": {
+        "geometries": 70,
+        "textures": 6
+      }
+    },
+    {
+      "unmounted": {
+        "geometries": 1,
+        "textures": 1
+      },
+      "mounted": {
+        "geometries": 70,
+        "textures": 6
+      }
+    },
+    {
+      "unmounted": {
+        "geometries": 1,
+        "textures": 1
+      },
+      "mounted": {
+        "geometries": 70,
+        "textures": 6
+      }
+    },
+    {
+      "unmounted": {
+        "geometries": 1,
+        "textures": 1
+      },
+      "mounted": {
+        "geometries": 70,
+        "textures": 6
+      }
+    },
+    {
+      "unmounted": {
+        "geometries": 1,
+        "textures": 1
+      },
+      "mounted": {
+        "geometries": 70,
+        "textures": 6
+      }
+    }
+  ],
+  "pageErrors": [],
+  "fixture": "real mounted V4 scene; synthetic published-HP display signals only; no authority claim",
+  "cachedGLBs": "retained intentionally by useLoader; this checks renderer counts, not total heap/VRAM"
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "game": "combat-duel",
+    "worldVersion": 4,
+    "loading": true,
+    "acceptedMovement": true,
+    "acceptedJump": true,
+    "pageErrors": [],
+    "renderer": "Chromium SwiftShader; no physical-device FPS claim"
+  },
+  {
+    "game": "boss-raid",
+    "worldVersion": 4,
+    "loading": true,
+    "acceptedMovement": true,
+    "acceptedJump": true,
+    "pageErrors": [],
+    "renderer": "Chromium SwiftShader; no physical-device FPS claim"
+  },
+  {
+    "game": "token-catch",
+    "worldVersion": 4,
+    "loading": true,
+    "acceptedMovement": true,
+    "acceptedJump": true,
+    "pageErrors": [],
+    "renderer": "Chromium SwiftShader; no physical-device FPS claim"
+  }
+]

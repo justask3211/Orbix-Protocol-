@@ -5,8 +5,9 @@ import type { GameWorldProps, WorldQuality } from './GameWorld'
 import ArenaWorld from './ArenaWorld'
 import FieldLighting from './FieldLighting'
 import { WorldWarmup } from '../framework/warmup'
+import { FrameMonitor, type FrameMetrics } from '../framework/performance'
 
-type SceneProps = GameWorldProps & { active: boolean; quality: WorldQuality; onFps: (fps: number) => void; onContextLost: () => void; onReady: () => void; fallback: ReactNode }
+type SceneProps = GameWorldProps & { active: boolean; quality: WorldQuality; onMetrics: (metrics: FrameMetrics) => void; onContextLost: () => void; onReady: () => void; fallback: ReactNode }
 type Vec3 = [number, number, number]
 type WorldProps = GameWorldProps & { reducedMotion: boolean }
 const COLORS = ['#fb936d', '#b899f4', '#61cfcd', '#f4c766', '#87d780', '#8dbaf5']
@@ -375,17 +376,7 @@ function RendererLifecycle({ onContextLost }: { onContextLost: () => void }) {
   return null
 }
 
-function FrameRate({ onFps }: { onFps: (fps: number) => void }) {
-  const elapsed = useRef(0), frames = useRef(0)
-  useFrame((_, delta) => {
-    if (delta > .3) { elapsed.current = 0; frames.current = 0; return }
-    elapsed.current += delta; frames.current++
-    if (elapsed.current >= 1.5) { onFps(Math.round(frames.current / elapsed.current)); elapsed.current = 0; frames.current = 0 }
-  })
-  return null
-}
-
-export default function WorldScene({ active, fallback, onContextLost, onReady, quality, onFps, ...props }: SceneProps) {
+export default function WorldScene({ active, fallback, onContextLost, onReady, quality, onMetrics, ...props }: SceneProps) {
   const detailed = Number(props.state.worldVersion) >= 4
   const [assetsReady, setAssetsReady] = useState(false)
   const handleAssetsReady = useCallback(() => setAssetsReady(true), [])
@@ -410,7 +401,7 @@ export default function WorldScene({ active, fallback, onContextLost, onReady, q
     <hemisphereLight args={['#fff8e8', '#7988b3', 1.5]} />
     <directionalLight position={[-4, 9, 6]} intensity={2.1} color="#fff2df" />
     <directionalLight position={[6, 5, -4]} intensity={1.3} color="#dedaff" /></>}
-    <CameraRig arena={Boolean(props.state.arena)} width={Number(props.state.bounds?.width) || 20} depth={Number(props.state.bounds?.depth) || 16} /><RendererLifecycle onContextLost={onContextLost} /><FrameRate onFps={onFps} />
+    <CameraRig arena={Boolean(props.state.arena)} width={Number(props.state.bounds?.width) || 20} depth={Number(props.state.bounds?.depth) || 16} /><RendererLifecycle onContextLost={onContextLost} /><FrameMonitor quality={quality} onMetrics={onMetrics} />
     {props.state.arena ? <ArenaWorld {...props} onAssetsReady={detailed ? handleAssetsReady : onReady} /> : <GameScene {...props} reducedMotion={props.reducedMotion ?? false} />}
   </Canvas>
 }

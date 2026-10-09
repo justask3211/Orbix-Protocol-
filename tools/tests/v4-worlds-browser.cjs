@@ -6,7 +6,9 @@ const base=process.env.ORBIX_BASE_URL||'http://127.0.0.1:8099'
  const browser=await chromium.launch({args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']})
  try{
  const evidence=[]
- for(const game of ['combat-duel','boss-raid','token-catch']){
+ const games=process.env.ORBIX_WORLD_GAMES?.split(',')||['combat-duel','boss-raid','token-catch']
+ assert(games.length&&games.every(game=>['combat-duel','boss-raid','token-catch'].includes(game)))
+ for(const game of games){
   console.log('Checking '+game)
   const context=await browser.newContext({viewport:{width:1200,height:850}}),page=await context.newPage(),errors=[]
   let latest=null,moves=0,jumps=0,startPosition=null,maxDisplacement=0
@@ -20,6 +22,9 @@ const base=process.env.ORBIX_BASE_URL||'http://127.0.0.1:8099'
   await page.getByRole('button',{name:'Restart practice'}).click();await page.waitForTimeout(900)
   startPosition={...latest.state.bodies[latest.me]}
   await page.locator('.gp-arena').focus();await page.keyboard.down('w');await page.waitForTimeout(500);await page.keyboard.press('Space');await page.waitForTimeout(180);await page.keyboard.up('w');await page.waitForTimeout(750)
+  // A valid spawn may face solid cover. Exercise another real direction instead
+  // of expecting the client to move through an authoritative wall.
+  if(maxDisplacement<=.5){await page.keyboard.down('d');await page.waitForTimeout(700);await page.keyboard.up('d');await page.waitForTimeout(750)}
   assert(moves>0&&jumps>0,game+' authoritative movement/jump');assert(maxDisplacement>.5,'Authoritative movement displacement '+maxDisplacement)
   assert.equal(latest.state.worldVersion,4);assert.equal(await page.getByText('The 3D view is unavailable.',{exact:false}).isVisible(),false)
   assert.deepEqual(errors,[])
@@ -31,6 +36,6 @@ const base=process.env.ORBIX_BASE_URL||'http://127.0.0.1:8099'
   evidence.push({game,worldVersion:latest.state.worldVersion,loading:true,acceptedMovement:true,acceptedJump:true,pageErrors:errors,renderer:'Chromium SwiftShader; no physical-device FPS claim'})
   await context.close()
  }
- await fs.writeFile('/tmp/orbix-mno-worlds.json',JSON.stringify(evidence,null,2));console.log('PASS: all three V4 worlds render, load visibly, accept server movement/jump, and exit cleanly with zero page errors.')
+ await fs.writeFile('/tmp/orbix-mno-worlds.json',JSON.stringify(evidence,null,2));console.log('PASS: '+games.join(', ')+' render, load visibly, accept server movement/jump, and exit cleanly with zero page errors.')
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1})

@@ -18,7 +18,7 @@ export default function FieldLighting({ game, shadows }: { game: WorldGame; shad
     <ambientLight intensity={sunny ? .3 : .18} />
     <hemisphereLight args={[guardian ? '#b0d5e4' : '#cbeaff', sunny ? '#8e8056' : '#716a47', sunny ? 1.05 : .8]} />
     <directionalLight position={[-14, 28, -11]} intensity={3.2} color={guardian ? '#f3edd1' : sunny ? '#ffe9bd' : '#fff0cd'} castShadow={shadows}
-      shadow-mapSize-width={1536} shadow-mapSize-height={1536} shadow-camera-left={-26} shadow-camera-right={26}
+      shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-camera-left={-26} shadow-camera-right={26}
       shadow-camera-top={26} shadow-camera-bottom={-26} shadow-camera-near={.5} shadow-camera-far={85}
       shadow-bias={-.0003} shadow-normalBias={.06} />
     <directionalLight position={[12, 9, 8]} intensity={.5} color="#aec5e2" />

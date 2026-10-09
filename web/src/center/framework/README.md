@@ -19,6 +19,8 @@ Only Token Catch adopts the new outpost composition in this round.
   composition change, owned geometry/material teardown via R3F.
 * warmup.tsx: loaded rigs → texture initialization → shader compile → actual warm
   frames; no invented percentage or minimum timer.
+* performance.tsx: bounded raw frame intervals including long frames, p50/p95,
+  actual renderer counters and DPR hysteresis; no GPU/device certification.
 
 Extracted practices and rejections are mapped in docs/research/engine-analysis.md
 and framework-migration-map.md. No external reference implementation was copied.

@@ -1,0 +1,1435 @@
+{
+  "captureDirectory": "/tmp/orbix-q-frames",
+  "renderer": "Chromium SwiftShader; physical devices untested",
+  "cases": [
+    {
+      "character": "cat",
+      "clip": "Idle",
+      "file": "cat-Idle.png",
+      "triangles": 14072,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "cat",
+      "clip": "Walk",
+      "file": "cat-Walk.png",
+      "triangles": 14072,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 1.0380453313616997
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 1.0380453313616997
+        }
+      }
+    },
+    {
+      "character": "cat",
+      "clip": "Run",
+      "file": "cat-Run.png",
+      "triangles": 14072,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.334470035105196
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.334470035105196
+        }
+      }
+    },
+    {
+      "character": "cat",
+      "clip": "Sprint",
+      "file": "cat-Sprint.png",
+      "triangles": 14072,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.575911203664875
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.575911203664875
+        }
+      }
+    },
+    {
+      "character": "cat",
+      "clip": "JumpLoop",
+      "file": "cat-JumpLoop.png",
+      "triangles": 14072,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "cat",
+      "clip": "PunchCross",
+      "file": "cat-PunchCross.png",
+      "triangles": 14072,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "cat",
+      "clip": "Death",
+      "file": "cat-Death.png",
+      "triangles": 14072,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "turtle",
+      "clip": "Idle",
+      "file": "turtle-Idle.png",
+      "triangles": 12464,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "turtle",
+      "clip": "Walk",
+      "file": "turtle-Walk.png",
+      "triangles": 12464,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 1.273232957702291
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 1.273232957702291
+        }
+      }
+    },
+    {
+      "character": "turtle",
+      "clip": "Run",
+      "file": "turtle-Run.png",
+      "triangles": 12464,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.8659166015768234
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.8659166015768234
+        }
+      }
+    },
+    {
+      "character": "turtle",
+      "clip": "Sprint",
+      "file": "turtle-Sprint.png",
+      "triangles": 12464,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 3.153813394668821
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 3.153813394668821
+        }
+      }
+    },
+    {
+      "character": "turtle",
+      "clip": "JumpLoop",
+      "file": "turtle-JumpLoop.png",
+      "triangles": 12464,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "turtle",
+      "clip": "PunchCross",
+      "file": "turtle-PunchCross.png",
+      "triangles": 12464,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "turtle",
+      "clip": "Death",
+      "file": "turtle-Death.png",
+      "triangles": 12464,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "blob",
+      "clip": "Idle",
+      "file": "blob-Idle.png",
+      "triangles": 7488,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "blob",
+      "clip": "Walk",
+      "file": "blob-Walk.png",
+      "triangles": 7488,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 0.9617110365563428
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 0.9617110365563428
+        }
+      }
+    },
+    {
+      "character": "blob",
+      "clip": "Run",
+      "file": "blob-Run.png",
+      "triangles": 7488,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.162534969984318
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.162534969984318
+        }
+      }
+    },
+    {
+      "character": "blob",
+      "clip": "Sprint",
+      "file": "blob-Sprint.png",
+      "triangles": 7488,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.3884363647292775
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.3884363647292775
+        }
+      }
+    },
+    {
+      "character": "blob",
+      "clip": "JumpLoop",
+      "file": "blob-JumpLoop.png",
+      "triangles": 7488,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "blob",
+      "clip": "PunchCross",
+      "file": "blob-PunchCross.png",
+      "triangles": 7488,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "blob",
+      "clip": "Death",
+      "file": "blob-Death.png",
+      "triangles": 7488,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "knight",
+      "clip": "Idle",
+      "file": "knight-Idle.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "knight",
+      "clip": "Walk",
+      "file": "knight-Walk.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 0.9617110365563428
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 0.9617110365563428
+        }
+      }
+    },
+    {
+      "character": "knight",
+      "clip": "Run",
+      "file": "knight-Run.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.162534969984318
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.162534969984318
+        }
+      }
+    },
+    {
+      "character": "knight",
+      "clip": "Sprint",
+      "file": "knight-Sprint.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.3884363647292775
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.3884363647292775
+        }
+      }
+    },
+    {
+      "character": "knight",
+      "clip": "JumpLoop",
+      "file": "knight-JumpLoop.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "knight",
+      "clip": "PunchCross",
+      "file": "knight-PunchCross.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "knight",
+      "clip": "Death",
+      "file": "knight-Death.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "cat-blob",
+      "clip": "Idle",
+      "file": "cat-blob-Idle.png",
+      "triangles": 10104,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "cat-blob",
+      "clip": "Walk",
+      "file": "cat-blob-Walk.png",
+      "triangles": 10104,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 0.9617110365563428
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 0.9617110365563428
+        }
+      }
+    },
+    {
+      "character": "cat-blob",
+      "clip": "Run",
+      "file": "cat-blob-Run.png",
+      "triangles": 10104,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.162534969984318
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.162534969984318
+        }
+      }
+    },
+    {
+      "character": "cat-blob",
+      "clip": "Sprint",
+      "file": "cat-blob-Sprint.png",
+      "triangles": 10104,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.3884363647292775
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.3884363647292775
+        }
+      }
+    },
+    {
+      "character": "cat-blob",
+      "clip": "JumpLoop",
+      "file": "cat-blob-JumpLoop.png",
+      "triangles": 10104,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "cat-blob",
+      "clip": "PunchCross",
+      "file": "cat-blob-PunchCross.png",
+      "triangles": 10104,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "cat-blob",
+      "clip": "Death",
+      "file": "cat-blob-Death.png",
+      "triangles": 10104,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "duckling",
+      "clip": "Idle",
+      "file": "duckling-Idle.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "duckling",
+      "clip": "Walk",
+      "file": "duckling-Walk.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 0.9617110365563428
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 0.9617110365563428
+        }
+      }
+    },
+    {
+      "character": "duckling",
+      "clip": "Run",
+      "file": "duckling-Run.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.162534969984318
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.162534969984318
+        }
+      }
+    },
+    {
+      "character": "duckling",
+      "clip": "Sprint",
+      "file": "duckling-Sprint.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.3884363647292775
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.3884363647292775
+        }
+      }
+    },
+    {
+      "character": "duckling",
+      "clip": "JumpLoop",
+      "file": "duckling-JumpLoop.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "duckling",
+      "clip": "PunchCross",
+      "file": "duckling-PunchCross.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "duckling",
+      "clip": "Death",
+      "file": "duckling-Death.png",
+      "triangles": 7776,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "astronaut",
+      "clip": "Idle",
+      "file": "astronaut-Idle.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "astronaut",
+      "clip": "Walk",
+      "file": "astronaut-Walk.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 0.9617110365563428
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 0.9617110365563428
+        }
+      }
+    },
+    {
+      "character": "astronaut",
+      "clip": "Run",
+      "file": "astronaut-Run.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.162534969984318
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.162534969984318
+        }
+      }
+    },
+    {
+      "character": "astronaut",
+      "clip": "Sprint",
+      "file": "astronaut-Sprint.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.3884363647292775
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.3884363647292775
+        }
+      }
+    },
+    {
+      "character": "astronaut",
+      "clip": "JumpLoop",
+      "file": "astronaut-JumpLoop.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "astronaut",
+      "clip": "PunchCross",
+      "file": "astronaut-PunchCross.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "astronaut",
+      "clip": "Death",
+      "file": "astronaut-Death.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "toy-robot",
+      "clip": "Idle",
+      "file": "toy-robot-Idle.png",
+      "triangles": 7852,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "toy-robot",
+      "clip": "Walk",
+      "file": "toy-robot-Walk.png",
+      "triangles": 7852,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 0.9617110365563428
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 0.9617110365563428
+        }
+      }
+    },
+    {
+      "character": "toy-robot",
+      "clip": "Run",
+      "file": "toy-robot-Run.png",
+      "triangles": 7852,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.162534969984318
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.162534969984318
+        }
+      }
+    },
+    {
+      "character": "toy-robot",
+      "clip": "Sprint",
+      "file": "toy-robot-Sprint.png",
+      "triangles": 7852,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.3884363647292775
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.3884363647292775
+        }
+      }
+    },
+    {
+      "character": "toy-robot",
+      "clip": "JumpLoop",
+      "file": "toy-robot-JumpLoop.png",
+      "triangles": 7852,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "toy-robot",
+      "clip": "PunchCross",
+      "file": "toy-robot-PunchCross.png",
+      "triangles": 7852,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "toy-robot",
+      "clip": "Death",
+      "file": "toy-robot-Death.png",
+      "triangles": 7852,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "pancake",
+      "clip": "Idle",
+      "file": "pancake-Idle.png",
+      "triangles": 7628,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "pancake",
+      "clip": "Walk",
+      "file": "pancake-Walk.png",
+      "triangles": 7628,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 0.9617110365563428
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 0.9617110365563428
+        }
+      }
+    },
+    {
+      "character": "pancake",
+      "clip": "Run",
+      "file": "pancake-Run.png",
+      "triangles": 7628,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.162534969984318
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.162534969984318
+        }
+      }
+    },
+    {
+      "character": "pancake",
+      "clip": "Sprint",
+      "file": "pancake-Sprint.png",
+      "triangles": 7628,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.3884363647292775
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.3884363647292775
+        }
+      }
+    },
+    {
+      "character": "pancake",
+      "clip": "JumpLoop",
+      "file": "pancake-JumpLoop.png",
+      "triangles": 7628,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "pancake",
+      "clip": "PunchCross",
+      "file": "pancake-PunchCross.png",
+      "triangles": 7628,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "pancake",
+      "clip": "Death",
+      "file": "pancake-Death.png",
+      "triangles": 7628,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "jelly-ninja",
+      "clip": "Idle",
+      "file": "jelly-ninja-Idle.png",
+      "triangles": 8064,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "jelly-ninja",
+      "clip": "Walk",
+      "file": "jelly-ninja-Walk.png",
+      "triangles": 8064,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 0.9617110365563428
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 0.9617110365563428
+        }
+      }
+    },
+    {
+      "character": "jelly-ninja",
+      "clip": "Run",
+      "file": "jelly-ninja-Run.png",
+      "triangles": 8064,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.162534969984318
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.162534969984318
+        }
+      }
+    },
+    {
+      "character": "jelly-ninja",
+      "clip": "Sprint",
+      "file": "jelly-ninja-Sprint.png",
+      "triangles": 8064,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.3884363647292775
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.3884363647292775
+        }
+      }
+    },
+    {
+      "character": "jelly-ninja",
+      "clip": "JumpLoop",
+      "file": "jelly-ninja-JumpLoop.png",
+      "triangles": 8064,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "jelly-ninja",
+      "clip": "PunchCross",
+      "file": "jelly-ninja-PunchCross.png",
+      "triangles": 8064,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "jelly-ninja",
+      "clip": "Death",
+      "file": "jelly-ninja-Death.png",
+      "triangles": 8064,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "sprout",
+      "clip": "Idle",
+      "file": "sprout-Idle.png",
+      "triangles": 8128,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "sprout",
+      "clip": "Walk",
+      "file": "sprout-Walk.png",
+      "triangles": 8128,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 0.9617110365563428
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 0.9617110365563428
+        }
+      }
+    },
+    {
+      "character": "sprout",
+      "clip": "Run",
+      "file": "sprout-Run.png",
+      "triangles": 8128,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.162534969984318
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.162534969984318
+        }
+      }
+    },
+    {
+      "character": "sprout",
+      "clip": "Sprint",
+      "file": "sprout-Sprint.png",
+      "triangles": 8128,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.3884363647292775
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.3884363647292775
+        }
+      }
+    },
+    {
+      "character": "sprout",
+      "clip": "JumpLoop",
+      "file": "sprout-JumpLoop.png",
+      "triangles": 8128,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "sprout",
+      "clip": "PunchCross",
+      "file": "sprout-PunchCross.png",
+      "triangles": 8128,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "sprout",
+      "clip": "Death",
+      "file": "sprout-Death.png",
+      "triangles": 8128,
+      "groups": 4,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "marshmallow",
+      "clip": "Idle",
+      "file": "marshmallow-Idle.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Idle:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Idle:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "marshmallow",
+      "clip": "Walk",
+      "file": "marshmallow-Walk.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Walk:lower",
+          "rate": 0.9617110365563428
+        },
+        "upper": {
+          "clip": "Walk:upper",
+          "rate": 0.9617110365563428
+        }
+      }
+    },
+    {
+      "character": "marshmallow",
+      "clip": "Run",
+      "file": "marshmallow-Run.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Run:lower",
+          "rate": 2.162534969984318
+        },
+        "upper": {
+          "clip": "Run:upper",
+          "rate": 2.162534969984318
+        }
+      }
+    },
+    {
+      "character": "marshmallow",
+      "clip": "Sprint",
+      "file": "marshmallow-Sprint.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Sprint:lower",
+          "rate": 2.3884363647292775
+        },
+        "upper": {
+          "clip": "Sprint:upper",
+          "rate": 2.3884363647292775
+        }
+      }
+    },
+    {
+      "character": "marshmallow",
+      "clip": "JumpLoop",
+      "file": "marshmallow-JumpLoop.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "JumpLoop:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "JumpLoop:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "marshmallow",
+      "clip": "PunchCross",
+      "file": "marshmallow-PunchCross.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "PunchCross:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "PunchCross:upper",
+          "rate": 1
+        }
+      }
+    },
+    {
+      "character": "marshmallow",
+      "clip": "Death",
+      "file": "marshmallow-Death.png",
+      "triangles": 7500,
+      "groups": 5,
+      "layers": {
+        "lower": {
+          "clip": "Death:lower",
+          "rate": 1
+        },
+        "upper": {
+          "clip": "Death:upper",
+          "rate": 1
+        }
+      }
+    }
+  ],
+  "pageErrors": []
+}
