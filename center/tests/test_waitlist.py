@@ -99,3 +99,11 @@ def test_rate_limit_persists_and_reads_are_owner_only(game):
         assert client.get(path,headers=owner).status_code==200
     assert client.get(path,headers=owner).status_code==429
     assert client.get(path+'.csv',headers=owner).status_code==429
+
+
+def test_address_collection_does_not_change_gameplay_commitment():
+    original = RoomConfig(**normalise_keys(HUNT))
+    collecting = RoomConfig(**normalise_keys({**HUNT, 'waitlist': {'enabled': True, 'message': 'Optional list'}}))
+    assert original.config_hash_input() == collecting.config_hash_input()
+    with pytest.raises(ValueError):
+        RoomConfig(**normalise_keys({**HUNT, 'waitlist': {'enabled': 'true'}}))

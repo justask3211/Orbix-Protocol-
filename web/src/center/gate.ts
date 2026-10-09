@@ -1,3 +1,4 @@
+import { activeWalletProvider } from './walletConnectors'
 // Orbix Center join-token gate: binds rooms on-chain at publish, pays at join.
 //
 // The flow the user sees:
@@ -79,7 +80,7 @@ function decodeRevert(data: string, context: 'gate' | 'erc20'): string {
 }
 
 async function getEth(): Promise<any> {
-  const eth = (window as any).ethereum
+  const eth = activeWalletProvider() ?? (window as any).ethereum
   if (!eth) throw new Error('No browser wallet found. Generate or connect one first.')
   return eth
 }

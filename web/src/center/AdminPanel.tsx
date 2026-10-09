@@ -1,3 +1,4 @@
+import { activeWalletProvider } from './walletConnectors'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Eye, Gamepad2, ShieldCheck, Sparkles, Users, Wrench, Archive, RefreshCw, Radio, Search, MessageSquare } from 'lucide-react'
 import { center, explainError } from './api'
@@ -23,7 +24,7 @@ async function signedProof(session: SessionState): Promise<string> {
     if (!account || account.address.toLowerCase() !== session.address.toLowerCase()) throw new Error('Saved wallet does not match the connected administrator.')
     signature = await account.signMessage({ message })
   } else {
-    const eth = (window as any).ethereum
+    const eth = activeWalletProvider() ?? (window as any).ethereum
     if (!eth) throw new Error('Open your wallet to sign this change.')
     signature = await eth.request({ method: 'personal_sign', params: [message, session.address] })
   }

@@ -1,6 +1,6 @@
 // Wallet + session.
 //
-// Two ways in, both real EVM:
+// Connect, generate or recover a real EVM account:
 //   1. CONNECT — a browser wallet (MetaMask/Rainbow/etc.) via window.ethereum.
 //   2. GENERATE — the site mints a fresh EVM key, shows the address + private key
 //      ONCE for the user to copy, and remembers it in localStorage so every visit
@@ -9,46 +9,21 @@
 // Honesty rule: a generated wallet is a real secp256k1 key held by the browser.
 // The recovery key screen says plainly: copy it, we cannot recover it for you.
 
-import { useCallback, useEffect, useState } from 'react'
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import type { PrivateKeyAccount } from 'viem/accounts'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { center } from './api'
+import { KEY_STORAGE, TOKEN_STORAGE, WALLET_KIND, createWallet, loadGeneratedAccount, saveGeneratedAccount } from './walletKeys'
+import { injectedConnectors, selectWalletProvider, activeWalletProvider, walletConnectProvider, pairWalletConnect, startWalletDiscovery, type WalletProvider } from './walletConnectors'
+import type { GeneratedWallet } from './walletKeys'
+export { createWallet, loadGeneratedAccount } from './walletKeys'
+export type { GeneratedWallet } from './walletKeys'
 
-const KEY_STORAGE = 'orbix.wallet.key'
-const TOKEN_STORAGE = 'orbix.session.token'
-const WALLET_KIND = 'orbix.wallet.kind' // 'generated' | 'injected'
-
-type WalletKind = 'generated' | 'injected'
-
-export type GeneratedWallet = { address: string; privateKey: string }
-
-export function hasInjected(): boolean {
-  return typeof window !== 'undefined' && Boolean((window as any).ethereum)
-}
-
-function loadStoredAccount(): PrivateKeyAccount | null {
-  const existing = localStorage.getItem(KEY_STORAGE)
-  if (existing && /^0x[0-9a-fA-F]{64}$/.test(existing)) {
-    return privateKeyToAccount(existing as `0x${string}`)
-  }
-  return null
-}
-
-export function createWallet(): GeneratedWallet {
-  const privateKey = generatePrivateKey()
-  const account = privateKeyToAccount(privateKey)
-  localStorage.setItem(KEY_STORAGE, privateKey)
-  localStorage.setItem(WALLET_KIND, 'generated')
-  return { address: account.address, privateKey }
-}
-
-export function loadGeneratedAccount(): PrivateKeyAccount | null {
-  return loadStoredAccount()
-}
+type WalletKind = 'generated' | 'injected' | 'walletconnect'
+export function hasInjected(): boolean {return typeof window !== 'undefined' && injectedConnectors().length > 0}
+const loadStoredAccount = loadGeneratedAccount
 
 export function walletKind(): WalletKind | null {
   const k = localStorage.getItem(WALLET_KIND)
-  return k === 'injected' || k === 'generated' ? k : null
+  return k === 'injected' || k === 'generated' || k === 'walletconnect' ? k : null
 }
 
 export function shortAddress(address?: string | null, size = 4): string {
@@ -71,7 +46,9 @@ export type SessionState = {
   token: string | null
   signingIn: boolean
   error: string | null
-  connectInjected: () => Promise<boolean>
+  connectInjected: (provider?: WalletProvider) => Promise<boolean>
+  connectWalletConnect: (onUri?:(uri:string)=>void,signal?:AbortSignal) => Promise<boolean>
+  recover: (key:string) => Promise<boolean>
   generate: () => GeneratedWallet | null
   restoreGenerated: () => void
   signIn: () => Promise<boolean>
@@ -85,25 +62,30 @@ export function useSession(): SessionState {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE))
   const [signingIn, setSigningIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const authAttempt = useRef(0)
 
   // Restore the generated wallet on every visit (localStorage = the site's memory).
   useEffect(() => {
+    startWalletDiscovery()
     const acct = loadStoredAccount()
     if (acct) {
       setAddress(acct.address)
       setKind('generated')
-    } else if (walletKind() === 'injected') {
-      setKind('injected')
+    } else if (walletKind()) {
+      setKind(walletKind())
     }
   }, [])
 
-  const signInWith = useCallback(async (sign: (msg: string) => Promise<string>, addr: string, wKind: WalletKind) => {
+  const signInWith = useCallback(async (sign: (msg: string) => Promise<string>, addr: string, wKind: WalletKind, signal?:AbortSignal) => {
+    const attempt=++authAttempt.current
     setSigningIn(true)
     setError(null)
     try {
       const { nonce, message } = await center.nonce(addr)
+      if(attempt!==authAttempt.current || signal?.aborted)return false
       const signature = await sign(message)
       const { token: fresh } = await center.verify(addr, nonce, signature)
+      if(attempt!==authAttempt.current || signal?.aborted)return false
       if (typeof fresh !== 'string' || !fresh) throw new Error('Sign-in could not be verified. Please try again.')
       localStorage.setItem(TOKEN_STORAGE, fresh)
       localStorage.setItem(WALLET_KIND, wKind)
@@ -112,36 +94,68 @@ export function useSession(): SessionState {
       setToken(fresh)
       return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      if(attempt===authAttempt.current)setError(err instanceof Error ? err.message : String(err))
       throw err
     } finally {
-      setSigningIn(false)
+      if(attempt===authAttempt.current)setSigningIn(false)
     }
   }, [])
 
-  const connectInjected = useCallback(async () => {
-    const eth = (window as any).ethereum
-    if (!eth) {
-      setError('No browser wallet found. Install MetaMask, or use "Generate new wallet".')
-      return false
-    }
+  const connectProvider = useCallback(async (eth: WalletProvider, wKind: 'injected'|'walletconnect', selectedAccounts?:string[], signal?:AbortSignal) => {
+    setError(null)
     try {
-      const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' })
+      const accounts: string[] = selectedAccounts ?? await eth.request({method:'eth_requestAccounts'})
       const addr = accounts[0]
-      if (!addr) throw new Error('Your wallet did not provide an account. Choose an account and try again.')
-      return await signInWith(
-        (msg) => eth.request({ method: 'personal_sign', params: [msg, addr] }),
-        addr,
-        'injected',
-      )
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Wallet connection rejected.')
-      return false
+      if (!addr || !/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error('Your wallet did not provide a valid EVM account.')
+      // EIP-1193 personal_sign takes hex-encoded UTF-8 data.
+      const verified = await signInWith(msg => eth.request({method:'personal_sign',params:[
+        '0x'+Array.from(new TextEncoder().encode(msg),byte=>byte.toString(16).padStart(2,'0')).join(''),addr,
+      ]}),addr,wKind,signal)
+      if(verified){selectWalletProvider(eth);setProvider(eth)}
+      return verified
+    } catch(err) {setError(err instanceof Error?err.message:'Wallet connection rejected.');return false}
+  },[signInWith])
+  const [provider,setProvider] = useState<WalletProvider | null>(null)
+  const connectInjected = useCallback(async (selected?:WalletProvider) => {
+    const eth = selected ?? injectedConnectors()[0]?.provider
+    if(!eth){setError('No browser wallet found. Generate a wallet or recover with your saved key.');return false}
+    return connectProvider(eth,'injected')
+  },[connectProvider])
+  const connectWalletConnect = useCallback(async (onUri?:(uri:string)=>void,signal?:AbortSignal) => {
+    setError(null)
+    try {
+      const eth=await walletConnectProvider()
+      const accounts=await pairWalletConnect(eth,onUri ?? (()=>{}),signal)
+      if(signal?.aborted)return false
+      return await connectProvider(eth,'walletconnect',accounts,signal)
     }
-  }, [signInWith])
+    catch(err){setError(signal?.aborted?'WalletConnect connection cancelled.':err instanceof Error?err.message:'WalletConnect could not connect.');return false}
+  },[connectProvider])
+  const recover = useCallback(async (key:string) => {
+    setError(null)
+    try {
+      const wallet=saveGeneratedAccount(key),account=loadStoredAccount()!
+      selectWalletProvider(null);setProvider(null)
+      setAddress(wallet.address);setKind('generated');setToken(null)
+      return await signInWith(msg=>account.signMessage({message:msg}),wallet.address,'generated')
+    }catch(err){setError(err instanceof Error?err.message:'Could not recover this wallet.');return false}
+  },[signInWith])
+  useEffect(()=>{
+    if(!provider)return
+    const invalidate=()=>{
+      ++authAttempt.current;setSigningIn(false)
+      localStorage.removeItem(TOKEN_STORAGE);setToken(null);setAddress(null)
+      selectWalletProvider(null);setProvider(null)
+      setError('Your wallet account changed or disconnected. Connect again to sign in.')
+    }
+    provider.on?.('accountsChanged',invalidate);provider.on?.('disconnect',invalidate)
+    return ()=>{provider.removeListener?.('accountsChanged',invalidate);provider.removeListener?.('disconnect',invalidate)}
+  },[provider])
 
   const generate = useCallback((): GeneratedWallet | null => {
+    setError(null)
     try {
+      selectWalletProvider(null);setProvider(null);setToken(null)
       return createWallet()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -164,12 +178,14 @@ export function useSession(): SessionState {
     if (acct) {
       return await signInWith((msg) => acct.signMessage({ message: msg }), acct.address, 'generated')
     }
+    if (activeWalletProvider()) return connectProvider(activeWalletProvider()!,kind === 'walletconnect'?'walletconnect':'injected')
+    if (walletKind() === 'walletconnect') {setError('Open Connect wallet and choose WalletConnect QR to reconnect.');return false}
     if (hasInjected()) {
       return await connectInjected()
     }
     setError('Generate a wallet first — it takes one tap and you get a recovery key.')
     return false
-  }, [signInWith, connectInjected])
+  }, [signInWith, connectInjected, connectProvider, connectWalletConnect, kind])
 
   // AUTO SIGN-IN: a generated wallet keeps its private key in localStorage, so we
   // can silently re-establish the session on every visit — no popup, no button.
@@ -197,7 +213,7 @@ export function useSession(): SessionState {
       try {
         await center.vault(existing)  // any cheap authenticated call works
       } catch {
-        if (!alive) return
+        if (!alive || loadStoredAccount()?.address !== acct.address) return
         localStorage.removeItem(TOKEN_STORAGE)
         setAutoSigningIn(true)
         try {
@@ -212,11 +228,17 @@ export function useSession(): SessionState {
   }, [])
 
   const signOut = useCallback(() => {
+    ++authAttempt.current;setSigningIn(false)
     localStorage.removeItem(TOKEN_STORAGE)
     setToken(null)
+    const current=activeWalletProvider()
+    selectWalletProvider(null);setProvider(null)
+    if(current?.disconnect)void current.disconnect().catch(()=>{})
   }, [])
 
   const forget = useCallback(() => {
+    ++authAttempt.current;setSigningIn(false)
+    selectWalletProvider(null);setProvider(null)
     localStorage.removeItem(KEY_STORAGE)
     localStorage.removeItem(TOKEN_STORAGE)
     localStorage.removeItem(WALLET_KIND)
@@ -234,6 +256,8 @@ export function useSession(): SessionState {
     signingIn,
     error,
     connectInjected,
+    connectWalletConnect,
+    recover,
     generate,
     restoreGenerated,
     signIn,

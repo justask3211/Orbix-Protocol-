@@ -843,3 +843,42 @@ html{scroll-behavior:smooth}
 .ct-waitlist-entries{max-height:35dvh;overflow:auto}
 .wl-modal{max-height:calc(100dvh - 32px);overflow:auto;box-sizing:border-box}
 .wl-modal input{width:100%;box-sizing:border-box;min-width:0;margin-top:8px}
+
+/* Wallet illustrations and tiles follow the Center's dark arcade palette. */
+.wl-wallet-modal{width:min(470px,100%);background:var(--panel,#1e2438);border-color:var(--line,#424a64);padding:24px}
+.wl-wallet-modal h3{font-size:25px;color:var(--text,#f5f3e9);margin-bottom:8px}
+.wl-wallet-modal .wl-sub{font-size:13px}
+.wl-wallet-modal h4{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:16px 0 10px}
+.wl-local-section{border-top:1px solid var(--line);margin-top:20px}
+.wl-wallet-modal .wl-option{--tile:#cfbcff;width:100%;min-height:80px;display:grid;grid-template-columns:48px minmax(0,1fr) 16px;gap:12px;align-items:center;padding:12px;margin-bottom:9px;border-radius:var(--r-lg,14px);border:1px solid color-mix(in srgb,var(--tile) 28%,var(--line));background:color-mix(in srgb,var(--tile) 8%,var(--panel));text-align:left;transition:transform var(--dur-fast),background var(--dur-fast),border-color var(--dur-fast)}
+.wl-wallet-modal .wl-tile-metamask{--tile:#ff996f}.wl-wallet-modal .wl-tile-rainbow{--tile:#ffd68a}.wl-wallet-modal .wl-tile-trust,.wl-wallet-modal .wl-tile-walletconnect{--tile:#87c8ff}.wl-wallet-modal .wl-tile-generate{--tile:#e0f77c}.wl-wallet-modal .wl-tile-recover{--tile:#9ce7d7}
+.wl-wallet-modal .wl-option:hover:not(:disabled){background:color-mix(in srgb,var(--tile) 16%,var(--panel));border-color:var(--tile);transform:translateY(-2px)}
+.wl-wallet-modal .wl-option:active:not(:disabled){transform:translateY(0)}
+.wl-wallet-modal .wl-option:focus-visible{outline:2px solid var(--tile);outline-offset:3px}
+.wl-wallet-modal .wl-option:disabled{opacity:.55;cursor:default}
+.wl-wallet-modal .wl-icon{width:48px;height:48px;border:0;background:transparent}
+.wl-wallet-modal .wl-option b{font-size:14px;color:var(--text,#f5f3e9);display:block;margin-bottom:4px}
+.wl-wallet-modal .wl-option small{font-size:11.5px;line-height:1.5;color:var(--muted);display:block}
+.wl-import{padding:14px 4px 4px;animation:wl-pop var(--dur-fast) var(--ease-out)}
+.wl-import label{font-size:13px;font-weight:700}.wl-import input{font:13px monospace;min-height:44px}
+.wl-import .muted{font-size:12px}.wl-recovered-address{color:#9ce7d7;font-size:12px;overflow-wrap:anywhere}
+@media(max-width:430px){.wl-wallet-modal{padding:22px 16px}.wl-wallet-modal .wl-option{gap:8px;padding:10px;grid-template-columns:42px minmax(0,1fr) 12px}.wl-wallet-modal .wl-icon{width:42px}}
+@media(prefers-reduced-motion:reduce){.wl-wallet-modal,.wl-import{animation:none}.wl-wallet-modal .wl-option{transition:none}.wl-wallet-modal .wl-option:hover:not(:disabled){transform:none}}
+.wl-pairing{border-top:1px solid var(--line);margin-top:16px;padding-top:10px}
+.wl-pairing .muted{font-size:12px}.wl-qr{display:block;width:min(260px,100%);height:auto;margin:12px auto;border-radius:12px}
+
+/* Scope against the vault's legacy light-modal selectors, regardless of load order. */
+.ct-app .wl-modal:is(.wl-wallet-modal,.ct-waitlist-modal){background:var(--panel);color:#f5f3e9;border-color:#59617e;max-height:calc(100dvh - 32px)}
+.ct-app .wl-modal:is(.wl-wallet-modal,.ct-waitlist-modal) h3{color:#f5f3e9;padding-right:42px;margin-bottom:12px}
+.ct-app .wl-modal:is(.wl-wallet-modal,.ct-waitlist-modal) :is(.wl-sub,.muted){color:var(--muted)}
+.ct-app .wl-modal:is(.wl-wallet-modal,.ct-waitlist-modal) .wl-close{background:var(--panel2);color:#f5f3e9;min-width:44px;min-height:44px}
+.ct-app .wl-modal:is(.wl-wallet-modal,.ct-waitlist-modal) .btn-primary{background:var(--orange);color:#191d31}
+.ct-app .wl-modal:is(.wl-wallet-modal,.ct-waitlist-modal) :is(input,textarea){background:#191d31;color:#f5f3e9;border:1px solid #59617e;border-radius:10px;padding:12px;font-family:inherit}
+.ct-app .wl-wallet-modal .wl-option{background:color-mix(in srgb,var(--tile) 8%,var(--panel));border-color:color-mix(in srgb,var(--tile) 28%,var(--line));padding:12px;min-height:80px;gap:12px}
+.ct-app .wl-wallet-modal .wl-option .wl-icon{background:transparent;border:0;width:48px;height:48px}
+.ct-app .wl-wallet-modal .wl-option b{color:#f5f3e9}.ct-app .wl-wallet-modal .wl-option small{color:var(--muted)}
+.ct-app .wl-wallet-modal .wl-option .wl-arrow{color:var(--tile)}
+.ct-app .wl-wallet-modal .wl-option:hover:not(:disabled){background:color-mix(in srgb,var(--tile) 16%,var(--panel));border-color:var(--tile);transform:translateY(-2px)}
+@media(max-width:430px){.ct-app .wl-wallet-modal .wl-option{gap:8px;padding:10px}.ct-app .wl-wallet-modal .wl-option .wl-icon{width:42px}}
+@media(prefers-reduced-motion:reduce){.ct-app .wl-wallet-modal .wl-option{transition:none}.ct-app .wl-wallet-modal .wl-option:hover:not(:disabled){transform:none}}
+.ct-app .wl-modal:is(.wl-wallet-modal,.ct-waitlist-modal) .err{color:#ffb5a8;background:#542e37;border:1px solid #87505b}
