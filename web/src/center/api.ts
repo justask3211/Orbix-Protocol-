@@ -1,3 +1,4 @@
+import type { GateAuthorization } from './gate'
 import type { Funding, RewardClaim, RewardPlan } from './rewardWallet'
 import type { Appearance, Cosmetics } from './characters'
 // Orbix Center API client. One place that knows the wire format, so no component
@@ -38,6 +39,7 @@ export type RoomSummary = {
 export type Participant = { who: string; role: string; ready: boolean; connected?: boolean }
 
 export type RoomDetail = {
+  entryGate?: `0x${string}`
   roomId: string
   roomNumber?: string
   joinCode?: string
@@ -161,6 +163,7 @@ export const center = {
   verify: (address: string, nonce: string, signature: string) =>
     request<{ token: string }>('/auth/verify', { method: 'POST', body: JSON.stringify({ address, nonce, signature }) }),
 
+  gateAuthorization: (roomId:string,token:string) => request<GateAuthorization>(`/rooms/${encodeURIComponent(roomId)}/gate-authorization`,{method:'POST'},token),
   rewardCapabilities: () => request<{available:boolean;engine:string;chainId:number;reason?:string}>('/rewards/capabilities'),
   prepareRewards: (config: unknown, intentNonce: string, token: string) => request<{roomId:string;roomKey:`0x${string}`;engine:`0x${string}`;merkleRoot:`0x${string}`;published:boolean;funding:Funding|null}>('/rooms/prepare-rewards', {method:'POST',body:JSON.stringify({config,intentNonce})},token),
   myRewards: (token:string,roomId?:string) => request<{rewards:RewardClaim[]}>(`/wallet/rewards${roomId?`?roomId=${encodeURIComponent(roomId)}`:''}`,{},token),

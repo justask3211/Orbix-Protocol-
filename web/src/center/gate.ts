@@ -1,19 +1,18 @@
-import { activeWalletProvider } from './walletConnectors'
+import { activeWalletProvider } from './walletConnectors.ts'
 // Orbix Center join-token gate: binds rooms on-chain at publish, pays at join.
 //
 // The flow the user sees:
 //   PUBLISH (creator):
-//     1. A signing-preview modal shows exactly what the approve + bindRoom calls
-//        will do (contract address, selector, arguments, human-readable summary).
-//     2. Creator approves their token for the gate, then signs bindRoom.
+//     1. The server signs the persisted room creator binding.
+//     2. Creator confirms bindRoomAuthorized; no token approval is needed.
 //     3. The backend records the binding (roomId → pool) and publishes the room.
 //   JOIN (joiner):
 //     1. A signing-preview modal shows the approve + join calls with the amount,
 //        token name, and destination (creator wallet / custom / burn).
-//     2. Approve (if needed) then gate.join(roomIdBytes32).
+//     2. Sign the full quote, approve exactly if needed, then gate.joinQuoted.
 //     3. Revert reasons are decoded into human-readable messages.
 
-import { encodeFunctionData, parseUnits, formatUnits, decodeFunctionResult } from 'viem'
+import { encodeFunctionData, parseUnits, formatUnits, decodeFunctionResult, encodePacked, keccak256, type Hex } from 'viem'
 
 const ERC20_ABI = [
   { name: 'approve', type: 'function', stateMutability: 'nonpayable',
@@ -28,7 +27,16 @@ const ERC20_ABI = [
     inputs: [{name:'account',type:'address'}], outputs: [{type:'uint256'}] },
 ] as const
 
-const GATE_ABI = [
+export type GateAuthorization = {gate:string;chainId:number;creator:string;roomKey:Hex;deadline:number;signature:Hex}
+export const GATE_ABI = [
+  { name: 'safetyVersion', type: 'function', stateMutability: 'view', inputs: [], outputs: [{type:'uint256'}] },
+  { name: 'bindRoomAuthorized', type: 'function', stateMutability: 'nonpayable', inputs: [
+    {name:'roomId',type:'bytes32'}, {name:'token',type:'address'}, {name:'joinFee',type:'uint256'},
+    {name:'payee',type:'uint8'}, {name:'payout',type:'address'}, {name:'deadline',type:'uint256'}, {name:'signature',type:'bytes'}
+  ], outputs: [] },
+  { name: 'joinQuoted', type: 'function', stateMutability: 'nonpayable', inputs: [
+    {name:'roomId',type:'bytes32'}, {name:'nonce',type:'uint256'}, {name:'signature',type:'bytes'}
+  ], outputs: [] },
   { name: 'bindRoom', type: 'function', stateMutability: 'nonpayable',
     inputs: [
       {name:'roomId',type:'bytes32'},
@@ -48,9 +56,10 @@ const GATE_ABI = [
       {name:'payee',type:'uint8'},{name:'paused',type:'bool'}] },
 ] as const
 
-const GATE_ADDRESS = '0xcfc161d02225eceb97aa9b8ff791a407a3bb3cff'
+export const LEGACY_GATE = '0xcfc161d02225eceb97aa9b8ff791a407a3bb3cff'
+export const GATE_ADDRESS = ((import.meta as unknown as {env?:Record<string,string>}).env?.VITE_CREATOR_GATE ?? '0xcfc161d02225eceb97aa9b8ff791a407a3bb3cff') as `0x${string}`
 const CHAIN_46630 = '0xb626'
-const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD'
+export const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD'
 
 // Known custom error selectors from our contracts
 const GATE_ERRORS: Record<string, string> = {
@@ -106,9 +115,26 @@ async function ensureChain46630(eth: any): Promise<void> {
 }
 
 /** roomId string (e.g. "f5ea6592ba0895c2") → bytes32 hex for the gate contract. */
-function roomIdToBytes32(roomId: string): `0x${string}` {
-  const clean = roomId.replace(/[^0-9a-fA-F]/gi, '').toLowerCase().padStart(64, '0').slice(0, 64)
-  return ('0x' + clean) as `0x${string}`
+export function roomIdToBytes32(roomId: string): `0x${string}` {
+  if (!/^(?:0x)?[0-9a-fA-F]{16,64}$/.test(roomId)) throw new Error('Invalid room identifier.')
+  const clean = roomId.replace(/^0x/, '')
+  if (clean.length % 2) throw new Error('Invalid room identifier.')
+  return ('0x' + clean.toLowerCase().padStart(64, '0')) as `0x${string}`
+}
+
+async function requireHardenedGate(eth: any, wallet: string): Promise<void> {
+  if (String(await eth.request({method:'eth_chainId'})).toLowerCase() !== CHAIN_46630) throw new Error('Switch to Robinhood testnet first.')
+  const accounts: string[] = await eth.request({method:'eth_requestAccounts'})
+  if (accounts[0]?.toLowerCase() !== wallet.toLowerCase()) throw new Error('Select your connected Orbix wallet before continuing.')
+  try {
+    const version = await eth.request({method:'eth_call',params:[{to:GATE_ADDRESS,data:encodeFunctionData({abi:GATE_ABI,functionName:'safetyVersion'})},'latest']})
+    if (BigInt(version) !== 3n) throw new Error('Unsupported gate')
+  } catch { throw new Error('Token entry requires the hardened gate. No approval or payment was submitted.') }
+}
+
+export function quotedJoinDigest(room: Hex, player: `0x${string}`, nonce: bigint, token: `0x${string}`, fee: bigint, payout: `0x${string}`, payee: number, gate: `0x${string}` = GATE_ADDRESS): Hex {
+  return keccak256(encodePacked(['string','address','uint256','bytes32','address','uint256','address','uint256','address','uint8'],
+    ['ORBIX_CREATOR_JOIN_V2',gate,46630n,room,player,nonce,token,fee,payout,payee]))
 }
 
 async function waitMined(eth: any, txHash: string, timeoutMs = 180_000): Promise<void> {
@@ -152,7 +178,7 @@ export async function fetchTokenInfo(token: string, wallet: string): Promise<{ s
   return { symbol, balance: formatUnits(balanceWei, decimals), decimals }
 }
 
-/** Creator: approve the gate to spend their token, then bindRoom. */
+/** Creator: confirm the ownership-authorized binding. No token approval is needed. */
 export async function bindRoomOnChain(
   roomId: string,
   token: string,
@@ -161,9 +187,11 @@ export async function bindRoomOnChain(
   payoutAddress: string | undefined,
   wallet: string,
   onStep: (step: string, detail?: string) => void,
+  authorization: GateAuthorization,
 ): Promise<void> {
   const eth = await getEth()
   await ensureChain46630(eth)
+  await requireHardenedGate(eth, wallet)
   const { decimals } = await fetchTokenInfo(token, wallet)
   const wei = parseUnits(String(amount), decimals)
   const roomBytes = roomIdToBytes32(roomId)
@@ -175,19 +203,23 @@ export async function bindRoomOnChain(
     : BURN_ADDRESS
   if (!payout) throw new Error('A payout address is required for the custom-wallet option.')
 
-  onStep('approve', `Asking your wallet to approve the gate (0x${GATE_ADDRESS.slice(2, 8)}…) to transfer your token.`)
-  const approveData = encodeFunctionData({ abi: ERC20_ABI, functionName: 'approve',
-    args: [GATE_ADDRESS as `0x${string}`, wei] })
-  const approveTx: string = await eth.request({
-    method: 'eth_sendTransaction',
-    params: [{ from: wallet, to: token, data: approveData }],
-  })
-  onStep('approve-mined', `Approve sent: ${approveTx.slice(0, 14)}… waiting for it to confirm.`)
-  await waitMined(eth, approveTx)
+  if (authorization.gate.toLowerCase() !== GATE_ADDRESS.toLowerCase() || authorization.chainId !== 46630
+    || authorization.creator.toLowerCase() !== wallet.toLowerCase() || authorization.roomKey !== roomBytes
+    || authorization.deadline <= Date.now()/1000) throw new Error('Room ownership authorization differs from this wallet, room or gate. Refresh before binding.')
+
+  const binding = await eth.request({method:'eth_call',params:[{to:GATE_ADDRESS,data:encodeFunctionData({abi:GATE_ABI,functionName:'bindingOf',args:[roomBytes]})},'latest']})
+  const [boundCreator,boundToken,boundFee,boundPayout,boundPayee] = decodeFunctionResult({abi:GATE_ABI,functionName:'bindingOf',data:binding as Hex})
+  if (boundCreator !== '0x'+'0'.repeat(40)) {
+    if (boundCreator.toLowerCase() !== wallet.toLowerCase() || boundToken.toLowerCase() !== token.toLowerCase()
+      || boundFee !== wei || boundPayout.toLowerCase() !== payout.toLowerCase() || boundPayee !== payee) throw new Error('This room already has a different binding. Review it before changing it.')
+    onStep('done', 'The matching join token binding is already confirmed.')
+    return
+  }
 
   onStep('bind', `Asking your wallet to bind the join token to this room (room: ${roomId.slice(0, 10)}…, fee: ${amount} tokens, payout: ${payoutMode === 'burn' ? 'burn' : payout.slice(0, 10) + '…'}).`)
-  const bindData = encodeFunctionData({ abi: GATE_ABI, functionName: 'bindRoom',
-    args: [roomBytes, token as `0x${string}`, wei, payee, payout as `0x${string}`] })
+  const bindData = encodeFunctionData({ abi: GATE_ABI, functionName: 'bindRoomAuthorized',
+    args: [roomBytes, token as `0x${string}`, wei, payee, payout as `0x${string}`, BigInt(authorization.deadline), authorization.signature] })
+  await eth.request({method:'eth_call',params:[{from:wallet,to:GATE_ADDRESS,data:bindData},'latest']})
   const bindTx: string = await eth.request({
     method: 'eth_sendTransaction',
     params: [{ from: wallet, to: GATE_ADDRESS, data: bindData }],
@@ -197,16 +229,25 @@ export async function bindRoomOnChain(
   onStep('done', 'Join token bound on-chain. Joiners can now pay with your token.')
 }
 
-/** Joiner: approve the gate to spend their token, then gate.join. */
+/** Joiner: exact approval if needed, then a signed quote and wallet payment. */
 export async function payJoinToken(
   roomId: string,
   token: string,
   amount: number,
   wallet: string,
   onStep: (step: string, detail?: string) => void,
+  roomGate: `0x${string}` = GATE_ADDRESS,
+  expected?: {creator: string; payout: string; payee: number},
 ): Promise<void> {
   const eth = await getEth()
   await ensureChain46630(eth)
+  if (roomGate.toLowerCase() !== GATE_ADDRESS.toLowerCase() && roomGate.toLowerCase() !== LEGACY_GATE) throw new Error('Unrecognized room entry gate. Refresh the room before signing.')
+  const legacy = roomGate.toLowerCase() === LEGACY_GATE
+  if (!legacy) await requireHardenedGate(eth, wallet)
+  else {
+    const accounts: string[] = await eth.request({method:'eth_requestAccounts'})
+    if (String(await eth.request({method:'eth_chainId'})).toLowerCase() !== CHAIN_46630 || accounts[0]?.toLowerCase() !== wallet.toLowerCase()) throw new Error('Select your Orbix wallet on Robinhood testnet first.')
+  }
   const { decimals } = await fetchTokenInfo(token, wallet)
   const wei = parseUnits(String(amount), decimals)
   const roomBytes = roomIdToBytes32(roomId)
@@ -216,23 +257,36 @@ export async function payJoinToken(
   // (creator, token, joinFee, payout, payee, paused). A zero creator means unbound.
   const bindData = encodeFunctionData({ abi: GATE_ABI, functionName: 'bindingOf', args: [roomBytes] })
   const bindingHex: string = await eth.request({
-    method: 'eth_call', params: [{ from: wallet, to: GATE_ADDRESS, data: bindData }, 'latest'],
+    method: 'eth_call', params: [{ from: wallet, to: roomGate, data: bindData }, 'latest'],
   })
-  const [creatorSlot, boundToken, boundFee, , , paused] = decodeFunctionResult({ abi: GATE_ABI, functionName: 'bindingOf', data: bindingHex as `0x${string}` })
+  const [creatorSlot, boundToken, boundFee, boundPayout, boundPayee, paused] = decodeFunctionResult({ abi: GATE_ABI, functionName: 'bindingOf', data: bindingHex as `0x${string}` })
   if (creatorSlot === '0x' + '0'.repeat(40)) {
     throw new Error('This room has no join token bound on-chain yet. The creator must republish the room so the binding is written.')
   }
   if (paused || boundToken.toLowerCase() !== token.toLowerCase() || boundFee !== wei) throw new Error('The on-chain entry token, fee, or admission state differs from this room. Refresh the room before signing.')
-  const joinedHex = await eth.request({method:'eth_call', params:[{to:GATE_ADDRESS,data:encodeFunctionData({abi:GATE_ABI,functionName:'hasJoined',args:[roomBytes,wallet as `0x${string}`]})},'latest']})
+  if (expected && (creatorSlot.toLowerCase() !== expected.creator.toLowerCase()
+    || boundPayout.toLowerCase() !== expected.payout.toLowerCase() || boundPayee !== expected.payee)) throw new Error('The on-chain creator or payout differs from this room. Refresh before approving or paying.')
+  const joinedHex = await eth.request({method:'eth_call', params:[{to:roomGate,data:encodeFunctionData({abi:GATE_ABI,functionName:'hasJoined',args:[roomBytes,wallet as `0x${string}`]})},'latest']})
   if (decodeFunctionResult({abi:GATE_ABI,functionName:'hasJoined',data:joinedHex as `0x${string}`})) {
     onStep('done', 'An entry payment already exists. The server will verify its confirmations before reconnecting.')
     return
   }
 
+  // Build locally from the displayed binding; a later RPC quote cannot silently change it.
+  const nonce = BigInt('0x' + Array.from(crypto.getRandomValues(new Uint8Array(32)), b=>b.toString(16).padStart(2,'0')).join(''))
+  let signature: Hex = '0x'
+  if (!legacy) {
+    const digest = quotedJoinDigest(roomBytes, wallet as `0x${string}`, nonce, boundToken, boundFee, boundPayout, boundPayee, roomGate)
+    onStep('quote', `Confirm ${amount} tokens to ${boundPayout} (${boundPayee === 2 ? 'burn' : 'room payout'}).`)
+    signature = await eth.request({method:'personal_sign',params:[digest,wallet]})
+  } else {
+    onStep('quote', `This existing room uses the legacy gate. Its ${amount}-token fee and payout ${boundPayout} can change before payment confirms.`)
+  }
+
   // 1) allowance
   onStep('checking', 'Checking your token allowance for the gate…')
   const allowanceData = encodeFunctionData({ abi: ERC20_ABI, functionName: 'allowance',
-    args: [wallet as `0x${string}`, GATE_ADDRESS as `0x${string}`] })
+    args: [wallet as `0x${string}`, roomGate] })
   const allowanceHex: string = await eth.request({
     method: 'eth_call', params: [{ from: wallet, to: token, data: allowanceData }, 'latest'],
   })
@@ -240,7 +294,7 @@ export async function payJoinToken(
   if (allowance < wei) {
     onStep('approve', `Approving the gate to transfer ${amount} tokens from your wallet. Your wallet will ask you to sign this.`)
     const approveData = encodeFunctionData({ abi: ERC20_ABI, functionName: 'approve',
-      args: [GATE_ADDRESS as `0x${string}`, wei] })
+      args: [roomGate, wei] })
     const approveTx: string = await eth.request({
       method: 'eth_sendTransaction', params: [{ from: wallet, to: token, data: approveData }],
     })
@@ -248,12 +302,13 @@ export async function payJoinToken(
     await waitMined(eth, approveTx)
   }
 
-  // 2) gate.join
+  // 2) quoted wallet payment
   onStep('join', `Joining the room — the gate will transfer ${amount} tokens from your wallet to the room's payout destination.`)
-  const joinData = encodeFunctionData({ abi: GATE_ABI, functionName: 'join', args: [roomBytes] })
+  const joinData = legacy ? encodeFunctionData({abi:GATE_ABI,functionName:'join',args:[roomBytes]}) : encodeFunctionData({ abi: GATE_ABI, functionName: 'joinQuoted', args: [roomBytes, nonce, signature] })
+  await eth.request({method:'eth_call',params:[{from:wallet,to:roomGate,data:joinData},'latest']})
   const joinTx: string = await eth.request({
     method: 'eth_sendTransaction',
-    params: [{ from: wallet, to: GATE_ADDRESS, data: joinData }],
+    params: [{ from: wallet, to: roomGate, data: joinData }],
   })
   onStep('join-mined', 'Join sent. Waiting for confirmation…')
   await waitMined(eth, joinTx)

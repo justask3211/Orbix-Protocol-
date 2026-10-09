@@ -124,3 +124,24 @@ test('unsafe legacy engine is rejected before pool creation, approval or deposit
  await assert.rejects(fundRewardPool(account,prepared,config(),()=>{},wallet),/pool-isolation/)
  assert.equal(sends(calls).length,0)
 })
+
+test('engine-scoped journal resumes this engine and refuses ambiguous legacy attempts',async()=>{
+ const {calls,journal}=mock()
+ journal.set(`orbix-reward-fund:${account}:${prepared.roomId}`,JSON.stringify({poolId:'9',deposited:1,txHash:hash}))
+ await assert.rejects(fundRewardPool(account,prepared,config(),()=>{}),/earlier engine configuration/)
+ assert.equal(sends(calls).length,0)
+ journal.clear()
+ await fundRewardPool(account,prepared,config(),()=>{})
+ assert(journal.has(`orbix-reward-fund:${account}:46630:${REWARD_ENGINE}:${prepared.roomId}`))
+ await fundRewardPool(account,prepared,config(),()=>{})
+ assert.equal(sends(calls).filter(n=>n==='createPool').length,1)
+})
+
+test('ERC20 exact aggregate approval still serves multiple winners',async()=>{
+ const {calls}=mock(),cfg=config('erc20','open')
+ cfg.slots.push({...cfg.slots[0],rank:2,amount:'250'})
+ await fundRewardPool(account,prepared,cfg,()=>{})
+ const approval=calls.find(c=>c.method==='eth_sendTransaction'&&c.params[0].data.startsWith('0x095ea7b3'))
+ assert.equal(decodeFunctionData({abi:tokenAbi,data:approval.params[0].data}).args[1],350n)
+ assert.deepEqual(sends(calls),['createPool','approve','depositERC20'])
+})

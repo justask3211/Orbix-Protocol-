@@ -100,7 +100,11 @@ export async function fundRewardPool(address: string, prepared: {roomId:string;r
   if(grouped.some(asset=>BigInt(asset.amount)>=2n**256n))throw new Error('Total reward amount exceeds uint256.')
   const wallet = await rewardWallet(address, injected)
   await requireSafeEngine(wallet)
-  const key = `orbix-reward-fund:${address.toLowerCase()}:${prepared.roomId}`
+  const legacyKey = `orbix-reward-fund:${address.toLowerCase()}:${prepared.roomId}`
+  if (storage()?.getItem(legacyKey) || storage()?.getItem(`${legacyKey}:create`)) {
+    throw new Error('This room has a funding attempt from an earlier engine configuration. Verify its original contract and receipts before creating a replacement pool.')
+  }
+  const key = `orbix-reward-fund:${address.toLowerCase()}:46630:${REWARD_ENGINE}:${prepared.roomId}`
   let journal: {poolId?:string; deposited:number; txHash?:string} = JSON.parse(storage()?.getItem(key) ?? '{"deposited":0}')
   if (journal.poolId === undefined) {
     progress('Confirm pool creation in your wallet.')
@@ -149,7 +153,7 @@ export async function allocateRewardPlan(address:string,plan:RewardPlan,progress
   for (let i=0;i<plan.allocations.length;i++) {
     const a=plan.allocations[i]
     if (a.allocated ?? i<plan.allocationCount) continue
-    await confirmed(wallet,address,REWARD_ENGINE,encodeFunctionData({abi:rewardAbi,functionName:'setAllocation',args:[BigInt(plan.poolId),plan.mode==='open'?ZERO:a.winner as Address,BigInt(a.assetIndex),BigInt(a.amount)]}),progress,`orbix-reward-allocation:${address}:${plan.poolId}:${i}`)
+    await confirmed(wallet,address,REWARD_ENGINE,encodeFunctionData({abi:rewardAbi,functionName:'setAllocation',args:[BigInt(plan.poolId),plan.mode==='open'?ZERO:a.winner as Address,BigInt(a.assetIndex),BigInt(a.amount)]}),progress,`orbix-reward-allocation:46630:${REWARD_ENGINE}:${address}:${plan.poolId}:${i}`)
   }
 }
 export async function claimReward(address:string,claim:RewardClaim,progress:(s:string)=>void,injected?:Wallet) {
@@ -158,5 +162,5 @@ export async function claimReward(address:string,claim:RewardClaim,progress:(s:s
   if (!claim.args || !['claimByCode','claimByMerkle','claimOpen'].includes(claim.function??'')) throw new Error('No verified reward call is available.')
   const wallet=await rewardWallet(address,injected)
   const data=encodeFunctionData({abi:rewardAbi,functionName:claim.function as 'claimByCode',args:claim.args.map((arg,index)=>index===0||claim.function==='claimByCode'&&[1,2].includes(index)||claim.function==='claimOpen'&&index===1||claim.function==='claimByMerkle'&&[3,4].includes(index)?BigInt(arg as string):arg) as [bigint,bigint,bigint,Hex]})
-  return confirmed(wallet,address,REWARD_ENGINE,data,progress,`orbix-reward-claim:${address}:${claim.claimId}`)
+  return confirmed(wallet,address,REWARD_ENGINE,data,progress,`orbix-reward-claim:46630:${claim.engine.toLowerCase()}:${address}:${claim.claimId}`)
 }

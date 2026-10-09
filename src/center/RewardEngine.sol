@@ -90,7 +90,7 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         string message;
     }
 
-    address public authority; // settlement signer
+    address public immutable authority; // settlement signer; no rotation or custody admin
     mapping(uint256 => Pool) public pools;
     // roomId => list of pool ids
     mapping(bytes32 => uint256[]) public roomPools;
@@ -402,6 +402,14 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         } else if (a.kind == AssetKind.ERC721) {
             a.amount = 0;
             IERC721(a.contractAddr).safeTransferFrom(address(this), to, a.tokenId);
+            // Receivers may forward their prize during the callback. Require that
+            // custody left this engine, without forbidding that legitimate flow.
+            try IERC721(a.contractAddr).ownerOf(a.tokenId) returns (address owner) {
+                if (owner == address(this)) revert TransferMismatch();
+            } catch {
+                // A receiver may also burn a standard NFT during its callback.
+                // Arbitrary malicious/nonstandard token contracts are unsupported.
+            }
         } else if (a.kind == AssetKind.ERC1155) {
             if (share > a.amount) revert ZeroAmount();
             p.tokenCommitted[a.contractAddr] -= share;

@@ -32,7 +32,7 @@ import { center, explainError, API_BASE, type Allocation, type RoomDetail, type 
 import { playerHue, shortAddress, useSession } from './session'
 import { WalletModal } from './WalletModal'
 import { AdminPanel } from './AdminPanel'
-import { bindRoomOnChain, payJoinToken as payJoinTokenGated } from './gate'
+import { bindRoomOnChain, payJoinToken as payJoinTokenGated, GATE_ADDRESS, LEGACY_GATE, BURN_ADDRESS } from './gate'
 import { TxPreview } from './funds'
 import { SharePanel } from './SharePanel'
 import { RoundImmersion } from './RoundImmersion'
@@ -596,7 +596,8 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       const published = await center.publish(config, publishNonce, session.token, funding)
       // 2) if a join token is configured, bind it on-chain from the creator's wallet
       if (draft.entryToken && draft.entryAmount > 0 && session.address) {
-        setStatus('Publishing… now binding your join token on-chain (two wallet signatures).')
+        setStatus('Confirm your join token binding in your wallet.')
+        const authorization = await center.gateAuthorization(published.roomId, session.token)
         await bindRoomOnChain(
           published.roomId,
           draft.entryToken,
@@ -605,6 +606,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
           draft.payoutAddress,
           session.address,
           (step, detail) => setStatus(detail ?? step),
+          authorization,
         )
       }
       setStatus(
@@ -1028,7 +1030,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
     setError(null)
     try {
       if (entryToken && entryAmount > 0 && session.address) {
-        await payJoinTokenGated(roomId, entryToken, entryAmount, session.address, (step, detail) => setJoinStep(step, detail))
+        await payJoinTokenGated(roomId, entryToken, entryAmount, session.address, (step, detail) => setJoinStep(step, detail), room?.entryGate, {creator:room?.owner ?? '',payee:access.payout_mode==='burn'?2:access.payout_mode==='custom'?1:0,payout:access.payout_mode==='burn'?BURN_ADDRESS:access.payout_mode==='custom'?(access.payout_address ?? ''):(room?.owner ?? '')})
       }
       const params = new URLSearchParams(window.location.search)
       const joined = await center.join(roomId, session.token, params.get('invite') ?? undefined)
@@ -1089,7 +1091,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   const Stage = FOUR_STAGE_VIEWS[templateId] ?? STAGES[templateId]
   const me = (session.address ?? '').toLowerCase()
   // F5 pre-sign disclosure fields (typed reads; the server config is the source)
-  const access = (room?.config?.access ?? {}) as { required_amount?: number; joiner_fee?: number; creator_absorbs_joiner_fee?: boolean }
+  const access = (room?.config?.access ?? {}) as { required_amount?: number; joiner_fee?: number; creator_absorbs_joiner_fee?: boolean; payout_mode?: string; payout_address?: string }
   const rewardsCfg = (room?.config?.rewards ?? {}) as { kind?: string }
   const requiredAmount = Number(access.required_amount ?? 0)
   const joinerFee = Number(access.joiner_fee ?? 0)
@@ -1196,8 +1198,8 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
           title="Join this room — confirm the transaction"
           busy={busy}
           steps={[
-            { label: 'Approve', detail: `Step 1 — approve the gate to transfer ${entryAmount} of the room token from your wallet. Your wallet will ask you to sign. This only happens if your current allowance is lower than the join amount.`, contract: entryToken, fn: 'approve(spender, amount)', value: `${entryAmount} token units`, args: [['spender (gate)', '0xcfc161d02225eceb97aa9b8ff791a407a3bb3cff']] },
-            { label: 'Join', detail: 'Step 2 — the gate transfers the join amount from your wallet to the room payout and adds you to the room.', contract: '0xcfc161d02225eceb97aa9b8ff791a407a3bb3cff', fn: 'join(roomId)', args: [['roomId', roomId]] },
+            { label: 'Approve', detail: `Step 1 — approve the gate to transfer ${entryAmount} of the room token from your wallet. Your wallet will ask you to sign. This only happens if your current allowance is lower than the join amount.`, contract: entryToken, fn: 'approve(spender, amount)', value: `${entryAmount} token units`, args: [['spender (gate)', room?.entryGate ?? GATE_ADDRESS]] },
+            { label: 'Join', detail: (room?.entryGate ?? GATE_ADDRESS).toLowerCase()===LEGACY_GATE ? 'This existing room uses the legacy gate. Its current fee and payout may change before confirmation. The server verifies payment before admission.' : 'Sign the displayed token, fee and payout quote, then confirm payment. A changed quote reverts. The server verifies payment before admission.', contract: room?.entryGate ?? GATE_ADDRESS, fn: (room?.entryGate ?? GATE_ADDRESS).toLowerCase()===LEGACY_GATE?'join(roomId)':'joinQuoted(roomId, nonce, signature)', args: [['roomId', roomId]] },
           ]}
           onConfirm={doJoin}
           onCancel={() => setPreviewOpen(false)}

@@ -40,6 +40,9 @@ contract CreatorTokenGate is ReentrancyGuard {
 
     address public admin; // platform admin
     address public treasury; // default destination when a room does not set one
+    // Only anchors server room ownership. No custody, allocation or override powers.
+    address public immutable bindingAuthority;
+    mapping(bytes32 => address) public roomCreators;
 
     /// Robinhood testnet burn address: tokens sent here are provably gone.
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
@@ -88,16 +91,19 @@ contract CreatorTokenGate is ReentrancyGuard {
     error BadToken();
     error NonceUsed();
     error BadPayee();
+    error BadRoomAuthorization();
+    error AuthorizationExpired();
 
     modifier onlyAdmin() {
         if (msg.sender != admin) revert NotAdmin();
         _;
     }
 
-    constructor(address _treasury) {
+    constructor(address _treasury, address _bindingAuthority) {
         admin = msg.sender;
-        if (_treasury == address(0)) revert ZeroAddress();
+        if (_treasury == address(0) || _bindingAuthority == address(0)) revert ZeroAddress();
         treasury = _treasury;
+        bindingAuthority = _bindingAuthority;
         emit AdminChanged(address(0), msg.sender);
     }
 
@@ -110,7 +116,11 @@ contract CreatorTokenGate is ReentrancyGuard {
     ///         No ownership or graduation requirement on the token: only that it
     ///         answers decimals(). Payout is the creator's own wallet by default,
     ///         a custom address, or the burn address.
-    function bindRoom(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout) external {
+    function bindRoom(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout) external nonReentrant {
+        _bindRoom(roomId, token, joinFee, payee, payout);
+    }
+
+    function _bindRoom(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout) internal {
         Binding storage b = bindings[roomId];
         if (b.exists) revert AlreadyBound();
         if (token == address(0)) revert ZeroAddress();
@@ -125,6 +135,7 @@ contract CreatorTokenGate is ReentrancyGuard {
         catch {
             revert BadToken();
         }
+        if (roomCreators[roomId] != msg.sender) revert NotCreator();
         b.creator = msg.sender;
         b.token = token;
         b.joinFee = joinFee;
@@ -133,6 +144,31 @@ contract CreatorTokenGate is ReentrancyGuard {
         _setPayee(roomId, b, payee, payout);
         emit RoomBound(roomId, msg.sender, token, joinFee);
     }
+
+    /// @notice Pin the server-confirmed creator once; anyone may relay the proof.
+    function registerRoomCreator(bytes32 roomId, address creator, uint256 deadline, bytes calldata signature) public {
+        if (creator == address(0)) revert ZeroAddress();
+        if (block.timestamp > deadline) revert AuthorizationExpired();
+        (bytes32 digest,) = _digestToEthSign(roomBindingDigest(roomId, creator, deadline));
+        if (ECDSA.recover(digest, signature) != bindingAuthority) revert BadRoomAuthorization();
+        address pinned = roomCreators[roomId];
+        if (pinned != address(0) && pinned != creator) revert NotCreator();
+        roomCreators[roomId] = creator;
+    }
+
+    /// @notice One creator transaction registers ownership and binds the chosen quote.
+    function bindRoomAuthorized(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout,
+        uint256 deadline, bytes calldata signature) external nonReentrant {
+        registerRoomCreator(roomId, msg.sender, deadline, signature);
+        _bindRoom(roomId, token, joinFee, payee, payout);
+    }
+
+    function roomBindingDigest(bytes32 roomId, address creator, uint256 deadline) public view returns (bytes32) {
+        return keccak256(abi.encodePacked("ORBIX_ROOM_BIND_V1", address(this), block.chainid, roomId, creator, deadline));
+    }
+
+    /// @notice Gate protocol marker: anchored room ownership and quoted wallet joins.
+    function safetyVersion() external pure returns (uint256) { return 3; }
 
     /// @dev Resolve and store the payout destination. CreatorWallet always maps to
     ///      the creator's own address; CustomWallet needs a non-zero address;
@@ -154,7 +190,7 @@ contract CreatorTokenGate is ReentrancyGuard {
     }
 
     /// @notice Creator updates the fee, token, or payout (mutable by design).
-    function updateBinding(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout) external {
+    function updateBinding(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout) external nonReentrant {
         Binding storage b = bindings[roomId];
         if (!b.exists) revert NotBound();
         if (b.creator != msg.sender) revert NotCreator();
@@ -169,14 +205,14 @@ contract CreatorTokenGate is ReentrancyGuard {
     }
 
     /// @notice Creator changes where fees go without touching the token or fee.
-    function setPayout(bytes32 roomId, Payee payee, address payout) external {
+    function setPayout(bytes32 roomId, Payee payee, address payout) external nonReentrant {
         Binding storage b = bindings[roomId];
         if (!b.exists) revert NotBound();
         if (b.creator != msg.sender) revert NotCreator();
         _setPayee(roomId, b, payee, payout);
     }
 
-    function setPaused(bytes32 roomId, bool paused) external {
+    function setPaused(bytes32 roomId, bool paused) external nonReentrant {
         Binding storage b = bindings[roomId];
         if (!b.exists) revert NotBound();
         if (b.creator != msg.sender) revert NotCreator();
@@ -205,11 +241,21 @@ contract CreatorTokenGate is ReentrancyGuard {
 
     /// @notice Relay variant: the backend (or anyone) submits a join on behalf of
     ///         a player who signed an intent. The signature binds
-    ///         (roomId, player, nonce); the nonce is one-time.
+    ///         (roomId, player, nonce, token, fee, payout, payee); the nonce is one-time.
     function joinRelayed(bytes32 roomId, address player, uint256 nonce, bytes calldata signature)
         external
         nonReentrant
     {
+        _joinQuoted(roomId, player, nonce, signature);
+    }
+
+    /// @notice Wallet-submitted payment bound to the signed full quote at execution.
+    ///         The original join(bytes32) remains available for integrations.
+    function joinQuoted(bytes32 roomId, uint256 nonce, bytes calldata signature) external nonReentrant {
+        _joinQuoted(roomId, msg.sender, nonce, signature);
+    }
+
+    function _joinQuoted(bytes32 roomId, address player, uint256 nonce, bytes calldata signature) internal {
         Binding storage b = bindings[roomId];
         if (!b.exists) revert NotBound();
         if (b.paused) revert Paused();
