@@ -190,3 +190,17 @@ All work is in the repo; each item is one commit on `main` (pushed `master → m
 Deployed to Railway by the Hermes agent session after this file was pushed:
 - `orbixcore` (static site + Center SPA)
 - `orbix-center` (Python API)
+
+---
+
+## 2026-10-09 — Phase F: funded rewards client flow
+
+**User intent:** "creator sets auto claim, winner gets claim prompt + claim later code redeemable against the same contract".
+
+**What / why:** Added confirmed creator funding and durable room ↔ RewardEngine pool binding; a CreatorEconomy-style funding strip and winner preview; winner claim cards, signed wallet-bound codes, and profile My rewards with lookup/list/claim. Browser wallets use the deployed methods, approve only when needed, simulate calls and wait for status `0x1` receipts. The backend verifies creator, room key, mode, deadline, receipt deposit event and exact pool inventory before publishing. Claims are indexed by winner and verified on chain, including the exact claim simulation. Retries keep the original funding intent and pending hashes. Errors explain allowance, rejection, RewardEngine selectors and ORBIX curve lock.
+
+**Where:** `center/reward_flow.py`, API/schema/settlement/store integration, `FundedRewards.tsx`, `rewardWallet.ts`, `fundedRewards.css`, client API, wizard/results and profile integration. Full details and evidence: [Phase F record](2026-10-09-phase-f-funded-rewards.md).
+
+**Contract constraints:** The requested Auto prompt uses Code mode on the same engine because deployed Auto cannot redeem a code. Creator-only `setAllocation` is exposed as a confirmed host-wallet step after authoritative results. Merkle recipients must be committed before funding. Open pools do not reserve rewards for winners. Private-key delivery remains unimplemented; its UI explains off-chain setup and blocks publishing it as a funded pool.
+
+**Verification:** 525 pytest tests, 15 mocked-wallet tests, `tsc -b --noEmit` and production build passed; desktop/390/320 px Chromium verified the non-money UI. Live `eth_call` verified RewardEngine authority and zero pool count on Robinhood 46630; pool/claim paths used mocked chain readers. **No live transactions were performed. No Railway deployment.** Unrelated pre-existing source and build edits were excluded from these commits.
