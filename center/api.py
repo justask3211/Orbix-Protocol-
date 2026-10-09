@@ -175,6 +175,7 @@ class PublishRoom(BaseModel):
     draftId: str | None = None
     config: dict
     intentNonce: str | None = None
+    funding: dict | None = None
 
 
 class JoinBody(BaseModel):
@@ -233,6 +234,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     scheduler = Scheduler(runtimes)
 
     app = FastAPI(title="Orbix Center", version="1.0.0")
+    from center.reward_flow import RewardFlow
+    app.state.rewards = RewardFlow(store, JsonRpc(os.environ.get("CENTER_RPC_URL", "https://rpc.testnet.chain.robinhood.com"), flags.chain_id), flags.chain_id)
     app.state.flags = flags
     app.state.store = store
     app.state.vault = vault
@@ -501,6 +504,57 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
     # ------------------------------------------------------------------ rooms
 
+    @app.post(f"{API_PREFIX}/rooms/prepare-rewards")
+    def prepare_rewards(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
+        config = validate_config(body.config)
+        require_game_live(config.template_id)
+        if config.rewards.kind != "funded-assets" or not flags.testnet_rewards:
+            raise HTTPException(409, detail={"code": "UNFUNDED_REWARD", "message": "funded rewards are disabled"})
+        if not body.intentNonce:
+            raise HTTPException(400, detail={"code": "INVALID_CONFIG", "message": "funding needs a stable publication intent"})
+        config_hash = "0x" + hashlib.sha256(config.config_hash_input().encode()).hexdigest()
+        intent = publication_intent(who, config_hash, body.intentNonce)
+        from center.reward_flow import room_key
+        try:
+            root, _ = app.state.rewards.merkle(config.rewards)
+        except ValueError as exc:
+            raise HTTPException(400, detail={"code": "INVALID_CONFIG", "message": str(exc)})
+        if config.rewards.claim_deadline <= time.time() + 3700:
+            raise HTTPException(400, detail={"code": "INVALID_CONFIG", "message": "choose a claim deadline more than one hour away"})
+        rid = intent[2:18]
+        existing = store.get_room(rid)
+        return {"roomId": rid, "roomKey": "0x" + room_key(rid).hex(), "engine": app.state.rewards.engine,
+                "chainId": flags.chain_id, "merkleRoot": "0x" + root.hex(), "published": bool(existing),
+                "funding": app.state.rewards.binding(rid)}
+
+    @app.get(f"{API_PREFIX}/wallet/rewards")
+    def wallet_rewards(roomId: str | None = None, who: str = Depends(require_wallet)) -> dict:
+        try:
+            return {"rewards": app.state.rewards.claims(who, runtime_for(roomId).room_id if roomId else None)}
+        except (VaultError, OSError, ValueError) as exc:
+            raise HTTPException(503, detail={"code": "REWARD_READ_UNAVAILABLE", "message": "Reward chain verification is unavailable. Retry."}) from exc
+
+    @app.post(f"{API_PREFIX}/rewards/lookup")
+    def reward_lookup(body: dict, who: str = Depends(require_wallet)) -> dict:
+        try:
+            return {"claim": app.state.rewards.lookup(body.get("code"), who)}
+        except PermissionError as exc:
+            raise HTTPException(403, detail={"code": "WRONG_CLAIM_WALLET", "message": str(exc)})
+        except ValueError as exc:
+            raise HTTPException(404, detail={"code": "UNKNOWN_CLAIM", "message": str(exc)})
+        except (VaultError, OSError) as exc:
+            raise HTTPException(503, detail={"code": "REWARD_READ_UNAVAILABLE", "message": "Reward chain verification is unavailable. Retry."}) from exc
+
+    @app.get(f"{API_PREFIX}/rooms/{{room_id}}/reward-plan")
+    def reward_plan(room_id: str, who: str = Depends(require_wallet)) -> dict:
+        rt = runtime_for(room_id)
+        if rt.owner != who:
+            raise HTTPException(403, detail={"code": "FORBIDDEN", "message": "only the creator can allocate prizes"})
+        try:
+            return {"plan": app.state.rewards.plan(rt.room_id)}
+        except (VaultError, OSError, ValueError) as exc:
+            raise HTTPException(503, detail={"code": "REWARD_READ_UNAVAILABLE", "message": "Reward chain verification is unavailable. Retry."}) from exc
+
     @app.post(f"{API_PREFIX}/rooms")
     def publish_room(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
@@ -518,6 +572,13 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
         # Idempotent publish: a retried request (same intent) returns the original room
         # instead of creating a second one or charging again.
+        if config.rewards.kind == "funded-assets":
+            prior = store.get_room(intent[2:18])
+            if prior and prior["owner"] == who and app.state.rewards.binding(prior["id"]):
+                return {"roomId": prior["id"], "roomNumber": prior["join_code"], "joinCode": prior["join_code"],
+                        "status": prior["status"], "visibility": prior["visibility"], "intentId": intent,
+                        "charged": 0, "balanceAfter": vault.balance_of(who, unit), "balanceLabel": vault.label(unit),
+                        "replayed": True, "shareUrl": f"/center/rooms/{prior['join_code']}"}
         existing = store.get_intent(intent)
         if existing and existing["creator"] == who and existing["state"] == "consumed" and existing.get("room_id"):
             row = store.get_room(existing["room_id"])
@@ -531,6 +592,19 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                     "shareUrl": f"/center/rooms/{row['join_code']}",
                 }
 
+        funding_binding = None
+        funded_room_id = None
+        if config.rewards.kind == "funded-assets":
+            if not body.funding or not body.intentNonce:
+                raise HTTPException(409, detail={"code": "FUNDING_REQUIRED", "message": "confirm the reward deposit before publishing"})
+            funded_room_id = intent[2:18]
+            try:
+                funding_binding = app.state.rewards.verify_funding(funded_room_id, who, config.rewards, body.funding)
+            except (ValueError, KeyError, TypeError) as exc:
+                raise HTTPException(409, detail={"code": "FUNDING_UNVERIFIED", "message": str(exc)})
+            except (VaultError, OSError) as exc:
+                raise HTTPException(503, detail={"code": "REWARD_READ_UNAVAILABLE", "message": "Reward chain verification is unavailable. Retry."}) from exc
+
         charged = 0
         try:
             if amount > 0:
@@ -540,7 +614,9 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         except VaultError as exc:
             raise HTTPException(400, detail={"code": "VAULT_ERROR", "message": str(exc)})
 
-        rt = RoomRuntime.create(store, vault, hub, owner=who, config=config)
+        rt = RoomRuntime.create(store, vault, hub, owner=who, config=config, room_id=funded_room_id)
+        if funding_binding:
+            app.state.rewards.bind(funding_binding)
         community.initialize(rt.room_id, who, config.community_settings)
         # Snapshot the schedule the moment the room is published; a later admin
         # change can never reprice an existing room.
@@ -932,6 +1008,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         # a wallet that does not own it.
         if claim["winner"].lower() != who:
             raise HTTPException(403, detail={"code": "WRONG_CLAIM_WALLET", "message": "this reward belongs to a different wallet"})
+        if app.state.rewards.binding(claim["roomId"]):
+            return {"claim": claim, "payable": False, "reason": "Use My rewards to redeem this RewardEngine allocation with its signed code."}
         if claim["assetKind"] in {None, "preview-points"}:
             return {"claim": claim, "payable": False, "reason": "preview points are not claimable on-chain"}
         if claim["claimedTx"]:
