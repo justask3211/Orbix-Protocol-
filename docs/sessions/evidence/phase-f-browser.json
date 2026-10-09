@@ -1,0 +1,29 @@
+[
+  {
+    "width": 1200,
+    "wizard": true,
+    "rewards": true,
+    "codeCopy": true,
+    "codeLookup": true,
+    "noOverflow": true,
+    "transactionsSent": 0
+  },
+  {
+    "width": 390,
+    "wizard": true,
+    "rewards": true,
+    "codeCopy": true,
+    "codeLookup": true,
+    "noOverflow": true,
+    "transactionsSent": 0
+  },
+  {
+    "width": 320,
+    "wizard": true,
+    "rewards": true,
+    "codeCopy": true,
+    "codeLookup": true,
+    "noOverflow": true,
+    "transactionsSent": 0
+  }
+]
