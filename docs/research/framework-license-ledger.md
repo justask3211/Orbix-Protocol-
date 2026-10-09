@@ -2,7 +2,7 @@
 
 | Item | Provenance / version | License | Use |
 |---|---|---|---|
-| cannon-es | npm 0.20.0, lockfile integrity pinned; docs/licenses/cannon-es-MIT.txt | MIT, copyright Stefan Hedman/contributors | Imported static collision queries |
+| cannon-es | npm 0.20.0, lockfile integrity pinned; docs/licenses/cannon-es-MIT.txt and web/public/licenses/cannon-es-MIT.txt | MIT, copyright 2015 cannon.js Authors | Imported static collision queries |
 | Three.js / R3F / React | existing package lockfile | MIT | Existing renderer, Mixer and SPA |
 | Ranger animation source | web/public/center-models/orbix-ranger.manifest.json; existing LICENSE-Quaternius-CC0.txt | CC0 | Existing 20 retargeted clips; unchanged GLBs |
 | Mascot meshes, terrain textures, outpost props, damage glyphs | Original repository code and this change | Original procedural assets; no third-party asset import | Native geometry/canvas |
