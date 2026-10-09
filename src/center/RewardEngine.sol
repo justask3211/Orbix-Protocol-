@@ -27,11 +27,8 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 ///     - OPEN: first N wallets to claim get the allocation
 ///   After the deadline, the creator reclaims unclaimed assets.
 ///
-///   Private-key rewards: the creator generates a fresh EVM wallet, funds it
-///   with the reward tokens, and registers the DERIVED ADDRESS as a
-///   "key-reward" allocation. The private key is delivered off-chain (copy/
-///   import). On-chain it looks like any other asset transfer — the winner
-///   now controls that address and can sweep its contents.
+///   Private-key delivery is not implemented. This contract only transfers
+///   assets to addresses; it never creates, stores or delivers private keys.
 contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
@@ -66,7 +63,7 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     struct Allocation {
         address winner; // zero for OPEN mode
         uint256 assetIndex; // index into the pool's asset array
-        uint256 subAmount; // for ERC20: partial amount; for 721: tokenId
+        uint256 subAmount; // partial fungible amount; 1 for ERC721 (ID is in Asset)
         bool claimed;
     }
 
@@ -98,6 +95,12 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     // roomId => list of pool ids
     mapping(bytes32 => uint256[]) public roomPools;
     uint256 public poolCount;
+    // Outstanding Code/Open allocations reserve inventory per asset, per pool.
+    mapping(uint256 => mapping(uint256 => uint256)) public reserved;
+    address private receivingToken;
+    address private receivingFrom;
+    uint256 private receivingId;
+    uint256 private receivingAmount;
 
     event PoolCreated(
         uint256 indexed poolId,
@@ -135,6 +138,9 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     error NotExpired();
     error EmptyMessage();
     error AlreadySet();
+    error BadAllocation();
+    error UnexpectedReceipt();
+    error TransferMismatch();
 
     modifier onlyCreator(uint256 poolId) {
         if (pools[poolId].creator != msg.sender) revert NotCreator();
@@ -142,6 +148,7 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     }
 
     constructor(address _authority) {
+        if (_authority == address(0)) revert ZeroAddress();
         authority = _authority;
     }
 
@@ -161,6 +168,8 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         string calldata message
     ) external returns (uint256 poolId) {
         if (claimDeadline <= block.timestamp + 1 hours) revert DeadlineTooSoon();
+        if (mode == ClaimMode.Open && maxOpenClaims == 0) revert BadAllocation();
+        if (mode == ClaimMode.Merkle && merkleRoot == bytes32(0)) revert BadMerkleProof();
         poolId = poolCount++;
         Pool storage p = pools[poolId];
         p.creator = msg.sender;
@@ -179,7 +188,8 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     // ------------------------------------------------------------ asset deposit
 
     function depositERC20(uint256 poolId, address token, uint256 amount) external nonReentrant onlyCreator(poolId) {
-        Pool storage p = pools[poolId];
+        Pool storage p = _active(poolId);
+        if (token == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
         uint256 before = IERC20(token).balanceOf(address(this));
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -191,7 +201,12 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     }
 
     function depositERC721(uint256 poolId, address token, uint256 tokenId) external nonReentrant onlyCreator(poolId) {
+        _active(poolId);
+        if (token.code.length == 0) revert WrongAssetKind();
+        receivingToken = token; receivingFrom = msg.sender; receivingId = tokenId; receivingAmount = 1;
         IERC721(token).safeTransferFrom(msg.sender, address(this), tokenId);
+        receivingToken = address(0);
+        if (IERC721(token).ownerOf(tokenId) != address(this)) revert TransferMismatch();
         pools[poolId].assets.push(Asset(AssetKind.ERC721, token, tokenId, 1));
         pools[poolId].nftCommitted[tokenId] = true;
         emit AssetDeposited(poolId, uint8(AssetKind.ERC721), token, tokenId, 1);
@@ -202,14 +217,21 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         nonReentrant
         onlyCreator(poolId)
     {
+        _active(poolId);
+        if (token.code.length == 0) revert WrongAssetKind();
         if (amount == 0) revert ZeroAmount();
+        uint256 before = IERC1155(token).balanceOf(address(this), tokenId);
+        receivingToken = token; receivingFrom = msg.sender; receivingId = tokenId; receivingAmount = amount;
         IERC1155(token).safeTransferFrom(msg.sender, address(this), tokenId, amount, data);
+        receivingToken = address(0);
+        if (IERC1155(token).balanceOf(address(this), tokenId) - before != amount) revert TransferMismatch();
         pools[poolId].assets.push(Asset(AssetKind.ERC1155, token, tokenId, amount));
         pools[poolId].tokenCommitted[token] += amount;
         emit AssetDeposited(poolId, uint8(AssetKind.ERC1155), token, tokenId, amount);
     }
 
     function depositETH(uint256 poolId) external payable nonReentrant onlyCreator(poolId) {
+        _active(poolId);
         if (msg.value == 0) revert ZeroAmount();
         pools[poolId].assets.push(Asset(AssetKind.ETH, address(0), 0, msg.value));
         pools[poolId].tokenCommitted[address(0)] += msg.value;
@@ -220,11 +242,18 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
 
     function setAllocation(uint256 poolId, address winner, uint256 assetIndex, uint256 subAmount)
         external
+        nonReentrant
         onlyCreator(poolId)
     {
-        Pool storage p = pools[poolId];
-        if (p.state != PoolState.Active) revert AlreadySettled();
+        Pool storage p = _active(poolId);
+        if (p.mode != ClaimMode.Code && p.mode != ClaimMode.Open) revert WrongAssetKind();
         if (assetIndex >= p.assets.length) revert WrongAssetKind();
+        if (p.mode == ClaimMode.Open ? winner != address(0) : winner == address(0)) revert NotWinner();
+        if (p.mode == ClaimMode.Open && p.allocationCount >= p.maxOpenClaims) revert OpenClaimsExhausted();
+        Asset storage a = p.assets[assetIndex];
+        if (subAmount == 0 || a.kind == AssetKind.ERC721 && subAmount != 1) revert BadAllocation();
+        if (reserved[poolId][assetIndex] + subAmount > a.amount) revert BadAllocation();
+        reserved[poolId][assetIndex] += subAmount;
         p.allocations[p.allocationCount] = Allocation(winner, assetIndex, subAmount, false);
         emit AllocationSet(poolId, winner, assetIndex, subAmount);
         p.allocationCount++;
@@ -244,8 +273,8 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         uint256[] calldata assetIndices,
         bytes calldata signature
     ) external nonReentrant {
-        Pool storage p = pools[poolId];
-        if (!p.exists) revert PoolNotFound();
+        Pool storage p = _active(poolId);
+        if (winners.length == 0 || winners.length != assetIndices.length) revert BadAllocation();
         if (p.mode != ClaimMode.Auto) revert WrongAssetKind();
         if (p.state != PoolState.Active) revert AlreadySettled();
         bytes32 digest = keccak256(
@@ -258,7 +287,7 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
             )
         );
         if (ECDSA.recover(_ethSigned(digest), signature) != authority) revert NotAuthority();
-        for (uint256 i; i < winners.length && i < assetIndices.length; ++i) {
+        for (uint256 i; i < winners.length; ++i) {
             _transferAsset(poolId, assetIndices[i], winners[i], p.assets[assetIndices[i]].amount);
             emit AutoPush(poolId, winners[i], assetIndices[i]);
         }
@@ -270,10 +299,10 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         external
         nonReentrant
     {
-        Pool storage p = pools[poolId];
-        if (!p.exists) revert PoolNotFound();
+        Pool storage p = _active(poolId);
         if (p.mode != ClaimMode.Code) revert WrongAssetKind();
         if (block.timestamp > p.claimDeadline) revert DeadlinePassed();
+        if (allocIndex >= p.allocationCount) revert BadAllocation();
         Allocation storage alloc = p.allocations[allocIndex];
         if (alloc.claimed) revert AlreadyClaimed();
         if (alloc.winner != msg.sender) revert NotWinner();
@@ -285,6 +314,7 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         );
         if (ECDSA.recover(_ethSigned(digest), signature) != authority) revert NotAuthority();
         alloc.claimed = true;
+        reserved[poolId][alloc.assetIndex] -= alloc.subAmount;
         p.claimedBy[msg.sender] = true;
         _transferAsset(poolId, alloc.assetIndex, msg.sender, alloc.subAmount);
         emit RewardClaimed(poolId, msg.sender, alloc.assetIndex, alloc.subAmount);
@@ -298,10 +328,10 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         uint256 assetIndex,
         uint256 subAmount
     ) external nonReentrant {
-        Pool storage p = pools[poolId];
-        if (!p.exists) revert PoolNotFound();
+        Pool storage p = _active(poolId);
         if (p.mode != ClaimMode.Merkle) revert WrongAssetKind();
         if (block.timestamp > p.claimDeadline) revert DeadlinePassed();
+        if (winner != msg.sender || winner == address(0)) revert NotWinner();
         if (p.claimedBy[winner]) revert AlreadyClaimed();
         bytes32 leaf = keccak256(abi.encodePacked(winner, assetIndex, subAmount));
         if (!MerkleProof.verify(proof, p.merkleRoot, leaf)) revert BadMerkleProof();
@@ -312,16 +342,18 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
 
     /// @notice OPEN mode: first N wallets to claim.
     function claimOpen(uint256 poolId, uint256 allocIndex) external nonReentrant {
-        Pool storage p = pools[poolId];
-        if (!p.exists) revert PoolNotFound();
+        Pool storage p = _active(poolId);
         if (p.mode != ClaimMode.Open) revert WrongAssetKind();
         if (block.timestamp > p.claimDeadline) revert DeadlinePassed();
+        if (p.claimedBy[msg.sender]) revert AlreadyClaimed();
         if (p.openClaimed >= p.maxOpenClaims) revert OpenClaimsExhausted();
+        if (allocIndex >= p.allocationCount) revert BadAllocation();
         Allocation storage alloc = p.allocations[allocIndex];
         if (alloc.claimed) revert AlreadyClaimed();
         if (alloc.winner != address(0)) revert NotWinner(); // OPEN allocations have zero winner
         alloc.winner = msg.sender;
         alloc.claimed = true;
+        reserved[poolId][alloc.assetIndex] -= alloc.subAmount;
         p.openClaimed++;
         p.claimedBy[msg.sender] = true;
         _transferAsset(poolId, alloc.assetIndex, msg.sender, alloc.subAmount);
@@ -334,36 +366,17 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         Pool storage p = pools[poolId];
         if (!p.exists) revert PoolNotFound();
         if (block.timestamp <= p.claimDeadline) revert NotExpired();
+        if (p.state == PoolState.Expired) revert AlreadySettled();
         p.state = PoolState.Expired;
+        // Reclaim this pool's ledger, never the contract-wide balance.
+        // Includes unallocated NFTs, residual fungible dust and ERC-1155 inventory.
         for (uint256 i; i < p.assets.length; ++i) {
             Asset storage a = p.assets[i];
-            if (a.kind == AssetKind.ERC20) {
-                uint256 bal = IERC20(a.contractAddr).balanceOf(address(this));
-                if (bal > 0) {
-                    p.tokenCommitted[a.contractAddr] = 0;
-                    IERC20(a.contractAddr).safeTransfer(p.creator, bal);
-                    emit Reclaimed(poolId, p.creator, uint8(AssetKind.ERC20), 0, bal);
-                }
-            } else if (a.kind == AssetKind.ETH) {
-                uint256 bal = address(this).balance;
-                if (bal > 0) {
-                    p.tokenCommitted[address(0)] = 0;
-                    Address.sendValue(payable(p.creator), bal);
-                    emit Reclaimed(poolId, p.creator, uint8(AssetKind.ETH), 0, bal);
-                }
-            }
-            // NFTs handled separately (need tokenId list)
-        }
-        // reclaim all unclaimed NFTs
-        for (uint256 i; i < p.allocationCount; ++i) {
-            if (!p.allocations[i].claimed) {
-                uint256 ai = p.allocations[i].assetIndex;
-                Asset storage a = p.assets[ai];
-                if (a.kind == AssetKind.ERC721) {
-                    IERC721(a.contractAddr).safeTransferFrom(address(this), p.creator, a.tokenId);
-                    emit Reclaimed(poolId, p.creator, uint8(AssetKind.ERC721), a.tokenId, 1);
-                }
-            }
+            uint256 remaining = a.amount;
+            reserved[poolId][i] = 0;
+            if (remaining == 0) continue;
+            _transferAsset(poolId, i, p.creator, remaining);
+            emit Reclaimed(poolId, p.creator, uint8(a.kind), a.tokenId, remaining);
         }
     }
 
@@ -375,15 +388,20 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     ///      committed ledger.
     function _transferAsset(uint256 poolId, uint256 assetIndex, address to, uint256 share) internal {
         Pool storage p = pools[poolId];
+        if (to == address(0)) revert ZeroAddress();
+        if (assetIndex >= p.assets.length) revert WrongAssetKind();
         Asset storage a = p.assets[assetIndex];
+        if (share == 0 || share > a.amount || a.kind == AssetKind.ERC721 && share != 1) revert ZeroAmount();
         if (a.kind == AssetKind.ERC20) {
             if (share > a.amount) revert ZeroAmount();
             p.tokenCommitted[a.contractAddr] -= share;
             a.amount -= share;
+            uint256 before = IERC20(a.contractAddr).balanceOf(to);
             IERC20(a.contractAddr).safeTransfer(to, share);
+            if (IERC20(a.contractAddr).balanceOf(to) - before != share) revert TransferMismatch();
         } else if (a.kind == AssetKind.ERC721) {
-            IERC721(a.contractAddr).safeTransferFrom(address(this), to, a.tokenId);
             a.amount = 0;
+            IERC721(a.contractAddr).safeTransferFrom(address(this), to, a.tokenId);
         } else if (a.kind == AssetKind.ERC1155) {
             if (share > a.amount) revert ZeroAmount();
             p.tokenCommitted[a.contractAddr] -= share;
@@ -395,6 +413,24 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
             a.amount -= share;
             Address.sendValue(payable(to), share);
         }
+    }
+
+    function _active(uint256 poolId) internal view returns (Pool storage p) {
+        p = pools[poolId];
+        if (!p.exists) revert PoolNotFound();
+        if (p.state != PoolState.Active) revert AlreadySettled();
+        if (block.timestamp > p.claimDeadline) revert DeadlinePassed();
+    }
+
+    /// @notice Capability marker for fail-closed clients; requires a fresh deployment.
+    function safetyVersion() external pure returns (uint256) { return 2; }
+
+    function allocationInfo(uint256 poolId, uint256 allocIndex) external view returns (address, uint256, uint256, bool) {
+        Pool storage p = pools[poolId];
+        if (!p.exists) revert PoolNotFound();
+        if (allocIndex >= p.allocationCount) revert BadAllocation();
+        Allocation storage a = p.allocations[allocIndex];
+        return (a.winner, a.assetIndex, a.subAmount, a.claimed);
     }
 
     // ------------------------------------------------------------ views
@@ -459,11 +495,13 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
 
     // ------------------------------------------------------------ receivers
 
-    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata) external view returns (bytes4) {
+        if (msg.sender != receivingToken || operator != address(this) || from != receivingFrom || tokenId != receivingId) revert UnexpectedReceipt();
         return this.onERC721Received.selector;
     }
 
-    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure returns (bytes4) {
+    function onERC1155Received(address operator, address from, uint256 tokenId, uint256 amount, bytes calldata) external view returns (bytes4) {
+        if (msg.sender != receivingToken || operator != address(this) || from != receivingFrom || tokenId != receivingId || amount != receivingAmount) revert UnexpectedReceipt();
         return this.onERC1155Received.selector;
     }
 
@@ -472,10 +510,10 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         pure
         returns (bytes4)
     {
-        return this.onERC1155BatchReceived.selector;
+        revert UnexpectedReceipt(); // No batch deposit ABI: unsolicited inventory must not be trapped.
     }
 
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId;
+        return interfaceId == 0x01ffc9a7 || interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId;
     }
 }

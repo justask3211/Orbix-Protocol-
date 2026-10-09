@@ -161,6 +161,7 @@ export const center = {
   verify: (address: string, nonce: string, signature: string) =>
     request<{ token: string }>('/auth/verify', { method: 'POST', body: JSON.stringify({ address, nonce, signature }) }),
 
+  rewardCapabilities: () => request<{available:boolean;engine:string;chainId:number;reason?:string}>('/rewards/capabilities'),
   prepareRewards: (config: unknown, intentNonce: string, token: string) => request<{roomId:string;roomKey:`0x${string}`;engine:`0x${string}`;merkleRoot:`0x${string}`;published:boolean;funding:Funding|null}>('/rooms/prepare-rewards', {method:'POST',body:JSON.stringify({config,intentNonce})},token),
   myRewards: (token:string,roomId?:string) => request<{rewards:RewardClaim[]}>(`/wallet/rewards${roomId?`?roomId=${encodeURIComponent(roomId)}`:''}`,{},token),
   rewardLookup: (code:string,token:string) => request<{claim:RewardClaim}>('/rewards/lookup',{method:'POST',body:JSON.stringify({code})},token),

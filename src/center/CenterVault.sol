@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title CenterVault
@@ -18,8 +19,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 ///        * a deduction can never be taken twice for the same publication intent
 ///        * a deduction refund is capped at exactly what was deducted, once, to the creator
 ///        * a withdrawal can never touch a balance that has not yet been deducted for a room
-///        * fee-on-transfer / rebasing tokens are rejected instead of mis-credited
-contract CenterVault {
+///        * deposit/withdraw transfer deltas must match; asynchronous rebases are unsupported
+contract CenterVault is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable vaultToken;
@@ -62,12 +63,13 @@ contract CenterVault {
     error AlreadyRefundable();
 
     constructor(IERC20 token) {
+        if (address(token).code.length == 0) revert TransferMismatch();
         vaultToken = token;
         coordinator = msg.sender;
     }
 
     /// @notice Credit `amount` of the platform token to the caller. Requires a prior approve().
-    function deposit(uint256 amount) external {
+    function deposit(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
         uint256 before = vaultToken.balanceOf(address(this));
         vaultToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -134,7 +136,7 @@ contract CenterVault {
         emit WithdrawCancelled(msg.sender);
     }
 
-    function executeWithdraw() external {
+    function executeWithdraw() external nonReentrant {
         uint256 amount = pendingWithdrawAmount[msg.sender];
         if (amount == 0) revert NothingPending();
         if (block.timestamp < pendingWithdrawAt[msg.sender]) revert TooEarly();
@@ -143,7 +145,9 @@ contract CenterVault {
         pendingWithdrawAmount[msg.sender] = 0;
         pendingWithdrawAt[msg.sender] = 0;
         balanceOf[msg.sender] -= amount;
+        uint256 before = vaultToken.balanceOf(msg.sender);
         vaultToken.safeTransfer(msg.sender, amount);
+        if (vaultToken.balanceOf(msg.sender) - before != amount) revert TransferMismatch();
 
         emit Withdrawn(msg.sender, amount);
     }

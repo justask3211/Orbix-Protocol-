@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { encodeAbiParameters, encodeEventTopics, decodeFunctionData, parseAbi } from 'viem'
+import { toFunctionSelector, encodeAbiParameters, encodeEventTopics, decodeFunctionData, parseAbi } from 'viem'
 import { fundRewardPool, claimReward, allocateRewardPlan, waitRewardReceipt, rewardWallet, rewardAbi, REWARD_ENGINE } from './rewardWallet.ts'
 
 const account='0x'+'ab'.repeat(20), token='0x'+'cd'.repeat(20), hash='0x'+'12'.repeat(32)
@@ -15,6 +15,7 @@ function mock({allowance=0n,rejected=false,failed=false}={}) {
     if(method==='wallet_switchEthereumChain'){chain=params[0].chainId;return null}
     if(method==='eth_requestAccounts')return [account]
     if(method==='eth_call') {
+      if(params[0].data===toFunctionSelector('safetyVersion()'))return '0x2'
       if(params[0].data.startsWith('0xdd62ed3e'))return '0x'+allowance.toString(16)
       if(params[0].data.startsWith('0xe985e9c5')||params[0].data.startsWith('0x081812fc'))return '0x0'
       return '0x'
@@ -114,4 +115,12 @@ test('multiple ERC721 IDs lock into one pool with per-ID approvals and deposits'
  const deposits=calls.filter(c=>c.method==='eth_sendTransaction').map(c=>{try{return decodeFunctionData({abi:rewardAbi,data:c.params[0].data})}catch{return null}}).filter(c=>c?.functionName==='depositERC721')
  assert.deepEqual(deposits.map(d=>[d.args[0],d.args[1].toLowerCase(),d.args[2]]),[[7n,token,8n],[7n,token,99n]])
  assert(!sends(calls).includes('setApprovalForAll'))
+})
+
+
+test('unsafe legacy engine is rejected before pool creation, approval or deposit',async()=>{
+ const {wallet,calls}=mock(),request=wallet.request
+ wallet.request=async args=>args.method==='eth_call'&&args.params[0].data===toFunctionSelector('safetyVersion()')?'0x':request(args)
+ await assert.rejects(fundRewardPool(account,prepared,config(),()=>{},wallet),/pool-isolation/)
+ assert.equal(sends(calls).length,0)
 })

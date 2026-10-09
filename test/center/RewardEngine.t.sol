@@ -168,10 +168,12 @@ contract RewardEngineTest is Test {
         engine.depositERC20(id, address(token), 25e18);
         bytes32[] memory proof = new bytes32[](0); // single-leaf tree: root == leaf
         uint256 before = token.balanceOf(alice);
+        vm.prank(alice);
         engine.claimByMerkle(id, proof, alice, 0, 25e18);
         assertEq(token.balanceOf(alice) - before, 25e18);
         // double claim refused
         vm.expectRevert(RewardEngine.AlreadyClaimed.selector);
+        vm.prank(alice);
         engine.claimByMerkle(id, proof, alice, 0, 25e18);
     }
 
@@ -182,6 +184,7 @@ contract RewardEngineTest is Test {
         engine.depositERC20(id, address(token), 25e18);
         bytes32[] memory proof = new bytes32[](0);
         vm.expectRevert(RewardEngine.BadMerkleProof.selector);
+        vm.prank(bob);
         engine.claimByMerkle(id, proof, bob, 0, 25e18);
     }
 
@@ -209,8 +212,9 @@ contract RewardEngineTest is Test {
             ok = true;
         } catch {}
         assertFalse(ok, "third claimant must be refused");
-        // fresh alloc still refused by cap
+        // Allocating beyond the advertised cap is now rejected before a claim.
         vm.prank(creator);
+        vm.expectRevert(RewardEngine.OpenClaimsExhausted.selector);
         engine.setAllocation(id, address(0), 0, 10e18);
         vm.prank(address(0xCAFE));
         vm.expectRevert(RewardEngine.OpenClaimsExhausted.selector);
@@ -302,7 +306,7 @@ contract RewardEngineTest is Test {
 
     function test_receives_721_and_1155() public {
         // deposits succeed only if the receiver callbacks are correct
-        uint256 id = _create(RewardEngine.ClaimMode.Merkle, 0, bytes32(0), "");
+        uint256 id = _create(RewardEngine.ClaimMode.Merkle, 0, keccak256("receipt-test"), "");
         uint256 nftId = 99;
         nft.mint(creator, nftId);
         vm.prank(creator);

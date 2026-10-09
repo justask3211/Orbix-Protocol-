@@ -1,5 +1,5 @@
 import {decodeFunctionResult, encodeFunctionData, parseAbi, type Address} from 'viem'
-import {rewardWallet, type Wallet} from './rewardWallet'
+import {rewardWallet, type Wallet} from './rewardWallet.ts'
 const abi = parseAbi([
   'function balanceOf(address owner) view returns (uint256)',
   'function tokenOfOwnerByIndex(address owner,uint256 index) view returns (uint256)',

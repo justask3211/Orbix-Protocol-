@@ -96,6 +96,7 @@ contract CreatorTokenGate is ReentrancyGuard {
 
     constructor(address _treasury) {
         admin = msg.sender;
+        if (_treasury == address(0)) revert ZeroAddress();
         treasury = _treasury;
         emit AdminChanged(address(0), msg.sender);
     }
@@ -113,6 +114,7 @@ contract CreatorTokenGate is ReentrancyGuard {
         Binding storage b = bindings[roomId];
         if (b.exists) revert AlreadyBound();
         if (token == address(0)) revert ZeroAddress();
+        if (token.code.length == 0) revert BadToken();
         if (joinFee == 0) revert ZeroFee();
         // sanity: the address must behave like a token (symbol/decimals readable)
         try IERC20MetadataLike(token).decimals() returns (
@@ -136,6 +138,7 @@ contract CreatorTokenGate is ReentrancyGuard {
     ///      the creator's own address; CustomWallet needs a non-zero address;
     ///      Burn maps to the burn address.
     function _setPayee(bytes32 roomId, Binding storage b, Payee payee, address payout) internal {
+        address oldPayout = b.payout;
         if (payee == Payee.CreatorWallet) {
             b.payout = b.creator;
         } else if (payee == Payee.CustomWallet) {
@@ -147,7 +150,7 @@ contract CreatorTokenGate is ReentrancyGuard {
             revert BadPayee();
         }
         b.payee = payee;
-        emit PayoutChanged(roomId, b.payout, b.payout, uint8(payee));
+        emit PayoutChanged(roomId, oldPayout, b.payout, uint8(payee));
     }
 
     /// @notice Creator updates the fee, token, or payout (mutable by design).
@@ -156,7 +159,9 @@ contract CreatorTokenGate is ReentrancyGuard {
         if (!b.exists) revert NotBound();
         if (b.creator != msg.sender) revert NotCreator();
         if (token == address(0)) revert ZeroAddress();
+        if (token.code.length == 0) revert BadToken();
         if (joinFee == 0) revert ZeroFee();
+        try IERC20MetadataLike(token).decimals() returns (uint8) {} catch { revert BadToken(); }
         emit BindingUpdated(roomId, b.joinFee, joinFee, token);
         b.token = token;
         b.joinFee = joinFee;
@@ -191,7 +196,7 @@ contract CreatorTokenGate is ReentrancyGuard {
         if (b.paused) revert Paused();
         if (joined[roomId][msg.sender]) revert AlreadyJoined();
         joined[roomId][msg.sender] = true;
-        IERC20(b.token).safeTransferFrom(msg.sender, b.payout, b.joinFee);
+        _pay(b.token, msg.sender, b.payout, b.joinFee);
         if (b.payee == Payee.Burn) {
             emit FeeBurned(roomId, msg.sender, b.token, b.joinFee);
         }
@@ -210,17 +215,32 @@ contract CreatorTokenGate is ReentrancyGuard {
         if (b.paused) revert Paused();
         if (joined[roomId][player]) revert AlreadyJoined();
         if (relayNonceUsed[roomId][player][nonce]) revert NonceUsed();
-        bytes32 digest =
-            keccak256(abi.encodePacked("ORBIX_CREATOR_JOIN_V1", address(this), block.chainid, roomId, player, nonce));
+        bytes32 digest = joinDigest(roomId, player, nonce);
         (bytes32 msgDigest,) = _digestToEthSign(digest);
         if (ECDSA.recover(msgDigest, signature) != player) revert BadToken(); // wrong signer
         relayNonceUsed[roomId][player][nonce] = true;
         joined[roomId][player] = true;
-        IERC20(b.token).safeTransferFrom(player, b.payout, b.joinFee);
+        _pay(b.token, player, b.payout, b.joinFee);
         if (b.payee == Payee.Burn) {
             emit FeeBurned(roomId, player, b.token, b.joinFee);
         }
         emit CreatorJoined(roomId, player, b.joinFee, b.token);
+    }
+
+    /// @notice V2 signs the full current quote, so mutable bindings cannot increase a relayed charge.
+    function joinDigest(bytes32 roomId, address player, uint256 nonce) public view returns (bytes32) {
+        Binding storage b = bindings[roomId];
+        if (!b.exists) revert NotBound();
+        return keccak256(abi.encodePacked("ORBIX_CREATOR_JOIN_V2", address(this), block.chainid,
+            roomId, player, nonce, b.token, b.joinFee, b.payout, uint8(b.payee)));
+    }
+
+    function _pay(address token, address player, address payout, uint256 amount) internal {
+        // A self-payee must not turn an entry fee into a free join.
+        if (player == payout) revert BadPayee();
+        uint256 before = IERC20(token).balanceOf(payout);
+        IERC20(token).safeTransferFrom(player, payout, amount);
+        if (IERC20(token).balanceOf(payout) - before != amount) revert BadToken();
     }
 
     function _digestToEthSign(bytes32 h) internal pure returns (bytes32, bool) {

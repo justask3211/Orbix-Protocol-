@@ -190,7 +190,11 @@ class RewardService:
         self.room_pool[room_id] = pool_id
 
     def issue_claim_nonce(self, pool_id: int) -> int:
-        """Monotonic per-pool nonce so a claim code can never be replayed."""
+        """Legacy process-local counter, not a durable replay guard.
+
+        Production RewardFlow binds Code signatures to allocation slots; the
+        contract's claimed flag enforces one redemption across restarts.
+        """
         used = self.issued_nonces.setdefault(pool_id, set())
         n = (max(used) + 1) if used else 1
         used.add(n)
