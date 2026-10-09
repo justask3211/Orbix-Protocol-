@@ -1,3 +1,5 @@
+import { FundedRewardsSetup, MyRewards, CreatorRewardAllocation, initialRewardSettings, rewardConfig, type RewardSettings } from './FundedRewards'
+import { fundRewardPool, type Funding } from './rewardWallet'
 // Orbix Center — the creator game/quiz platform inside orbixcore.fun.
 //
 // Routes (hash-free, plain paths so the existing cockpit router can delegate to us):
@@ -336,13 +338,16 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [intentNonce] = useState(() => Math.random().toString(36).slice(2))
+  const [intentNonce] = useState(() => crypto.randomUUID())
+  const fundingAttemptKey = `orbix-reward-publication:${session.address?.toLowerCase()}:${initialTemplateId ?? 'new'}:${fromRoom ?? ''}`
+  const [fundingLocked, setFundingLocked] = useState(() => Boolean(sessionStorage.getItem(fundingAttemptKey)))
   // Format picker: collapsed chip after a choice; the full grid shows only while picking.
   const [picking, setPicking] = useState(!initialTemplateId)
   const [wizardStep, setWizardStep] = useState(initialTemplateId ? 2 : 1)
   const [edited, setEdited] = useState(false)
   const [communityOptions, setCommunityOptions] = useState({mute_chat: false, hide_players: false, hide_guesses: false})
   const [timedHints, setTimedHints] = useState<{delay_seconds: number; text: string}[]>([])
+  const [rewardSettings, setRewardSettings] = useState<RewardSettings>(initialRewardSettings)
   const [sourceConfig, setSourceConfig] = useState<Record<string, unknown> | null>(null)
   const [sourceLoading, setSourceLoading] = useState(Boolean(fromRoom))
   const sourceFunding = (sourceConfig?.rewards as {kind?:string} | undefined)?.kind === 'funded-assets'
@@ -357,6 +362,11 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       const config = source.config, rules = config.rules as Record<string,unknown>, access = config.access as Record<string,unknown>, entry = config.entry as Record<string,unknown>, admission = config.admission as Record<string,unknown>, rewards = config.rewards as {kind:string;slots?:{points?:number}[]}
       const templateId = String(config.template_id)
       setSourceConfig(config)
+      if (rewards.kind === 'funded-assets') {
+        const original = config.rewards as unknown as {claim_mode?:RewardSettings['mode'];merkle_winners?:string[];slots:{asset_kind:RewardSettings['kind'];asset_contract:string;amount:string|number;token_id:string|number}[]}
+        const slot = original.slots[0]
+        if (slot) setRewardSettings({...initialRewardSettings(),enabled:true,kind:slot.asset_kind,token:slot.asset_contract,amount:String(slot.amount),tokenId:String(slot.token_id),count:original.slots.length,mode:original.claim_mode??'code',recipients:(original.merkle_winners??[]).join(', ')})
+      }
       setDraft({...initialDraft(templateId),templateId,name:String(config.name),description:String(config.description ?? ''),visibility:config.visibility as DraftState['visibility'],rules:{...rules,...(['token-catch','boss-raid','combat-duel'].includes(templateId)?{world_version:4}:{})},durationSeconds:Number(rules.duration_seconds ?? defaultDuration(templateId)),playerCap:Number(admission.player_cap),minReady:Number(admission.min_ready_to_start),requiredAmount:Number(access.required_amount ?? 0),joinerFee:Number(access.joiner_fee ?? 0),absorbsJoinerFee:Boolean(access.creator_absorbs_joiner_fee),entryToken:entry.kind==='erc20'?String(entry.token):'',entryAmount:Number(entry.amount ?? 0),payoutMode:access.payout_mode as DraftState['payoutMode'],payoutAddress:String(access.payout_address ?? ''),hintVisibility:rules.hint_visibility==='public'?'public':'private',rewardPoints:Number(rewards.slots?.[0]?.points ?? 100)})
       const copiedCommunity = config.community_settings as Partial<typeof communityOptions> | undefined
       setCommunityOptions({mute_chat:Boolean(copiedCommunity?.mute_chat),hide_players:Boolean(copiedCommunity?.hide_players),hide_guesses:Boolean(copiedCommunity?.hide_guesses)})
@@ -517,6 +527,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       branding: { preset: 'solar' },
       community_settings: {...communityOptions, timed_hints: timedHints.filter(h => h.text.trim()).map(h => ({...h, text: h.text.trim()}))},
     }
+    if (rewardSettings.enabled) return {...nextConfig,mode:'testnet',rewards:rewardConfig(rewardSettings)}
     if (!sourceConfig) return nextConfig
     const sourceAccess = sourceConfig.access as Record<string,unknown>
     const sourceRewards = sourceConfig.rewards as {kind:string}
@@ -525,7 +536,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
 
   const saveDraft = async () => {
     if (sourceLoading || fromRoom && !sourceConfig) return setError("Wait for the original room settings to load with the creator wallet.")
-    if (allErrors.length) return setError('Correct the highlighted settings before saving or publishing.')
+    if (allErrors.length && !fundingLocked) return setError('Correct the highlighted settings before saving or publishing.')
     if (!session.token) return setError('Sign in with your wallet first.')
     setBusy(true)
     setError(null)
@@ -547,8 +558,21 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
     setBusy(true)
     setError(null)
     try {
-      // 1) publish the room first so we have its roomId
-      const published = await center.publish(buildConfig(), intentNonce, session.token)
+      const savedAttempt = sessionStorage.getItem(fundingAttemptKey)
+      const attempt = savedAttempt ? JSON.parse(savedAttempt) as {config:ReturnType<typeof buildConfig>;nonce:string;rewards:ReturnType<typeof rewardConfig>} : null
+      const config = attempt?.config ?? buildConfig()
+      const publishNonce = attempt?.nonce ?? intentNonce
+      let funding: Funding | undefined
+      if (rewardSettings.enabled || attempt) {
+        if (!session.address) throw new Error('Connect the creator wallet first.')
+        const rewards = attempt?.rewards ?? rewardConfig(rewardSettings)
+        sessionStorage.setItem(fundingAttemptKey,JSON.stringify({config,nonce:publishNonce,rewards}))
+        setFundingLocked(true)
+        const prepared = await center.prepareRewards(config,publishNonce,session.token)
+        funding = prepared.funding ?? await fundRewardPool(session.address,prepared,rewards,setStatus)
+        setStatus('Deposit receipts confirmed. Backend is verifying pool inventory before publishing.')
+      }
+      const published = await center.publish(config, publishNonce, session.token, funding)
       // 2) if a join token is configured, bind it on-chain from the creator's wallet
       if (draft.entryToken && draft.entryAmount > 0 && session.address) {
         setStatus('Publishing… now binding your join token on-chain (two wallet signatures).')
@@ -567,6 +591,8 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
           ? 'This publish was already processed — the original room was returned and nothing was charged twice.'
           : `Room created (${published.status}). ${published.charged} ${published.balanceLabel} deducted; balance now ${published.balanceAfter}.`,
       )
+      sessionStorage.removeItem(fundingAttemptKey)
+      setFundingLocked(false)
       go(published.shareUrl || `/center/rooms/${published.roomId}`)
     } catch (err) {
       setError(explainError(err) || (err instanceof Error ? err.message : String(err)))
@@ -764,6 +790,8 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
 
       <section className="ct-panel" id="wiz-fees" hidden={wizardStep !== 4}>
         <h2>4 · Fees & rewards</h2>
+        {fundingLocked && <p role="status">A funded publication is in progress. Publish again to resume its saved configuration and check pending receipts.</p>}
+        <FundedRewardsSetup settings={rewardSettings} disabled={busy || fundingLocked} onChange={value=>{setRewardSettings(value);setEdited(true)}}/>
         <p className="muted">{sourceOnchain ? 'This copy retains the original onchain vault and its token units. New entry and reward funding are separate transactions.' : 'What it costs to play, what the winner takes, and who pays the joiner fee. These room fees use preview credits. Token entry, when configured, requires a separate wallet transaction.'}</p>
         <div className="ct-form">
           <div className="wz-why">The play fee is charged to YOU once at publish — it is the cost of running the room, not something players pay.</div>
@@ -818,13 +846,13 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
             </label>
           )}
           <ArcadeNumber label="Auto-close after (hours, 0 = never)" minimum={0} maximum={168} value={draft.closeAfterHours ?? 0} onChange={value => set('closeAfterHours',value)} error={feeErrors.closeAfterHours} />
-          <RoomRewardsGuide funded={Boolean(sourceFunding)}>
+          {!rewardSettings.enabled && <RoomRewardsGuide funded={Boolean(sourceFunding)}>
           {sourceFunding ? <div className="wz-why"><strong>Original funded prize configuration retained</strong><p>This new room needs its own confirmed prize inventory. Previous match deposits and claims stay with the original room. Fund the new room before starting.</p></div> : draft.templateId==='token-catch' && Number(draft.rules.world_version)>=3 ? <ArcadeNumber label="Total airdrop loot pool (preview units)" minimum={1} maximum={10000} value={Number(draft.rules.loot_budget)} onChange={value=>setRule('loot_budget',value)} error={ruleErrors.loot_budget} help="The complete pool is split across the scheduled airdrops. Every collector receives their final collected share as preview points. These are game units, not a wallet transfer."/> : <ArcadeNumber label={draft.templateId==='boss-raid' ? 'Total crew prize pool (preview points)' : 'Winner points (preview)'} minimum={0} value={draft.rewardPoints} onChange={value => set('rewardPoints',value)} error={feeErrors.rewardPoints} help={draft.templateId === 'boss-raid' ? 'This is the complete prize pool. The podium percentages split it between qualifying crews, then the chosen member rule divides each crew share. Game points are separate from wallet tokens.' : 'Game points are separate from wallet tokens. Set to 0 for no preview points.'} />}
-          </RoomRewardsGuide>
+          </RoomRewardsGuide>}
         </div>
 
         <div className="wz-why" style={{ marginTop: 14 }}>
-          {sourceFunding ? 'This copy retains funded prize settings. Publishing creates a new room and does not reuse or transfer previous deposits.' : 'This wizard publishes preview-point rooms. Publishing here does not fund token, NFT or native-currency prizes.'}
+          {rewardSettings.enabled ? 'Your wallet creates and deposits into RewardEngine. The backend verifies the confirmed inventory before publishing.' : sourceFunding ? 'This copy retains funded prize settings. Publishing creates a new room and does not reuse or transfer previous deposits.' : 'This wizard publishes preview-point rooms. Publishing here does not fund token, NFT or native-currency prizes.'}
           On-chain prizes require a separate contract funding flow and confirmed inventory before players enter.
         </div>
 
@@ -844,7 +872,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
             <div><small>Players</small><b>{isSolo ? 1 : draft.playerCap}</b></div>
             <div><small>Play fee</small><b>{draft.requiredAmount} {sourceOnchain ? "token base units" : "preview credits"}</b></div>
             <div><small>Joiner fee</small><b>{draft.entryToken ? `${draft.entryAmount} (token)` : draft.joinerFee ? `${draft.joinerFee} preview credits` : 'Free'}</b></div>
-            <div><small>{['token-catch','boss-raid'].includes(draft.templateId)?'Total game reward pool':'Winner reward'}</small><b>{sourceFunding ? 'Funded inventory required' : `${draft.templateId==='token-catch'?Number(draft.rules.loot_budget):draft.rewardPoints} preview points`}</b></div>
+            <div><small>{['token-catch','boss-raid'].includes(draft.templateId)?'Total game reward pool':'Winner reward'}</small><b>{rewardSettings.enabled ? `${rewardSettings.count} × ${rewardSettings.amount} ${rewardSettings.kind} base units` : sourceFunding ? 'Funded inventory required' : `${draft.templateId==='token-catch'?Number(draft.rules.loot_budget):draft.rewardPoints} preview points`}</b></div>
           </div>
         </div>
       {currentStepErrors.length > 0 && <p className="ct-field-error ct-validation-summary" role="status">{currentStepErrors.length} setting{currentStepErrors.length === 1 ? '' : 's'} need attention. Check the messages beside your fields.</p>}
@@ -1302,6 +1330,8 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       {adminObserver && session.token && <AdminRoomTools roomId={roomId} session={session} roomStatus={room?.status} onChanged={() => void refresh()} />}
       {(amPlayer || isHost) && <RoomCommunity roomId={roomId} session={session} isHost={isHost} roomStatus={room?.status} onSettingsChange={settings => setRoom(prev => prev ? {...prev, communitySettings: settings} : prev)} onRosterChange={() => void refresh()} />}
       {rematchNotice && <p className="ct-observer-note" role="status">{rematchNotice}</p>}
+      {rewardKind === 'funded-assets' && finished && session.token && <MyRewards session={session} roomId={roomId}/>}
+      {rewardKind === 'funded-assets' && isHost && finished && <CreatorRewardAllocation session={session} roomId={roomId}/>}
       {isHost && finished && room && <section className="ct-rematch-panel"><div><span>KEEP THE CREW TOGETHER</span><h2>One more round?</h2><p>{room.rematch?.supported ? 'Keep this room and its players. Each match gets its own result, and everyone confirms readiness again.' : 'This room uses a financial entry or funded reward. A fresh room and funding are required for the next match.'}</p></div><div className="ct-actions">{room.rematch?.supported ? <><button className="btn-primary" disabled={busy} onClick={() => void playAgain()}>Play again · same settings</button><button className="btn-ghost" disabled={busy} onClick={() => setEditingRematch(true)}>Edit next match</button></> : <button className="btn-primary" onClick={() => go(`/center/create/${templateId}?from=${roomId}`)}>Prepare a fresh room</button>}</div></section>}
       {editingRematch && room && <Suspense fallback={<p role="status">Opening next-match settings…</p>}><RematchSettings room={room} onClose={() => setEditingRematch(false)} onSave={playAgain} /></Suspense>}
       {finished && <section ref={resultElement} className="ct-round-results" tabIndex={-1} aria-label="Round results">
@@ -1320,7 +1350,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
             ))}
           </div>
           <div className="ct-claims">
-            {settlement.allocations.map((a: Allocation) => (
+            {rewardKind !== 'funded-assets' && settlement.allocations.map((a: Allocation) => (
               <ClaimCard key={a.claimId} allocation={a} session={session} />
             ))}
           </div>
