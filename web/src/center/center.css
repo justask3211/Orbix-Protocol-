@@ -882,3 +882,10 @@ html{scroll-behavior:smooth}
 @media(max-width:430px){.ct-app .wl-wallet-modal .wl-option{gap:8px;padding:10px}.ct-app .wl-wallet-modal .wl-option .wl-icon{width:42px}}
 @media(prefers-reduced-motion:reduce){.ct-app .wl-wallet-modal .wl-option{transition:none}.ct-app .wl-wallet-modal .wl-option:hover:not(:disabled){transform:none}}
 .ct-app .wl-modal:is(.wl-wallet-modal,.ct-waitlist-modal) .err{color:#ffb5a8;background:#542e37;border:1px solid #87505b}
+
+.ct-character-lobby{padding:16px;border:1px solid var(--line);border-radius:16px;background:#243944;min-width:0}
+.ct-character-lobby>div:has(canvas){height:260px!important}
+.ct-lobby-names{display:flex;justify-content:space-around;gap:8px;flex-wrap:wrap;font-size:12px;color:#f8efdb}
+.ct-form-rewards>div{padding:12px 0;border-top:1px solid var(--line)}
+.ct-form-rewards label{display:block;margin:10px 0}
+.ct-waitlist-entries pre{white-space:pre-wrap;overflow-wrap:anywhere}

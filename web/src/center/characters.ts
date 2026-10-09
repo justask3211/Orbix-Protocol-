@@ -1,4 +1,6 @@
 export const CHARACTERS = [
+  {id:'cat',name:'Maple',description:'Tabby cat · plush fur, bright eyes and a curled tail',color:'#b6a28d',face:'🐱'},
+  {id:'turtle',name:'Tuck',description:'Little turtle · carved shell and soft stubby paws',color:'#a4bf73',face:'🐢'},
   {id:'blob',name:'Boba',description:'Round blob runner · sunny and bouncy',color:'#ffafcd',face:'●'},
   {id:'knight',name:'Pip',description:'Stubby knight · small but brave',color:'#8cb8ed',face:'♜'},
   {id:'cat-blob',name:'Mochi',description:'Cat blob · curious and cozy',color:'#c5a4ed',face:'🐱'},
@@ -14,4 +16,4 @@ export type CharacterId = typeof CHARACTERS[number]['id']
 export type Cosmetics = {hat?:string;glasses?:string;outfit?:string;accessory?:string}
 export type Appearance = {character?:string;cosmetics?:Cosmetics}
 export const COSMETIC_OPTIONS = {hat:['none','cap','crown','bow'],glasses:['none','round','visor'],outfit:['default','coral','mint','lilac','dress'],accessory:['none','scarf','backpack']}
-export function characterInfo(id?:string) { const aliases:Record<string,string>={fox:'astronaut',robot:'toy-robot',frog:'sprout',cat:'cat-blob'};return CHARACTERS.find(item=>item.id===(aliases[id??'']??id))??CHARACTERS[0] }
+export function characterInfo(id?:string) { const aliases:Record<string,string>={fox:'astronaut',robot:'toy-robot',frog:'sprout'};return CHARACTERS.find(item=>item.id===(aliases[id??'']??id))??CHARACTERS.find(item=>item.id==='blob')! }

@@ -8,8 +8,8 @@ function Model({appearance,rotate,reduced}:{appearance:Appearance;rotate:number;
   const gltf=useLoader(GLTFLoader,`${import.meta.env.BASE_URL}center-models/orbix-ranger-lod.glb`)
   const owned=useMemo(()=>buildCuteCharacter(gltf,appearance),[gltf,appearance.character,JSON.stringify(appearance.cosmetics)])
   const lifetime=useMemo(()=>({mounted:false}),[owned])
-  const mixer=useMemo(()=>new AnimationMixer(owned.scene),[owned]),group=useRef<Group>(null)
-  useEffect(()=>{const idle=gltf.animations.find(clip=>clip.name==='Idle');if(idle){mixer.clipAction(idle).play();mixer.update(.35)}lifetime.mounted=true;return()=>{lifetime.mounted=false;queueMicrotask(()=>{if(!lifetime.mounted){mixer.stopAllAction();mixer.uncacheRoot(owned.scene);owned.release()}})}},[owned,mixer,gltf,lifetime])
+  const mixer=useMemo(()=>(()=>{const m=new AnimationMixer(owned.scene),idle=owned.animations.find(c=>c.name==='Idle');if(idle){m.clipAction(idle).play();m.update(.35)}return m})(),[owned]),group=useRef<Group>(null)
+  useEffect(()=>{const idle=owned.animations.find(clip=>clip.name==='Idle');if(idle){mixer.clipAction(idle).play();mixer.update(.35)}lifetime.mounted=true;return()=>{lifetime.mounted=false;queueMicrotask(()=>{if(!lifetime.mounted){mixer.stopAllAction();mixer.uncacheRoot(owned.scene);owned.release()}})}},[owned,mixer,gltf,lifetime])
   useFrame((_,dt)=>{if(group.current)group.current.rotation.y=rotate+(reduced?0:performance.now()*.00035);if(!reduced)mixer.update(Math.min(dt,.06))})
   return <group ref={group}><primitive object={owned.scene} dispose={null}/></group>
 }

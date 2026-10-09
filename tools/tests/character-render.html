@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Orbix character regression</title><style>body{margin:0;background:#263949;color:#fff;font:16px sans-serif}#label{position:absolute;top:16px;left:20px}canvas{display:block}</style><div id="label">Character review</div><script type="module">
+import * as THREE from '/center/node_modules/three/build/three.module.js'
+import {GLTFLoader} from '/center/node_modules/three/examples/jsm/loaders/GLTFLoader.js'
+import {makeRig,selectAction,releaseRig} from '/center/src/center/worlds/AnimationRig.ts'
+const scene=new THREE.Scene();scene.background=new THREE.Color('#263949')
+const camera=new THREE.PerspectiveCamera(35,960/800,.05,100);camera.position.set(2.7,1.9,4.7);camera.lookAt(0,1,0)
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(960,800);renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.35;document.body.append(renderer.domElement)
+scene.add(new THREE.HemisphereLight('#fff4db','#667782',2.1));const key=new THREE.DirectionalLight('#fff4df',3.3);key.position.set(3,5,4);key.castShadow=true;scene.add(key);const rim=new THREE.DirectionalLight('#a5dfe7',2);rim.position.set(-3,2,-3);scene.add(rim)
+const floor=new THREE.Mesh(new THREE.CircleGeometry(4,64),new THREE.MeshStandardMaterial({color:'#466b69',roughness:1}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor)
+const gltf=await new GLTFLoader().loadAsync('/center/center-models/orbix-ranger.glb')
+let owned,mixer,rig
+window.review={async show(id,clip='Idle',time=.35){if(rig){scene.remove(rig.scene);releaseRig(rig)}rig=makeRig(gltf,id,'team-1');owned=rig;scene.add(rig.scene);rig.scene.scale.set(1.15,.96,1.12);mixer=rig.mixer;const speed=clip==='Sprint'?8:clip==='Run'?5:clip==='Walk'?1:0,rate=speed?speed/(rig.gaitSpeeds[clip]*1.12):1;selectAction(rig,clip,'lower',false,'',rate);selectAction(rig,clip,'upper',false,'',rate);mixer.update(time);rig.scene.updateMatrixWorld(true);renderer.render(scene,camera);document.querySelector('#label').textContent=id+' · '+clip;let mesh;rig.scene.traverse(o=>{if(o.name.startsWith('OrbixOriginal_'))mesh=o});return {triangles:mesh.geometry.index.count/3,groups:mesh.geometry.groups.length,layers:rig.scene.userData.animationLayers}},step(dt){mixer.update(dt);renderer.render(scene,camera)},turn(yaw){rig.scene.rotation.y=yaw;renderer.render(scene,camera)},layers(){return rig.scene.userData.animationLayers},transition(clip){selectAction(rig,clip,'lower',false,'');selectAction(rig,clip,'upper',false,'');mixer.update(.2);renderer.render(scene,camera);return [...rig.actions].filter(([key,a])=>a.isScheduled()&&a.enabled&&a.getEffectiveWeight()>.001).map(([key,a])=>({clip:key,weight:a.getEffectiveWeight()}))}}
+await window.review.show('cat-blob');window.ready=true
+</script></html>

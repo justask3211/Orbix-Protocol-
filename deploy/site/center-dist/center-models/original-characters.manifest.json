@@ -2,9 +2,11 @@
   "created": "2026-10-09",
   "geometry": "Original Orbix procedural geometry; no external mesh or texture downloads.",
   "source": "web/src/center/worlds/CuteCharacter.ts",
-  "sourceSha256": "aad4788b55c7aad796b00d1898004488ccda895b63963568d869421d5758c5ec",
-  "rig": "Existing CC0 Orbix Ranger skeleton, bone inverses and all 20 in-place clips; see orbix-ranger.manifest.json and NOTICE.md.",
+  "sourceSha256": "d322c7cee2d8bc17bb84d008b310ffbad1de907d32c3201baff2b648cba2caee",
+  "rig": "Existing CC0 skeleton and 20-clip topology, with presentation-only shortened mascot legs and retargeted pelvis offsets. Original Walk/Run/Sprint gait tracks; other 17 source clips retained.",
   "characters": [
+    "cat",
+    "turtle",
     "blob",
     "knight",
     "cat-blob",
@@ -16,6 +18,14 @@
     "sprout",
     "marshmallow"
   ],
-  "lod": "12x8 sphere primitives near; 6x4 distant; grouped into at most five palette draw groups.",
-  "ownership": "Actor owns merged geometry, palette materials and cloned skeleton; source geometry/maps remain shared and untouched."
+  "lod": "16x10 near sphere primitives; 8x5 distant, smaller detail meshes and 10x6 distant tail; at most five material groups.",
+  "ownership": "Actor owns merged geometry, palette materials and cloned skeleton; source geometry/maps remain shared and untouched.",
+  "sources": {
+    "web/src/center/worlds/CuteCharacter.ts": "d322c7cee2d8bc17bb84d008b310ffbad1de907d32c3201baff2b648cba2caee",
+    "web/src/center/worlds/characterRig.ts": "9d0af6cfc2bd29db86b1f9d45a556511ea2f46d5e568cbb3a27cb2cac2322445",
+    "web/src/center/worlds/locomotion.ts": "5ca11fd7913429f6dfc1d3ae19f815501840ffa2ff1f1856bb226b05a4fdd5e7",
+    "web/src/center/worlds/AnimationRig.ts": "9df5db4157e92e329db7b90a09b0f6efeb1223226c495590d75c1e619b707975"
+  },
+  "fur": "Original procedural surface grain, fiber variation and rim lighting in existing passes. No textures, transparent shell passes or downloaded meshes.",
+  "verification": "tools/tests/character-frame-regression.cjs, actor-state-regression.mjs, locomotion-regression.mjs; Chromium software GPU, no physical-device performance verification."
 }
