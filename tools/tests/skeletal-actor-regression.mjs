@@ -1,3 +1,4 @@
+import {frameworkModule} from './framework-fixture.mjs'
 import {locomotion} from './locomotion-fixture.mjs'
 /* Actual GLTF/mixer regression for animation binding and StrictMode effect rehearsal.
  * Run: node tools/tests/skeletal-actor-regression.mjs
@@ -43,6 +44,9 @@ const modules = {
   'three/addons/utils/SkeletonUtils.js': skeletonUtils,
   './locomotion': {locomotion},
   './AnimationRig': animationRig,
+  '../framework/animation': frameworkModule('animation'),
+  '../framework/feet': frameworkModule('feet'),
+  '../framework/health': frameworkModule('health'),
   './CuteCharacter': {buildCuteCharacter},
   './terrain': { stateGround: () => 0 },
   './motion': require('./motion-regression.cjs'),

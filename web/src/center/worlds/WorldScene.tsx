@@ -1,9 +1,10 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback, type ReactNode } from 'react'
 import { ACESFilmicToneMapping, CanvasTexture, Group, MathUtils, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three'
 import type { GameWorldProps, WorldQuality } from './GameWorld'
 import ArenaWorld from './ArenaWorld'
 import FieldLighting from './FieldLighting'
+import { WorldWarmup } from '../framework/warmup'
 
 type SceneProps = GameWorldProps & { active: boolean; quality: WorldQuality; onFps: (fps: number) => void; onContextLost: () => void; onReady: () => void; fallback: ReactNode }
 type Vec3 = [number, number, number]
@@ -386,6 +387,9 @@ function FrameRate({ onFps }: { onFps: (fps: number) => void }) {
 
 export default function WorldScene({ active, fallback, onContextLost, onReady, quality, onFps, ...props }: SceneProps) {
   const detailed = Number(props.state.worldVersion) >= 4
+  const [assetsReady, setAssetsReady] = useState(false)
+  const handleAssetsReady = useCallback(() => setAssetsReady(true), [])
+  useEffect(() => setAssetsReady(false), [props.game])
   const fieldShadows = detailed && quality !== 'fast' && window.matchMedia('(min-width: 800px) and (pointer: fine)').matches
   const background = props.game === 'boss-raid' ? '#c5b9e0' : props.game === 'reaction-duel' ? '#f2d6ce' : props.game === 'token-catch' ? '#b5e9e5' : '#c0e6df'
   const scenes = { 'number-hunt': NumberWorld, 'boss-raid': BossWorld, 'token-catch': CatchWorld, 'reaction-duel': DuelWorld, 'combat-duel': ArenaWorld }
@@ -400,6 +404,7 @@ export default function WorldScene({ active, fallback, onContextLost, onReady, q
     shadows={fieldShadows}
     onCreated={({ camera }) => { camera.lookAt(0, .55, 0); if (!detailed) onReady() }}
   >
+    {detailed && <WorldWarmup assetsReady={assetsReady} onReady={onReady} />}
     <color attach="background" args={[background]} />
     <fog attach="fog" args={[detailed ? props.game === 'boss-raid' ? '#cbd7c3' : '#e4dfcf' : background, props.state.arena ? 38 : 25, props.state.arena ? 120 : 48]} />
     {detailed ? <FieldLighting game={props.game} shadows={fieldShadows} /> : <><ambientLight intensity={1.25} />
@@ -407,6 +412,6 @@ export default function WorldScene({ active, fallback, onContextLost, onReady, q
     <directionalLight position={[-4, 9, 6]} intensity={2.1} color="#fff2df" />
     <directionalLight position={[6, 5, -4]} intensity={1.3} color="#dedaff" /></>}
     <CameraRig arena={Boolean(props.state.arena)} width={Number(props.state.bounds?.width) || 20} depth={Number(props.state.bounds?.depth) || 16} /><RendererLifecycle onContextLost={onContextLost} /><FrameRate onFps={onFps} />
-    {props.state.arena ? <ArenaWorld {...props} onAssetsReady={onReady} /> : <GameScene {...props} reducedMotion={props.reducedMotion ?? false} />}
+    {props.state.arena ? <ArenaWorld {...props} onAssetsReady={detailed ? handleAssetsReady : onReady} /> : <GameScene {...props} reducedMotion={props.reducedMotion ?? false} />}
   </Canvas>
 }

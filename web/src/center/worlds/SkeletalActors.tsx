@@ -5,14 +5,16 @@ import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js'
 import type { GameWorldProps } from './GameWorld'
 import { CARTOON_TEAMS, CARTOON_PROPORTIONS } from './cartoonStyle'
 import { HeldItems, type GripBones } from './ItemMeshes'
-import { MotionTrack, type MotionPose } from './motion'
+import { MotionTrack, support, type MotionPose } from './motion'
 import { stateGround } from './terrain'
 import {makeRig,releaseRig,selectAction} from './AnimationRig'
+import { AnimationFSM } from '../framework/animation'
+import { FootPlant } from '../framework/feet'
+import { HealthTrack } from '../framework/health'
 
 type Pose = MotionPose
 type Props = GameWorldProps & { poses: Map<string, Pose>; onReady?: () => void }
 type Body = Record<string, any>
-type Cue = { name: string; until: number; key: string; whole: boolean }
 const num = (value: unknown, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
 const TEAM_COLORS = CARTOON_TEAMS
 function PoseMotion({ state, me, inputRef, poses }: Props) {
@@ -38,12 +40,14 @@ function PoseMotion({ state, me, inputRef, poses }: Props) {
 
 function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who: string; body: Body; full: GLTF; lod: GLTF; handOutputs: Map<string, GripBones> }) {
   const elastic = useRef<Group>(null), squash = useRef(0)
-  const container = useRef<Group>(null), health = useRef(num(body.hp, 100)), grounded = useRef(Boolean(body.onGround)), attack = useRef(num(body.lastAttackAt)), dodge = useRef(num(body.dodgeUntil)), loot = useRef(num(body.lootReadyAt))
+  const container = useRef<Group>(null), contactMarker = useRef<Group>(null)
+  const machine = useMemo(() => new AnimationFSM(), []), health = useMemo(() => new HealthTrack(), [])
   const clock = useRef({ server: num(props.state.serverTimeMs, Date.now()), received: performance.now() })
   useEffect(() => { clock.current = { server: num(props.state.serverTimeMs, Date.now()), received: performance.now() } }, [props.state.serverTimeMs])
-  const cue = useRef<Cue | null>(null), selection = useRef(0), accumulated = useRef(0)
+  const selection = useRef(0), accumulated = useRef(0)
   const gaitSpeed = useRef(0)
   const rigs = useMemo(() => [makeRig(full, body.character || 'blob', body.team || '', body.cosmetics), makeRig(lod, body.character || 'blob', body.team || '', body.cosmetics, true)], [full, lod, body.character, body.team, JSON.stringify(body.cosmetics)])
+  const feet = useMemo(() => rigs.map(rig => new FootPlant(rig.scene)), [rigs])
   const lifetime = useMemo(() => ({ mounted: false, released: false }), [rigs])
   const frustum = useMemo(() => new Frustum(), []), projection = useMemo(() => new Matrix4(), []), sphere = useMemo(() => new Sphere(new Vector3(), 2.5), [])
   useEffect(() => {
@@ -75,57 +79,49 @@ function RigActor({ who, body, full, lod, handOutputs, ...props }: Props & { who
     const rig = rigs[selected]
     if (rig.hand && visible) handOutputs.set(who, {right:rig.hand,left:rig.leftHand})
     else handOutputs.delete(who)
-    let event: Cue | null = null
-    if (num(body.lastAttackAt) > attack.current && now - num(body.lastAttackAt) < 1000) {
-      const weapon = body.lastAttackWeapon || body.weapon, name = body.lastAttackKind === 'interact' ? 'Interact' : body.lastAttackStyle === 'kick' ? 'Kick' : body.lastAttackStyle === 'punch' ? num(body.combo) % 2 ? 'PunchJab' : 'PunchCross' : weapon === 'gun' ? 'PistolShoot' : weapon === 'sword' || weapon === 'spear' ? 'SwordAttack' : body.lastAttackStyle === 'heavy' ? 'PunchCross' : num(body.combo) % 2 ? 'PunchJab' : 'PunchCross'
-      event = { name, until: now + (name === 'PistolShoot' ? 350 : name === 'Kick' ? 550 : 500), key: `attack-${body.lastAttackAt}`, whole: name === 'Kick' }
-    }
-    if (num(body.dodgeUntil) > dodge.current && num(body.dodgeUntil) > now) event = { name: 'Dodge', until: now + 430, key: `dodge-${body.dodgeUntil}`, whole: true }
-    if (num(body.lootReadyAt) > loot.current && pose.moving < .25) event = { name: 'Interact', until: now + 350, key: `loot-${body.lootReadyAt}`, whole: false }
-    if (num(body.hp, 100) < health.current && !down) event = { name: 'Hit', until: now + 250, key: `hit-${props.state.tick}-${body.hp}`, whole: false }
-    const onGround = body.onGround !== undefined ? Boolean(body.onGround) : num(body.y) <= num(body.groundHeight) + .08
-    if (!onGround && grounded.current && !down) event = { name: 'JumpStart', until: now + 280, key: `jump-${props.state.tick}`, whole: true }
-    if (onGround && !grounded.current && !down) { squash.current = .12 }
-    if (onGround && !grounded.current && !down) event = { name: 'JumpLand', until: now + 160, key: `land-${props.state.tick}`, whole: true }
+    const animation = machine.update(body, props.state, now, num(pose.speed), !!(body.sprinting || local && props.inputRef?.current.sprint))
+    const onGround = animation.grounded
+    if (animation.landed) squash.current = .12
+    health.observe(num(body.hp, 100), props.state.roundId, performance.now(), body.respawnAt)
+    if (contactMarker.current) contactMarker.current.visible = animation.contact && visible && !props.reducedMotion
+    rig.scene.userData.contactWindow = { active: animation.contact, entered: animation.contactEntered, phase: animation.progress }
     if (elastic.current) {
       squash.current *= Math.exp(-Math.min(rawDelta, .06) * 17)
       const stretch = props.reducedMotion || down ? 0 : !onGround ? .035 : -squash.current
       elastic.current.scale.set(CARTOON_PROPORTIONS[0] * (1 - stretch * .5), CARTOON_PROPORTIONS[1] * (1 + stretch), CARTOON_PROPORTIONS[2] * (1 - stretch * .5))
       elastic.current.rotation.x = props.reducedMotion || down ? 0 : MathUtils.damp(elastic.current.rotation.x, -Math.min(.055, num(pose.speed) * .007), 20, rawDelta)
     }
-    attack.current = num(body.lastAttackAt); dodge.current = num(body.dodgeUntil); loot.current = num(body.lootReadyAt); health.current = num(body.hp, 100); grounded.current = onGround
-    if (event) cue.current = event
-    if (cue.current && now >= cue.current.until) cue.current = null
-    let lower = num(pose.speed) > .08 ? body.sprinting || local && props.inputRef?.current.sprint ? 'Sprint' : num(pose.speed) < 2 ? 'Walk' : 'Run' : 'Idle', upper = lower
-    let once = false, key = '', speed = 1
-    if (body.weapon === 'gun' && pose.moving < .2) upper = 'PistolAim'
-    else if (['sword', 'spear'].includes(body.weapon) && pose.moving < .2) upper = 'SwordIdle'
-    if (body.blocking) upper = 'Guard'
-    if (!onGround) { lower = 'JumpLoop'; upper = 'JumpLoop' }
-    if (cue.current) { upper = cue.current.name; if (cue.current.whole) lower = upper; once = true; key = cue.current.key; speed = upper === 'Dodge' ? 3 : upper === 'JumpStart' ? 4 : upper === 'JumpLand' ? 5 : upper === 'Interact' ? 4 : upper === 'SwordAttack' ? 2.5 : 1.5 }
-    // Add a procedural recoil above the split skeleton layers, never to root movement.
-    if (elastic.current && !props.reducedMotion && !down && cue.current?.name === 'Hit') elastic.current.rotation.z = Math.sin((cue.current.until - now) * .035) * .06
+    const { lower: lowerIntent, upper: upperIntent } = animation
+    const lower = lowerIntent.name, upper = upperIntent.name
+    if (elastic.current && !props.reducedMotion && !down && upper === 'Hit') elastic.current.rotation.z = Math.sin(now * .035) * .06 * health.intensity(performance.now())
     else if (elastic.current) elastic.current.rotation.z = MathUtils.damp(elastic.current.rotation.z, 0, 20, rawDelta)
-    if (props.state.finished && !down) { lower = upper = 'Idle'; cue.current = null }
-    if (down) { lower = upper = 'Death'; once = true; key = `down-${num(body.respawnAt)}`; speed = 1.5 }
     gaitSpeed.current = num(pose.speed) < .08 ? 0 : num(pose.speed)
-    selectAction(rig, lower, 'lower', once && lower === upper, once && lower === upper ? key : '', once && lower === upper ? speed : ['Walk','Run','Sprint'].includes(lower) ? gaitSpeed.current / (rig.gaitSpeeds[lower] * CARTOON_PROPORTIONS[2]) : 1)
-    selectAction(rig, upper, 'upper', once || upper === 'Guard' || upper === 'PistolAim', key, !once && ['Walk','Run','Sprint'].includes(upper) ? gaitSpeed.current / (rig.gaitSpeeds[upper] * CARTOON_PROPORTIONS[2]) : speed)
+    selectAction(rig, lower, 'lower', lowerIntent.once, lowerIntent.key, animation.locomotion(lower) && lower !== 'Idle' ? gaitSpeed.current / (rig.gaitSpeeds[lower] * CARTOON_PROPORTIONS[2]) : lowerIntent.rate, lowerIntent.blend)
+    selectAction(rig, upper, 'upper', upperIntent.once, upperIntent.key, animation.locomotion(upper) && upper !== 'Idle' ? gaitSpeed.current / (rig.gaitSpeeds[upper] * CARTOON_PROPORTIONS[2]) : upperIntent.rate, upperIntent.blend)
+    for (const material of rig.materials) if ('emissive' in material) {
+      const lit = material as import('three').MeshStandardMaterial
+      lit.emissive.set('#ffd58c'); lit.emissiveIntensity = props.reducedMotion ? 0 : health.intensity(performance.now()) * .65
+    }
     if(props.reducedMotion && lower==='Idle' && upper==='Idle')for(const layer of ['lower','upper']){const idle=rig.actions.get(`Idle:${layer}`);if(idle){idle.time=.35;idle.setEffectiveTimeScale(0)}}
     accumulated.current += Math.min(rawDelta, .1)
     if (!visible) { accumulated.current = 0; return }
     if (selected === 1 && accumulated.current < .05 && selected === selection.current) return
-    rig.mixer.update(Math.min(accumulated.current, .15)); accumulated.current = 0; selection.current = selected
+    rig.mixer.update(Math.min(accumulated.current, .15)); accumulated.current = 0
+    container.current.updateMatrixWorld(true)
+    if (selection.current !== selected) feet[selected].reset()
+    selection.current = selected
+    const gait = rig.actions.get(`${lower}:lower`), phase = gait ? gait.time / Math.max(.001, gait.getClip().duration) : 0
+    feet[selected].update(container.current, phase, num(pose.speed) > .08, selected === 0 && onGround && !down && animation.locomotion(lower), (x, z) => support(props.state, x, z, pose.y))
     container.current.updateMatrixWorld(true)
   }, -1.5)
-  return <group ref={container} dispose={null}><group ref={elastic}><primitive object={rigs[0].scene} dispose={null} /><primitive object={rigs[1].scene} dispose={null} /></group></group>
+  return <group ref={container} dispose={null}><group ref={contactMarker} visible={false} position={[0, .9, .75]} rotation={[-Math.PI / 2, 0, 0]}><mesh><ringGeometry args={[.35, .40, 16, 1, 0, Math.PI]} /><meshBasicMaterial color="#ffe3a1" transparent opacity={.65} depthWrite={false} /></mesh></group><group ref={elastic}><primitive object={rigs[0].scene} dispose={null} /><primitive object={rigs[1].scene} dispose={null} /></group></group>
 }
 
 function Indicators(props: Props) {
   const entries = useMemo(() => Object.entries(props.state.bodies ?? {}).slice(0, 50) as [string, Body][], [props.state.bodies])
-  const bars = useRef<InstancedMesh>(null), marks = useRef<InstancedMesh>(null), shadows = useRef<InstancedMesh>(null), shields = useRef<InstancedMesh>(null), transform = useMemo(() => new Object3D(), []), color = useMemo(() => new Color(), [])
-  useFrame(({ camera }) => {
-    if (!bars.current || !marks.current || !shadows.current || !shields.current) return
+  const marks = useRef<InstancedMesh>(null), shadows = useRef<InstancedMesh>(null), shields = useRef<InstancedMesh>(null), transform = useMemo(() => new Object3D(), []), color = useMemo(() => new Color(), [])
+  useFrame(() => {
+    if (!marks.current || !shadows.current || !shields.current) return
     for (let index = 0; index < entries.length; index++) {
       const [who, body] = entries[index], pose = props.poses.get(who)
       if (!pose) continue
@@ -134,18 +130,15 @@ function Indicators(props: Props) {
       transform.position.set(pose.x, ground + .025, pose.z); transform.rotation.set(-Math.PI / 2, 0, 0); transform.scale.setScalar(local ? .58 : .43); transform.updateMatrix(); marks.current.setMatrixAt(index, transform.matrix); color.set(local ? '#efe0a8' : tint); marks.current.setColorAt(index, color)
       transform.scale.set(.42, .25, 1); transform.updateMatrix(); shadows.current.setMatrixAt(index, transform.matrix)
       transform.position.set(pose.x, pose.y + .94, pose.z); transform.rotation.set(0, 0, 0); transform.scale.setScalar(num(body.shieldUntil) > now && !down && !fpv ? 1.06 : 0); transform.updateMatrix(); shields.current.setMatrixAt(index, transform.matrix)
-      const ratio = MathUtils.clamp(num(body.hp, 100) / Math.max(1, num(body.maxHp, 100)), 0, 1)
-      transform.position.set(pose.x, pose.y + 2.08, pose.z); transform.quaternion.copy(camera.quaternion); transform.scale.set(fpv ? 0 : .7, .05, .02); transform.updateMatrix(); bars.current.setMatrixAt(index * 2, transform.matrix); color.set('#24373e'); bars.current.setColorAt(index * 2, color)
-      transform.scale.x *= ratio; transform.translateZ(.003); transform.updateMatrix(); bars.current.setMatrixAt(index * 2 + 1, transform.matrix); color.set(ratio < .3 ? '#ee927e' : '#b5d695'); bars.current.setColorAt(index * 2 + 1, color)
+
     }
-    marks.current.count = shadows.current.count = shields.current.count = entries.length; bars.current.count = entries.length * 2
-    for (const mesh of [bars.current, marks.current, shadows.current, shields.current]) { mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true }
+    marks.current.count = shadows.current.count = shields.current.count = entries.length
+    for (const mesh of [marks.current, shadows.current, shields.current]) { mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true }
   }, -1.3)
   return <>
     <instancedMesh ref={marks} args={[undefined, undefined, 50]} frustumCulled={false}><ringGeometry args={[.83, 1, 20]} /><meshBasicMaterial transparent opacity={.58} depthWrite={false} /></instancedMesh>
     <instancedMesh ref={shadows} args={[undefined, undefined, 50]} frustumCulled={false}><circleGeometry args={[1, 20]} /><meshBasicMaterial color="#24373a" transparent opacity={.19} depthWrite={false} /></instancedMesh>
     <instancedMesh ref={shields} args={[undefined, undefined, 50]} frustumCulled={false}><sphereGeometry args={[1, 12, 10]} /><meshBasicMaterial color="#86c8d3" transparent opacity={.13} depthWrite={false} /></instancedMesh>
-    <instancedMesh ref={bars} args={[undefined, undefined, 100]} frustumCulled={false}><boxGeometry /><meshBasicMaterial /></instancedMesh>
   </>
 }
 

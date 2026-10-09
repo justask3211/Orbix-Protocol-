@@ -1,0 +1,17 @@
+{
+  "stage": "r2",
+  "viewport": [
+    960,
+    640
+  ],
+  "dpr": 1,
+  "shadows": false,
+  "renderer": "Chromium SwiftShader",
+  "fixture": "two actors, fixed public field-v1 state; excludes network",
+  "samples": 21,
+  "p50": 711.0999999046326,
+  "p95": 783,
+  "calls": 59,
+  "triangles": 122464,
+  "errors": []
+}
