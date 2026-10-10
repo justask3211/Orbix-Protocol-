@@ -1,0 +1,161 @@
+{
+  "method": "Local Chromium CDP emulation; five concurrent software-GPU pages per band; 390x844 touch, reduced motion; 2500ms offline after accepted action; ackMs includes automation and rendering. Not RTT or p95 measurement.",
+  "observations": [
+    [
+      {
+        "game": "closest-call",
+        "latency": 150,
+        "ackMs": 4486,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "word-forge",
+        "latency": 150,
+        "ackMs": 1708,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "prism-lines",
+        "latency": 150,
+        "ackMs": 5853,
+        "dropMs": 2500,
+        "result": false,
+        "boardConfirmed": true,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "relic-auction",
+        "latency": 150,
+        "ackMs": 2295,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "atlas-quest",
+        "latency": 150,
+        "ackMs": 9717,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      }
+    ],
+    [
+      {
+        "game": "closest-call",
+        "latency": 300,
+        "ackMs": 1646,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "word-forge",
+        "latency": 300,
+        "ackMs": 1228,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "prism-lines",
+        "latency": 300,
+        "ackMs": 1949,
+        "dropMs": 2500,
+        "result": false,
+        "boardConfirmed": true,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "relic-auction",
+        "latency": 300,
+        "ackMs": 2144,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "atlas-quest",
+        "latency": 300,
+        "ackMs": 1318,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      }
+    ],
+    [
+      {
+        "game": "closest-call",
+        "latency": 600,
+        "ackMs": 948,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "word-forge",
+        "latency": 600,
+        "ackMs": 1946,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "prism-lines",
+        "latency": 600,
+        "ackMs": 1210,
+        "dropMs": 2500,
+        "result": false,
+        "boardConfirmed": true,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "relic-auction",
+        "latency": 600,
+        "ackMs": 1454,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      },
+      {
+        "game": "atlas-quest",
+        "latency": 600,
+        "ackMs": 1906,
+        "dropMs": 2500,
+        "result": true,
+        "boardConfirmed": false,
+        "canvas": 1,
+        "errors": []
+      }
+    ]
+  ]
+}

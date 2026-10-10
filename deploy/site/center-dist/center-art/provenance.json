@@ -46,5 +46,55 @@
     "prompt": "Original fox and frog collecting game coins from parachute crate at grassy seaside radio outpost.",
     "date": "2026-10-09",
     "use": "Illustrated V4 world preview; not a gameplay screenshot."
+  },
+  {
+    "game": "closest-call",
+    "file": "center-art/closest-call.webp",
+    "bytes": 116658,
+    "sha256": "d7d56adaab3d7461468e9524c194dd16d31400fdb71dbcacb789cf2313bba678",
+    "generatedWith": "Built-in image_gen; sharp resize and WebP conversion only",
+    "prompt": "Use case: stylized-concept. Asset type: original Orbix game catalog banner, landscape 3:2. A cute orange fox explorer with teal jacket at a colorful curiosity museum on a sunlit floating island, studying a large rounded glass jar full of mango and teal ceramic beads on a felt pedestal, a miniature cobalt tower and a small marked unit ruler. Mango #FFB543, teal #28C7B7, cobalt #4168E8 and cream #FFF3D5. Match a joyful detailed storybook 3D illustration with tactile rounded props, expressive plush characters, saturated colors, soft sunlight, peach clouds, turquoise shadows and creamy highlights. Strong subjects in the center/right. No words, headings, logos, watermark or interface. Original characters and invented props, no existing franchises. Generate one standalone banner.",
+    "date": "2026-10-10",
+    "use": "Original illustrated game banner; not a gameplay screenshot."
+  },
+  {
+    "game": "word-forge",
+    "file": "center-art/word-forge.webp",
+    "bytes": 147076,
+    "sha256": "700b2be91d0c19123b8b35c65f760c80f01629ea583d8d4850109056c4f84013",
+    "generatedWith": "Built-in image_gen; sharp resize and WebP conversion only",
+    "prompt": "Use case: stylized-concept. Asset type: original Orbix game catalog banner, landscape 3:2. A friendly chunky turquoise toy robot tinkerer at a whimsical oak workbench on a floating workshop island, chunky enamel letter tiles bearing legible single English letters, brass word stamping machine, scattered golden sparks and flowers. Blue violet #6758DC, ember #FF8748, gold #FFD36A and cream #FFF8E6. Match a joyful detailed storybook 3D illustration with tactile rounded props, expressive plush characters, saturated colors, soft sunlight, peach clouds, turquoise shadows and creamy highlights. Strong subjects in the center/right. No words, headings, logos, watermark or interface. Original characters and invented props, no existing franchises. Generate one standalone banner.",
+    "date": "2026-10-10",
+    "use": "Original illustrated game banner; not a gameplay screenshot."
+  },
+  {
+    "game": "prism-lines",
+    "file": "center-art/prism-lines.webp",
+    "bytes": 129400,
+    "sha256": "4e63d532fad93a9adc7e95043a4addb6c37ff0e9c6c447a60d445c7683e42937",
+    "generatedWith": "Built-in image_gen; sharp resize and WebP conversion only",
+    "prompt": "Use case: stylized-concept. Asset type: original Orbix game catalog banner, landscape 3:2. A cute pastel cat and small turtle facing each other across a terraced luminous garden tabletop on a floating island, a five-column upright board with crystal gems in mint and plum, four visibly aligned crystals and soft ceramic rails, leafy vines and warm sunlight. Mint #49DBBE, plum #7A4FD0, coral #FF7B72 and cream #FFF6E1. Match a joyful detailed storybook 3D illustration with tactile rounded props, expressive plush characters, saturated colors, soft sunlight, peach clouds, turquoise shadows and creamy highlights. Strong subjects in the center/right. No words, headings, logos, watermark or interface. Original characters and invented props, no existing franchises. Generate one standalone banner.",
+    "date": "2026-10-10",
+    "use": "Original illustrated game banner; not a gameplay screenshot."
+  },
+  {
+    "game": "relic-auction",
+    "file": "center-art/relic-auction.webp",
+    "bytes": 132944,
+    "sha256": "c7990c7cbe9f6f98ca1b71c5125283d9d46adc0b38566153bc9d8b66530e835a",
+    "generatedWith": "Built-in image_gen; sharp resize and WebP conversion only",
+    "prompt": "Use case: stylized-concept. Asset type: original Orbix game catalog banner, landscape 3:2. A friendly fox auctioneer and curious cat explorers in a bright traveling auction house on a floating island, embroidered textile canopy, ornate original pottery vase on wooden pedestal, sealed envelopes, wooden bid paddles and a pouch of plain game-credit counters. Saffron #F4B743, magenta #D75BB4, jade #39C7A0 and midnight #29355C. Match a joyful detailed storybook 3D illustration with tactile rounded props, expressive plush characters, saturated colors, soft sunlight, peach clouds, turquoise shadows and creamy highlights. Strong subjects in the center/right. No words, headings, logos, watermark or interface. Original characters and invented props, no existing franchises. Generate one standalone banner.",
+    "date": "2026-10-10",
+    "use": "Original illustrated game banner; not a gameplay screenshot."
+  },
+  {
+    "game": "atlas-quest",
+    "file": "center-art/atlas-quest.webp",
+    "bytes": 139390,
+    "sha256": "18e9648e4925c8e068266b71e6d2a406512a99b8f327544d2fb297a44f40e939",
+    "generatedWith": "Built-in image_gen; sharp resize and WebP conversion only",
+    "prompt": "Use case: stylized-concept. Asset type: original Orbix game catalog banner, landscape 3:2. A cute fox traveler with teal backpack and a little turtle explorer studying a colorful painted-paper world map with a few red location pins on a carved desk on a floating island, small brass compass and toy globe, lush chunky plants and soft clouds. Azure #3BA9EE, leaf #8AD66B, vermilion #FF8460 and sand #FFF1C9. Match a joyful detailed storybook 3D illustration with tactile rounded props, expressive plush characters, saturated colors, soft sunlight, peach clouds, turquoise shadows and creamy highlights. Strong subjects in the center/right. No words, headings, logos, watermark or interface. Original characters and invented props, no existing franchises. Generate one standalone banner.",
+    "date": "2026-10-10",
+    "use": "Original illustrated game banner; not a gameplay screenshot."
   }
 ]

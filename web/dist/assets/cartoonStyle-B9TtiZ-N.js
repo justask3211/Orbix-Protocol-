@@ -1,0 +1,4 @@
+var e={fox:{suit:`#ff9860`,armor:`#ffc980`,accent:`#ffe77a`},robot:{suit:`#57cadf`,armor:`#a5eef2`,accent:`#ffe986`},frog:{suit:`#88d65f`,armor:`#cef295`,accent:`#fff090`},cat:{suit:`#b997f1`,armor:`#e3c9fa`,accent:`#ffb8d2`}},t=[`#ffb275`,`#78d9ec`,`#b5ed78`,`#c3a2e8`,`#ecd07f`,`#ea9bb4`],n=[1.15,.96,1.12];function r(e,t=`body`){t!==`cloth`&&(e.map=null,e.normalMap=null),t!==`cloth`&&(e.metalness=.02,e.roughness=.92),e.flatShading=!1,e.emissive.copy(e.color),e.emissiveIntensity=.055,e.onBeforeCompile=e=>{e.fragmentShader=e.fragmentShader.replace(`#include <opaque_fragment>`,`
+      float orbixContour = smoothstep(0.08, 0.38, abs(dot(normal, normalize(vViewPosition))));
+      outgoingLight *= mix(vec3(0.61, 0.67, 0.78), vec3(1.0), orbixContour);
+      #include <opaque_fragment>`)},e.customProgramCacheKey=()=>`orbix-cartoon-${t}-v2`}export{r as i,e as n,t as r,n as t};
