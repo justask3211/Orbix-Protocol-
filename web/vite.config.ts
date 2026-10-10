@@ -15,5 +15,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // Keep modular Babylon shaders/loaders in one lazy engine payload instead of
+    // issuing hundreds of tiny cold-load requests. Other games retain Three.
+    rolldownOptions: {
+      output: {codeSplitting: {groups: [{name:'babylon-engine',test:/\/@babylonjs\//,includeDependenciesRecursively:false}]}},
+    },
   },
 })
