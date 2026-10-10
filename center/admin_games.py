@@ -7,12 +7,87 @@ snapshots, unrevealed seeds, private guesses, or sealed duel choices.
 from __future__ import annotations
 
 import json
+import hashlib
 import time
+from typing import Literal
+from pydantic import Field, StrictBool, StrictInt, field_validator
+from center.strict_base import Strict
 from fastapi import Header, HTTPException, Query
 from center.community import CommunityError, DEFAULT_SETTINGS
 
 from center.schema import TEMPLATE_RULES
 GAME_IDS = frozenset(TEMPLATE_RULES)
+
+COLOR_PRESETS = {"blue", "purple", "green", "amber", "red", "slate"}
+
+
+class GameOverlay(Strict):
+    enabled: StrictBool = True
+    text: str = Field(default="Coming soon", max_length=40, strict=True)
+    color: str = "blue"
+    position: Literal["top-left", "top-right", "bottom-left", "bottom-right"] = "top-right"
+
+    @field_validator("color")
+    @classmethod
+    def valid_color(cls, value):
+        import re
+        if value not in COLOR_PRESETS and not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+            raise ValueError("Use a color preset or a six-digit hex color.")
+        return value
+
+
+class GameTag(Strict):
+    enabled: StrictBool = False
+    text: str = Field(default="Still in development", max_length=40, strict=True)
+    style: Literal["subtle", "solid", "outline"] = "subtle"
+
+
+class GameModes(Strict):
+    practice: StrictBool = True
+    preview: StrictBool = True
+    create: StrictBool = True
+    join: StrictBool = True
+
+
+class GameConfig(Strict):
+    placement: Literal["catalog", "more", "upcoming", "hidden"] = "catalog"
+    overlay: GameOverlay = Field(default_factory=GameOverlay)
+    tag: GameTag = Field(default_factory=GameTag)
+    modes: GameModes = Field(default_factory=GameModes)
+    sort_order: StrictInt = Field(default=0, ge=-100000, le=100000)
+
+
+class AvailabilityUpdate(Strict):
+    status: Literal["live", "maintenance", "offline"]
+    message: str = Field(default="", max_length=180, strict=True)
+
+
+def game_config(store, template_id):
+    from center.portfolio import FEATURED_TEMPLATES, PRACTICE_TEMPLATES
+    defaults = GameConfig(placement="catalog" if template_id in FEATURED_TEMPLATES else "more",
+                          modes=GameModes(practice=template_id in PRACTICE_TEMPLATES)).model_dump()
+    return {**defaults, "updated_at": None, **(store.get_setting(f"game-config:{template_id}") or {})}
+
+
+def public_game_config(store, template_id):
+    """Presentation and effective modes; signed evidence stays administrator-only."""
+    cfg = game_config(store, template_id)
+    modes = dict(cfg["modes"])
+    status = game_availability(store, template_id)["status"]
+    placement = "hidden" if status == "offline" else cfg["placement"]
+    if placement in {"upcoming", "hidden"}:
+        modes.update(practice=False, create=False, join=False)
+    if placement == "hidden":
+        modes["preview"] = False
+    if status != "live":
+        modes.update(practice=False, create=False, join=False)
+    return {"placement": placement, "overlay": cfg["overlay"], "tag": cfg["tag"],
+            "available_modes": modes, "sort_order": cfg["sort_order"]}
+
+
+def require_game_mode(store, template_id, mode):
+    if not public_game_config(store, template_id)["available_modes"][mode]:
+        raise HTTPException(409, detail={"code": "GAME_MODE_DISABLED", "message": f"{mode.capitalize()} is disabled for this game."})
 
 
 def game_availability(store, template_id):
@@ -47,6 +122,17 @@ class AdminGameService:
 
     def _audit(self, actor, action, old, new):
         self.store.append_audit(actor, action, old, new, 46630)
+
+    def customize(self, actor, template_id, config, proof=None):
+        actor = self._authorize(actor)
+        if template_id not in GAME_IDS:
+            raise CommunityError("NOT_FOUND", "No such game template.", 404)
+        value = GameConfig.model_validate(config).model_dump()
+        value.update(updated_at=self.clock(), admin_proof={"actor": actor,
+                     "signature_hash": hashlib.sha256(proof.encode()).hexdigest() if proof else None})
+        self.store.set_setting_with_audit(f"game-config:{template_id}", value, actor,
+                                         "game.customization", {"templateId": template_id, **value}, 46630)
+        return value
 
     def availability(self, actor, template_id, status, message=""):
         actor = self._authorize(actor)
@@ -208,12 +294,17 @@ def mount_admin_games(app, prefix, store, community, require_admin, runtime_for,
     @app.get(f"{prefix}/admin/games")
     def games(authorization: str | None = Header(default=None)):
         require_admin(authorization, need_proof=False)
-        return {"games": [{"templateId": key, **game_availability(store, key)} for key in sorted(GAME_IDS)]}
+        return {"games": [{"templateId": key, **game_availability(store, key), "config": game_config(store, key)} for key in sorted(GAME_IDS)]}
 
     @app.patch(f"{prefix}/admin/games/{{template_id}}")
-    def game_update(template_id: str, body: dict, authorization: str | None = Header(default=None), x_admin_proof: str | None = Header(default=None, alias="X-Admin-Proof")):
+    def game_update(template_id: str, body: AvailabilityUpdate, authorization: str | None = Header(default=None), x_admin_proof: str | None = Header(default=None, alias="X-Admin-Proof")):
         actor = require_admin(authorization, x_admin_proof, need_proof=True)
-        return service.availability(actor, template_id, body.get("status"), body.get("message", ""))
+        return service.availability(actor, template_id, body.status, body.message)
+
+    @app.patch(f"{prefix}/admin/games/{{template_id}}/config")
+    def config_update(template_id: str, body: GameConfig, authorization: str | None = Header(default=None), x_admin_proof: str | None = Header(default=None, alias="X-Admin-Proof")):
+        actor = require_admin(authorization, x_admin_proof, need_proof=True)
+        return service.customize(actor, template_id, body, x_admin_proof)
 
     @app.get(f"{prefix}/admin/rooms")
     def rooms(authorization: str | None = Header(default=None), limit: int = Query(default=100, ge=1, le=200), offset: int = Query(default=0, ge=0)):

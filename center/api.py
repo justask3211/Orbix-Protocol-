@@ -37,7 +37,7 @@ from center.community import CommunityService, CommunityError
 from center.privacy import visible_state
 from center.waitlist import WaitlistService
 from center.entry_gate import EntryGateVerifier, EntryGateError, DEPLOYED_GATE
-from center.admin_games import mount_admin_games, game_availability, room_archived
+from center.admin_games import mount_admin_games, game_availability, room_archived, public_game_config, require_game_mode
 from center.practice import mount_practice
 from center.vault import InsufficientBalance, OnchainVault, VaultError, VaultService, publication_intent
 from center.vault import JsonRpc
@@ -397,6 +397,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             meta = TEMPLATE_META[tid]
             out.append({
                 **catalog_metadata(tid, game_availability(store,tid)["status"]),
+                **public_game_config(store, tid),
                 "templateId": tid,
                 "version": cls.version,
                 "label": meta["label"],
@@ -407,6 +408,9 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                 "playStatus": game_availability(store,tid)['status'],
                 "maintenanceMessage": game_availability(store,tid).get('message',''),
             })
+        for item in out:
+            item["practiceAvailable"] = item["available_modes"]["practice"]
+        out.sort(key=lambda item: (item["sort_order"], item["templateId"]))
         return {"templates": out, "count": len(out)}
 
     @app.get(f"{API_PREFIX}/templates/{{template_id}}/rules")
@@ -511,6 +515,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/drafts")
     def create_draft(body: CreateDraft, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        require_game_mode(store, config.template_id, "create")
         waitlists.validate_reward_source(config.rewards, who)
         require_game_live(config.template_id)
         draft_id = secrets.token_hex(8)
@@ -554,6 +559,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms/prepare-rewards")
     def prepare_rewards(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        require_game_mode(store, config.template_id, "create")
         waitlists.validate_reward_source(config.rewards, who)
         require_game_live(config.template_id)
         if config.rewards.kind != "funded-assets" or not flags.testnet_rewards:
@@ -607,6 +613,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms")
     def publish_room(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        require_game_mode(store, config.template_id, "create")
         waitlists.validate_reward_source(config.rewards, who)
         require_game_live(config.template_id)
         config_hash = "0x" + hashlib.sha256(config.config_hash_input().encode()).hexdigest()
@@ -692,7 +699,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.get(f"{API_PREFIX}/rooms")
     def list_rooms(limit: int = Query(default=50, le=100)) -> dict:
         rows = store.list_rooms(visibility="public", limit=limit)
-        rows=[r for r in rows if not room_archived(store,r['id'])]
+        rows=[r for r in rows if not room_archived(store,r['id']) and public_game_config(store, r["template_id"])["available_modes"]["join"]]
         return {
             "rooms": [
                 {
@@ -796,6 +803,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             "entryGate": (store.get_setting(f"entry-gate:{rt.room_id}") or {"address": DEPLOYED_GATE})["address"],
             "timing": timing,
             "communitySettings": settings,
+            "gameConfig": public_game_config(store, row["template_id"]),
             "gameStatus": game_availability(store,row['template_id'])['status'],
             "maintenanceMessage": game_availability(store,row['template_id']).get('message',''),
             "archived": room_archived(store,room_id),
@@ -918,6 +926,9 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/join")
     def join_room(room_id: str, body: JoinBody, who: str = Depends(require_wallet)) -> dict:
+        row = store.get_room(room_id)
+        if row:
+            require_game_mode(store, row["template_id"], "join")
         rt = runtime_for(room_id)
         require_room_active(room_id)
         if rt.status != lc.RUNNING or not any(p['who']==who for p in store.participants(room_id)):
