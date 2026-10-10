@@ -7,12 +7,17 @@ import {clone} from '../../web/node_modules/three/examples/jsm/utils/SkeletonUti
 import {transformSync} from '../../web/node_modules/rolldown/dist/utils-index.mjs'
 const read=(file)=>fs.readFileSync(file,'utf8')
 const compile=(file)=>transformSync(file,read(file),{target:'es2022'}).code.replace(/import[^;]*;/g,'').replace(/\bexport\s+/g,'')
-const catalog=new Function(compile('web/src/center/characters.ts')+'\nreturn {CHARACTERS,characterInfo};')()
+const cosmeticsCatalog=JSON.parse(read('center/cosmetics_catalog.json'))
+const catalog=new Function('catalog',compile('web/src/center/characters.ts')+'\nreturn {CHARACTERS,characterInfo};')(cosmeticsCatalog)
 const styles=new Function(compile('web/src/center/worlds/cartoonStyle.ts')+'\nreturn {cartoonFinish};')()
 const characterRig=new Function('THREE','clone',`const {${Object.keys(THREE).join(',')}}=THREE;\n`+compile('web/src/center/worlds/characterRig.ts')+'\nreturn characterRig;')(THREE,clone)
-export const buildCuteCharacter=new Function('THREE','clone','characterInfo','cartoonFinish','characterRig','locomotion',`const {${Object.keys(THREE).join(',')}}=THREE;\n`+compile('web/src/center/worlds/CuteCharacter.ts')+'\nreturn buildCuteCharacter;')(THREE,clone,catalog.characterInfo,styles.cartoonFinish,characterRig,locomotion)
+const wardrobe=new Function('THREE','cartoonFinish',`const {${Object.keys(THREE).join(',')}}=THREE;\n`+compile('web/src/center/worlds/wardrobe.ts')+'\nreturn {garmentMaterials,clothTexture};')(THREE,styles.cartoonFinish)
+const seatedClips=new Function('THREE',`const {${Object.keys(THREE).join(',')}}=THREE;\n`+compile('web/src/center/worlds/seatedClips.ts')+'\nreturn seatedClips;')(THREE)
+export const buildCuteCharacter=new Function('THREE','clone','characterInfo','cartoonFinish','characterRig','locomotion','garmentMaterials','seatedClips',`const {${Object.keys(THREE).join(',')}}=THREE;\n`+compile('web/src/center/worlds/CuteCharacter.ts')+'\nreturn buildCuteCharacter;')(THREE,clone,catalog.characterInfo,styles.cartoonFinish,characterRig,locomotion,wardrobe.garmentMaterials,seatedClips)
+
 export const animationRig=new Function('THREE','buildCuteCharacter',`const {${Object.keys(THREE).join(',')}}=THREE;\n`+compile('web/src/center/worlds/AnimationRig.ts')+'\nreturn {makeRig,releaseRig,selectAction};')(THREE,buildCuteCharacter)
 export const characterInfo=catalog.characterInfo
+export const clothTexture=wardrobe.clothTexture
 if(process.argv[1].endsWith('original-character-regression.mjs')){
  globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:1,height:1,close(){}});globalThis.ProgressEvent=class{}
  const bytes=fs.readFileSync('web/public/center-models/orbix-ranger-lod.glb')
@@ -26,7 +31,7 @@ if(process.argv[1].endsWith('original-character-regression.mjs')){
   const full=buildCuteCharacter(gltf,{character:info.id,cosmetics:{hat:'crown',glasses:'round',accessory:'scarf',outfit:'dress'}}),lod=buildCuteCharacter(gltf,{character:info.id},true)
   assert.equal(bindSignature(),originalBind,'Mascot proportions must not mutate cached source inverse matrices')
   let mesh;full.scene.traverse(o=>{if(o.name.startsWith('OrbixOriginal_'))mesh=o})
-  assert(mesh?.isSkinnedMesh);assert(full.geometry.groups.length<=5)
+  assert(mesh?.isSkinnedMesh);assert(full.geometry.groups.length<=7)
   assert(lod.geometry.index.count<full.geometry.index.count)
   assert(lod.geometry.index.count/3<4000,'Distant geometry budget')
   signatures.add(full.geometry.getAttribute('position').array.toString())
@@ -35,5 +40,5 @@ if(process.argv[1].endsWith('original-character-regression.mjs')){
   totalTriangles+=full.geometry.index.count/3;lod.release()
  }
  assert.equal(signatures.size,catalog.CHARACTERS.length,'Every character has a distinct silhouette')
- console.log(`${catalog.CHARACTERS.length} original characters × 20 clips passed, full/LOD, five palette groups, finite skinning and idempotent cleanup. Mean customized triangles: ${totalTriangles/10}.`)
+ console.log(`${catalog.CHARACTERS.length} original characters × 20 clips passed, full/LOD, seven or fewer body/cloth groups, finite skinning and idempotent cleanup. Mean customized triangles: ${totalTriangles/10}.`)
 }

@@ -779,6 +779,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         chosen = (store.get_setting(f'characters:{room_id}') or {}).get('characters', {})
         appearances = {p['who']: {'character': chosen.get(p['who'], lobby_profiles.get(p['who'], {}).get('character', 'blob')),
                        'cosmetics': lobby_profiles.get(p['who'], {}).get('cosmetics', {})} for p in members}
+        if rt.round_id and rt.engine:
+            appearances = store.get_setting(f'appearances:{rt.round_id}') or appearances
         return {
             "appearances": visible_state(appearances, settings, who, presentation_owner),
             "roomId": row["id"], "status": row["status"], "visibility": row["visibility"],
@@ -794,7 +796,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             "settlement": settlement_payload,
             "settlementAccess": "available" if settlement_payload else "session-required" if not who else "admission-required" if not admitted else "pending",
             "characters": visible_state((store.get_setting(f'characters:{room_id}') or {}).get('characters',{}),settings,who,presentation_owner),
-            "publicState": app_community_filter(rt, rt.engine.public_state(), who) if rt.engine and (row["visibility"] != "private" or admitted) else None,
+            "publicState": app_community_filter(rt, rt.presentation_state(), who) if rt.engine and (row["visibility"] != "private" or admitted) else None,
             "roundId": rt.round_id, "deadline": rt.deadline(), "serverTimeMs": int(time.time() * 1000),
             "teams": visible_state((store.get_setting(f"teams:{room_id}") or {}).get("teams", {}), settings, who, presentation_owner),
             "pricingSnapshot": FeeSchedule.from_dict(store.get_setting(f"pricing:{room_id}")).as_dict(),
@@ -1355,12 +1357,12 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                 "serverTimeMs": int(time.time() * 1000), "status": rt.status,
                 "commitHash": rt.commit,
                 "roundId": rt.round_id, "deadline": rt.deadline(),
-                "state": app_community_filter(rt, {**rt.engine.public_state(), **(rt.engine.private_state(who) if hasattr(rt.engine, "private_state") else {})}, who) if rt.engine else None,
+                "state": app_community_filter(rt, {**rt.presentation_state(), **(rt.engine.private_state(who) if hasattr(rt.engine, "private_state") else {})}, who) if rt.engine else None,
                 "revision": rt.revision,
             }))
             if rt.engine:
                 await ws.send_text(json.dumps({
-                    "v": PROTOCOL_VERSION, "type": "game.patch", "payload": app_community_filter(rt, rt.engine.public_state(), who),
+                    "v": PROTOCOL_VERSION, "type": "game.patch", "payload": app_community_filter(rt, rt.presentation_state(), who),
                 }))
             # A client that reconnected after settlement must still see the results: replay
             # the frame, rebuilt from durable state so it survives a restart too.
@@ -1387,7 +1389,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                         "v": PROTOCOL_VERSION, "type": "room.snapshot",
                         "roundId": rt.round_id, "deadline": rt.deadline(),
                         "serverTimeMs": int(time.time() * 1000),
-                        "payload": {"state": app_community_filter(rt, {**rt.engine.public_state(), **(rt.engine.private_state(who) if hasattr(rt.engine, "private_state") else {})}, who) if rt.engine else None},
+                        "payload": {"state": app_community_filter(rt, {**rt.presentation_state(), **(rt.engine.private_state(who) if hasattr(rt.engine, "private_state") else {})}, who) if rt.engine else None},
                     }))
                 elif mtype == "participant.ready":
                     try:

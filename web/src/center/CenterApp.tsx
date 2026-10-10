@@ -1124,7 +1124,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
     center.getProfiles(addresses).then(profiles => { if (active) setWinnerProfiles(profiles) }).catch(() => {})
     return () => { active = false }
   }, [settlement, room?.communitySettings?.hidePlayers, isHost, adminObserver])
-  const podium = useMemo(() => verifiedPodium({templateId,settlement,state,players,profiles:winnerProfiles,characters:room?.characters}), [settlement,templateId,state,players,winnerProfiles,room?.characters])
+  const podium = useMemo(() => verifiedPodium({templateId,settlement,state,players,profiles:Object.fromEntries(Object.entries({...winnerProfiles,...room?.appearances}).map(([who])=>[who,{...winnerProfiles[who],...room?.appearances?.[who]}])),characters:Object.fromEntries(Object.entries(room?.appearances??{}).map(([who,appearance])=>[who,appearance.character??'blob']))}), [settlement,templateId,state,players,winnerProfiles,room?.characters,room?.appearances])
   // A stage may only draw from state the server has actually sent for this round.
   const hasRoundState = Boolean(state.template)
   const currentRound = String(state.roundId ?? room?.roundId ?? `${roomId}:live`)
@@ -1330,7 +1330,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
         {Stage && !hasRoundState && <><RoundPending status={room?.status} />{['token-catch','boss-raid','combat-duel'].includes(templateId) ? <Suspense fallback={<p role="status">Preparing your characters…</p>}><CharacterLobby players={players} appearances={room?.appearances??{}} me={me}/></Suspense> : isFeaturedGame(templateId) && <Suspense fallback={<p className="muted">Preparing your world…</p>}><LobbyWorld game={templateId as 'number-hunt' | 'boss-raid' | 'token-catch' | 'reaction-duel'} state={room?.config?.rules ?? {}} me={me} players={players} /></Suspense>}</>}
         {Stage && hasRoundState && (
           <Stage
-            state={{ ...state, _roomId: roomId, _roundId: state.roundId, _spectating: !amPlayer, _adminObserver: adminObserver, _hidePlayers: room?.communitySettings?.hidePlayers, _hideGuesses: room?.communitySettings?.hideGuesses, _canAct: amPlayer && channel.status === 'open' && room?.status === 'running', _connection: channel.status, _actionError: reject }}
+            state={{ ...state, _roomId: roomId, _roundId: state.roundId, _appearances: state.appearances ?? room?.appearances, _spectating: !amPlayer, _adminObserver: adminObserver, _hidePlayers: room?.communitySettings?.hidePlayers, _hideGuesses: room?.communitySettings?.hideGuesses, _canAct: amPlayer && channel.status === 'open' && room?.status === 'running', _connection: channel.status, _actionError: reject }}
             me={me}
             players={players}
             finished={finished}

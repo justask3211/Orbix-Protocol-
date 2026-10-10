@@ -385,6 +385,10 @@ class RoomRuntime:
                 engine.teams = teams
                 self.store.set_setting(f'teams:{self.room_id}', {'teams':teams})
         engine.start(now)
+        chosen = (self.store.get_setting(f'characters:{self.room_id}') or {}).get('characters', {})
+        profiles = self.store.get_profiles_bulk(players)
+        appearances = {p: {'character': chosen.get(p, profiles.get(p, {}).get('character', 'blob')), 'cosmetics': profiles.get(p, {}).get('cosmetics', {})} for p in players}
+        self.store.set_setting(f'appearances:{self.round_id}', appearances)
         self.engine = engine
         if getattr(self.engine,'arena',False):
             from center.games.arena import CHARACTERS
@@ -418,7 +422,7 @@ class RoomRuntime:
         await self.hub.broadcast(self.room_id, {
             "v": PROTOCOL_VERSION, "type": "round.started",
             "roundId": self.round_id, "commitHash": self.commit,
-            "deadline": self._deadline, "state": self.engine.public_state(),
+            "deadline": self._deadline, "state": self.presentation_state(),
         })
         return {"roundId": self.round_id, "commitHash": self.commit, "deadline": self._deadline}
 
@@ -460,7 +464,7 @@ class RoomRuntime:
         if result.ok:
             # Every player must see accepted public state, including a Duel opponent's
             # sealed status. Private preimages and hints never enter this frame.
-            await self.hub.broadcast(self.room_id, {"v": PROTOCOL_VERSION, "type": "game.patch", "seq": seq, "roundId": self.round_id, "payload": self.engine.public_state()})
+            await self.hub.broadcast(self.room_id, {"v": PROTOCOL_VERSION, "type": "game.patch", "seq": seq, "roundId": self.round_id, "payload": self.presentation_state()})
 
         if result.finished:
             await self.finish(now)
@@ -683,6 +687,12 @@ class RoomRuntime:
                 "results": self._result_rows(),
             },
         }
+
+    def presentation_state(self):
+        state = self.engine.public_state() if self.engine else {}
+        if self.round_id:
+            state['appearances'] = self.store.get_setting(f'appearances:{self.round_id}') or {}
+        return state
 
     def _result_rows(self) -> list[dict]:
         """Scores are presentation data; only the engine decides final eligibility.

@@ -8,11 +8,9 @@ export const CARTOON_SUITS: Record<string,{suit:string;armor:string;accent:strin
 export const CARTOON_TEAMS = ['#ffb275','#78d9ec','#b5ed78','#c3a2e8','#ecd07f','#ea9bb4']
 export const CARTOON_PROPORTIONS = [1.15,.96,1.12] as const
 /** Apply only to actor-owned clothing materials. Skin, eyes and source maps stay intact. */
-export function cartoonFinish(material: MeshStandardMaterial) {
-  material.map = null
-  material.normalMap = null
-  material.metalness = .02
-  material.roughness = .92
+export function cartoonFinish(material: MeshStandardMaterial, role: 'body' | 'cloth' = 'body') {
+  if (role !== 'cloth') { material.map = null; material.normalMap = null }
+  if (role !== 'cloth') { material.metalness = .02; material.roughness = .92 }
   material.flatShading = false
   material.emissive.copy(material.color)
   material.emissiveIntensity = .055
@@ -23,5 +21,5 @@ export function cartoonFinish(material: MeshStandardMaterial) {
       outgoingLight *= mix(vec3(0.61, 0.67, 0.78), vec3(1.0), orbixContour);
       #include <opaque_fragment>`)
   }
-  material.customProgramCacheKey = () => 'orbix-cartoon-clothing-v1'
+  material.customProgramCacheKey = () => `orbix-cartoon-${role}-v2`
 }

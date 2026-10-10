@@ -8,6 +8,7 @@ export default defineConfig({
   base: '/center/',
   server: {
     allowedHosts: true,
+    fs: {allow: ['..']}, // Shared immutable cosmetic/content manifests live in the repo root.
     proxy: {
       '/api/center': { target: 'http://127.0.0.1:8099', changeOrigin: true, ws: true },
     },

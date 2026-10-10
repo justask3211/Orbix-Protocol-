@@ -5,6 +5,8 @@ import {BufferAttribute,BufferGeometry,BoxGeometry,ConeGeometry,CylinderGeometry
 import {clone} from 'three/addons/utils/SkeletonUtils.js'
 import type {GLTF} from 'three/addons/loaders/GLTFLoader.js'
 import {characterInfo,type Appearance} from '../characters'
+import {garmentMaterials} from './wardrobe'
+import {seatedClips} from './seatedClips'
 import {cartoonFinish} from './cartoonStyle'
 
 export function buildCuteCharacter(gltf:GLTF, appearance:Appearance={}, distant=false) {
@@ -14,9 +16,10 @@ export function buildCuteCharacter(gltf:GLTF, appearance:Appearance={}, distant=
   scene.traverse(object=>{if((object as SkinnedMesh).isSkinnedMesh){source??=object as SkinnedMesh;object.visible=false}})
   if(!source)throw new Error('Character skeleton unavailable')
   const skeleton=source.skeleton, id=info.id, cosmetics=appearance.cosmetics??{}
-  const outfit=({coral:'#f99a92',mint:'#8adbc4',lilac:'#bdacf0',dress:'#e99cc6'} as Record<string,string>)[cosmetics.outfit??'']??info.color
-  const palette=id==='cat'?[(cosmetics.outfit&&cosmetics.outfit!=='default'?outfit:'#8b745c'),'#b6a28d','#fff1d5','#3c302b','#82b4a5']:id==='turtle'?[outfit,'#647b40','#f2dfab','#303a27','#b59458']:[outfit,info.color,'#fff6df','#303348','#f4b65f']
-  const materials=palette.map(color=>{const m=new MeshStandardMaterial({color});cartoonFinish(m);return m})
+  const palette=id==='cat'?['#8b745c','#b6a28d','#fff1d5','#3c302b','#82b4a5']:id==='turtle'?[info.color,'#647b40','#f2dfab','#303a27','#b59458']:[info.color,info.color,'#fff6df','#303348','#f4b65f']
+  const materials=palette.map((color,i)=>{const m=new MeshStandardMaterial({color});m.name=id==='turtle'&&i===1?'shell':['skin','fur','eyes','metal','accent'][i];cartoonFinish(m);return m})
+  const outfit=cosmetics.outfit??'default'
+  if(outfit!=='default')materials.push(...garmentMaterials(id,outfit,distant || typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0))
   if(id==='cat'||id==='cat-blob'){
     for(const index of id==='cat'?[1]:[0,1]){
       const material=materials[index],baseCompile=material.onBeforeCompile
@@ -35,16 +38,16 @@ export function buildCuteCharacter(gltf:GLTF, appearance:Appearance={}, distant=
       material.customProgramCacheKey=()=> 'orbix-stylized-fur-v1'
     }
   }
-  const positions:number[]=[],normals:number[]=[],indices:number[]=[],weights:number[]=[],skins:number[]=[],groups:{start:number;count:number;materialIndex:number}[]=[]
+  const positions:number[]=[],uvs:number[]=[],normals:number[]=[],indices:number[]=[],weights:number[]=[],skins:number[]=[],groups:{start:number;count:number;materialIndex:number}[]=[]
   const points=new Map(skeleton.bones.map(bone=>[bone.name,bone.getWorldPosition(new Vector3()).applyMatrix4(new Matrix4().copy(scene.matrixWorld).invert())]))
   const segments=distant?8:16, rings=distant?5:10
-  const part=(bone:string,center:Vector3,size:[number,number,number],material=0,shape='round',rotation?:Quaternion)=>{
-    const geometry=shape==='box'?new BoxGeometry(1,1,1):shape==='ear'?new BufferGeometry().setAttribute('position',new BufferAttribute(new Float32Array([-.5,-.5,.5,.5,-.5,.5,0,.5,0,-.5,-.5,-.5,.5,-.5,-.5,0,.5,-.2]),3)).setIndex([0,1,2,4,3,5,3,0,2,3,2,5,1,4,5,1,5,2,3,4,1,3,1,0]):shape==='scute'?new CylinderGeometry(.5,.5,1,6).rotateX(Math.PI/2):shape==='tail'?new TubeGeometry(new CatmullRomCurve3([new Vector3(0,0,0),new Vector3(.12,.12,-.18),new Vector3(.32,.32,-.30),new Vector3(.40,.51,-.24),new Vector3(.30,.62,-.12)]),distant?10:28,.10,distant?6:10,false):shape==='cone'?new ConeGeometry(.5,1,segments):shape==='cylinder'?new CylinderGeometry(.5,.5,1,segments):new SphereGeometry(.5,segments,rings)
+  const part=(bone:string,center:Vector3,size:[number,number,number],material=0,shape:string|BufferGeometry='round',rotation?:Quaternion,blendBone?:string)=>{
+    const geometry=shape instanceof BufferGeometry?shape:shape==='box'?new BoxGeometry(1,1,1):shape==='ear'?new BufferGeometry().setAttribute('position',new BufferAttribute(new Float32Array([-.5,-.5,.5,.5,-.5,.5,0,.5,0,-.5,-.5,-.5,.5,-.5,-.5,0,.5,-.2]),3)).setIndex([0,1,2,4,3,5,3,0,2,3,2,5,1,4,5,1,5,2,3,4,1,3,1,0]):shape==='scute'?new CylinderGeometry(.5,.5,1,6).rotateX(Math.PI/2):shape==='tail'?new TubeGeometry(new CatmullRomCurve3([new Vector3(0,0,0),new Vector3(.12,.12,-.18),new Vector3(.32,.32,-.30),new Vector3(.40,.51,-.24),new Vector3(.30,.62,-.12)]),distant?10:28,.10,distant?6:10,false):shape==='cone'?new ConeGeometry(.5,1,segments):shape==='cylinder'?new CylinderGeometry(.5,.5,1,segments):new SphereGeometry(.5,segments,rings)
     if(shape==='ear')geometry.computeVertexNormals()
     if(shape==='softbox'){const p=geometry.getAttribute('position');for(let i=0;i<p.count;i++){const round=(v:number)=>Math.sign(v)*Math.pow(Math.abs(v)*2,.42)*.5;p.setXYZ(i,round(p.getX(i)),round(p.getY(i)),round(p.getZ(i)))}geometry.computeVertexNormals()}
     geometry.scale(...size);if(rotation)geometry.applyQuaternion(rotation);geometry.translate(center.x,center.y,center.z)
-    const offset=positions.length/3,p=geometry.getAttribute('position'),n=geometry.getAttribute('normal'),skin=Math.max(0,skeleton.bones.findIndex(b=>b.name===bone)),start=indices.length
-    for(let v=0;v<p.count;v++){positions.push(p.getX(v),p.getY(v),p.getZ(v));normals.push(n.getX(v),n.getY(v),n.getZ(v));skins.push(skin,0,0,0);weights.push(1,0,0,0)}
+    const offset=positions.length/3,p=geometry.getAttribute('position'),n=geometry.getAttribute('normal'),uv=geometry.getAttribute('uv'),skin=Math.max(0,skeleton.bones.findIndex(b=>b.name===bone)),start=indices.length
+    for(let v=0;v<p.count;v++){positions.push(p.getX(v),p.getY(v),p.getZ(v));normals.push(n.getX(v),n.getY(v),n.getZ(v));uvs.push(uv?.getX(v)??0,uv?.getY(v)??0);const blend=blendBone?Math.min(.4,Math.max(0,(center.y-p.getY(v))/Math.max(.01,size[1]))):0;skins.push(skin,blendBone?Math.max(0,skeleton.bones.findIndex(b=>b.name===blendBone)):0,0,0);weights.push(1-blend,blend,0,0)}
     for(let v=0;v<(geometry.index?.count??0);v++)indices.push(offset+geometry.index!.getX(v))
     groups.push({start,count:indices.length-start,materialIndex:material});geometry.dispose()
   }
@@ -128,10 +131,40 @@ export function buildCuteCharacter(gltf:GLTF, appearance:Appearance={}, distant=
   if(cosmetics.hat==='bow')for(const x of [-.12,.12])part('Head',at('Head',[x,.38,.10]),[.27,.20,.12],4)
   if(cosmetics.glasses==='round')for(const x of [-.12,.12]){part('Head',at('Head',[x,.09,.38]),[.20,.20,.045],3);part('Head',at('Head',[x,.09,.408]),[.15,.15,.018],2)}
   if(cosmetics.glasses==='visor')part('Head',at('Head',[0,.09,.38]),[.55,.18,.07],3,'box')
-  if(cosmetics.outfit==='dress')part('pelvis',at('pelvis',[0,-.04,0]),[.95,.46,.72],0,'cone',new Quaternion().setFromAxisAngle(new Vector3(1,0,0),Math.PI))
+  if(outfit!=='default'){
+    const dress=outfit==='dress'||outfit.startsWith('dress-'),festival=outfit==='dress-festival'||outfit==='festival-jacket'
+    const width=bodySize[0],depth=bodySize[2],front=depth*.45
+    // Front/side panels leave an authored open back for shell, tail and pancake layers.
+    const center=at('spine_01',[0,.10,front])
+    part('spine_01',center,[width*.82,bodySize[1]*.72,.12],5,'softbox')
+    for(const side of [-1,1]){
+      part('spine_01',at('spine_01',[side*width*.34,.16,front*.75]),[.13,bodySize[1]*.65,.16],6,'softbox')
+      if(!dress||festival)part(`upperarm_${side<0?'l':'r'}`,at(`upperarm_${side<0?'l':'r'}`,[0,-.02,0]),[.26,.26,.26],5)
+    }
+    part('pelvis',at('pelvis',[0,.02,front]),[width*.85,.08,.14],6,'softbox')
+    if(dress||outfit==='tunic'){
+      // Segmented skirt with an open rear wedge; pelvis/thigh blend maintains seated knees.
+      for(let panel=0;panel<8;panel++){
+        if((id==='turtle'||id==='cat'||id==='cat-blob')&&[3,4].includes(panel))continue
+        const angle=panel*Math.PI/4
+        const skirt=new CylinderGeometry(.42,.65,dress?.55:.32,distant?2:4,2,true,angle,Math.PI/4*.98)
+        part('pelvis',at('pelvis',[0,-.18,.015]),[width,1,depth*1.15],panel%3===0?6:5,skirt,undefined,panel<4?'thigh_r':'thigh_l')
+      }
+      if(outfit==='dress-festival')for(const angle of [-Math.PI/4,0,Math.PI/4,Math.PI/2]){const over=new CylinderGeometry(.45,.59,.27,distant?2:4,2,true,angle,Math.PI/4*.94);part('pelvis',at('pelvis',[0,-.075,.025]),[width,1,depth*1.2],6,over,undefined,angle<.5?'thigh_r':'thigh_l')}
+      if(festival){part('pelvis',at('pelvis',[0,-.02,front]),[width,.13,.17],6,'softbox');for(const side of [-1,1])part('pelvis',at('pelvis',[side*width*.29,-.1,front]),[.18,.29,.09],6,'softbox')}
+    }else if(outfit==='overalls'){
+      for(const side of [-1,1])part('spine_01',at('spine_01',[side*.15,.13,-depth*.32]),[.06,.40,.035],6,'box',new Quaternion().setFromAxisAngle(new Vector3(0,0,1),side*.45))
+      part('spine_01',at('spine_01',[0,.02,front+.07]),[width*.36,.22,.055],6,'box')
+      for(const side of ['l','r'])part(`thigh_${side}`,at(`thigh_${side}`,[0,-.035,.035]),[.29,.30,.29],5,'softbox')
+    }else{
+      part('spine_01',at('spine_01',[0,.07,front+.065]),[.04,bodySize[1]*.65,.035],6,'box')
+      for(const side of [-1,1])part('spine_01',at('spine_01',[side*.15,.30,front+.035]),[.18,.20,.055],6,'softbox',new Quaternion().setFromAxisAngle(new Vector3(0,0,1),side*.4))
+      if(outfit==='rain-jacket')part('neck_01',at('neck_01',[0,-.06,-.10]),[width*.8,.23,.24],5,'softbox')
+    }
+  }
   if(cosmetics.accessory==='scarf')part('neck_01',at('neck_01',[0,-.03,.025]),[.48,.15,.49],4)
   if(cosmetics.accessory==='backpack')part('spine_01',at('spine_01',[0,.12,-.37]),[.44,.49,.26],4,'box')
-  const geometry=new BufferGeometry();geometry.setAttribute('position',new BufferAttribute(new Float32Array(positions),3));geometry.setAttribute('normal',new BufferAttribute(new Float32Array(normals),3));geometry.setAttribute('skinIndex',new BufferAttribute(new Uint16Array(skins),4));geometry.setAttribute('skinWeight',new BufferAttribute(new Float32Array(weights),4));geometry.setIndex(indices)
+  const geometry=new BufferGeometry();geometry.setAttribute('position',new BufferAttribute(new Float32Array(positions),3));geometry.setAttribute('uv',new BufferAttribute(new Float32Array(uvs),2));geometry.setAttribute('normal',new BufferAttribute(new Float32Array(normals),3));geometry.setAttribute('skinIndex',new BufferAttribute(new Uint16Array(skins),4));geometry.setAttribute('skinWeight',new BufferAttribute(new Float32Array(weights),4));geometry.setIndex(indices)
   // Group by palette region: at most five draw calls, regardless of part count.
   const ordered:number[]=[]
   for(let material=0;material<materials.length;material++){
@@ -142,5 +175,5 @@ export function buildCuteCharacter(gltf:GLTF, appearance:Appearance={}, distant=
   geometry.setIndex(ordered)
   const mesh=new SkinnedMesh(geometry,materials);mesh.name=`OrbixOriginal_${id}`;mesh.bind(skeleton,new Matrix4());mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=false;scene.add(mesh)
   let released=false
-  return {scene,animations:locomotion(template).clips,gaitSpeeds:locomotion(template).speeds,materials:materials as Material[],geometry,release(){if(released)return;released=true;geometry.dispose();materials.forEach(m=>m.dispose());skeleton.dispose()}}
+  return {scene,animations:[...locomotion(template).clips,...seatedClips(skeleton)],gaitSpeeds:locomotion(template).speeds,materials:materials as Material[],geometry,release(){if(released)return;released=true;geometry.dispose();materials.forEach(m=>m.dispose());skeleton.dispose()}}
 }

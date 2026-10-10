@@ -1,7 +1,8 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState, useCallback, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback, Suspense, type ReactNode } from 'react'
 import { ACESFilmicToneMapping, CanvasTexture, Group, MathUtils, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three'
 import type { GameWorldProps, WorldQuality } from './GameWorld'
+import {SeatedMascot} from './SeatedActors'
 import ArenaWorld from './ArenaWorld'
 import FieldLighting from './FieldLighting'
 import { WorldWarmup } from '../framework/warmup'
@@ -350,7 +351,7 @@ function DuelWorld({ state, players, me, reducedMotion }: WorldProps) {
     <Block position={[0, .05, 0]} scale={[.13, .15, 8]} color="#f6d48f" />
     <Crystal position={[0, .1, -3.3]} color="#ffe498" scale={1.35} />
     {duelPlayers.map((player, i) => <group key={player}>
-      <Character position={[i ? 2.3 : -2.3, .1, 1.2]} color={i ? '#a48ace' : '#ee9a78'} fox={i === 0} facing={i ? -.3 : .3} scale={1.2} moving={!reducedMotion} action={Number(state.wins?.[player]) || 0} celebrate={Boolean(state.finished) && winner === player} />
+      <Suspense fallback={<Character position={[i ? 2.3 : -2.3, .1, 1.2]} color={i ? '#a48ace' : '#ee9a78'} fox={i === 0} facing={i ? -.3 : .3} scale={1.2} moving={!reducedMotion} action={Number(state.wins?.[player]) || 0} celebrate={Boolean(state.finished) && winner === player} />}><SeatedMascot appearance={(state.appearances ?? state._appearances)?.[player] ?? {character:i?'turtle':'cat'}} position={[i?2.3:-2.3,.1,1.2]} rotation={i?-.3:.3} reduced={reducedMotion} pose={showOutcome?'OrbixGesture':'OrbixSeatedIdle'} progress={Math.max(0,(Date.now()/1000)-(last?.resolvedAt??Date.now()/1000))}/></Suspense>
       <ChoiceTotem position={[i ? 2.3 : -2.3, 1.8, -1.5]} sealed={!showOutcome} choice={showOutcome ? last?.[i ? 'b' : 'a'] : undefined} moving={!reducedMotion} />
       <Ring position={[i ? 2.3 : -2.3, .115, 1.2]} radius={.8} color={player === me ? '#fff0b4' : '#f0deef'} />
       {last && !showOutcome && <group position={[i ? 3.7 : -3.7, .65, 2.3]} scale={.6}>
