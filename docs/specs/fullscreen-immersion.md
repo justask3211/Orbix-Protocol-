@@ -1,0 +1,101 @@
+# Fullscreen immersion for every game — 2026-10-10
+
+Status: BUILD specification; no immersion/layout code changed in this planning round. Covers every current stage, all five [new games](five-new-games.md), practice and both Token Catch renderer routes. Hidden games retain compatible layout but receive no new world mechanics. This diagnosis is based on current source; no fresh mobile browser reproduction was performed here.
+
+## Diagnosis: there are two independent immersion systems
+
+| Source path | Current behavior | Failure/implication |
+| --- | --- | --- |
+| `CenterApp.tsx`, room `expanded`/`expandedRound` effect around 1155 | Auto-expands the **whole room** when running; independent body scroll lock, focus and Escape handler. A separate “Minimize game” sits in the outer room toolbar | This is CSS expansion, not native fullscreen. It is a scrolling room page with metadata/play content, not a single viewport stage. Two state machines can disagree |
+| `CenterApp.tsx:start`, around 1055 | Awaits `center.start()` and refreshes; no Fullscreen API call in the user gesture | Server `round.started` cannot recreate transient user activation. Auto-expanded state cannot itself hide browser chrome |
+| `RoundImmersion.tsx:enter` | `element.current.requestFullscreen()` occurs only after “Play fullscreen” or phone “Enter game.” It sets local immersive state first | Native fullscreen is not requested by the round-start gesture; desktop gets an extra later click. Request rejection falls back to CSS, but the UI does not clearly separate actual browser mode from requested mode |
+| `RoundImmersion` phone gating | `blocked=active&&phone&&(portrait||!entered)`; child becomes inert; portrait offers no enter action | Every phone game is blocked in portrait, including number/text/board games that fit portrait. Live clocks keep running behind the overlay. Orientation is being treated as a movement-world rule for all games |
+| `RoundImmersion` resets/exits | Round-ID effect resets `entered`/`immersive`; `fullscreenchange` sets immersive false on exit; outer room still may be expanded | Resetting a round ID can desynchronize the actual fullscreen element and local state. Escape/minimize can affect only one layer. No single owner restores the pre-game state |
+| Minimize placement | Outer room has Minimize; native fullscreen contains only `.ct-round-container` with “Exit fullscreen” | Outer Minimize is outside the fullscreen subtree and cannot reliably be seen/used there. The existing inner button is a different exit operation and top-centre overlay |
+| `roundImmersion.css` | Fixed root `100vw × 100dvh`, `overflow:hidden`, safe-area padding on the entire root; children height 100%. `.gp` becomes flex, heading hidden; overrides target `.gp-scene`, arena and world wraps | Fullscreen root does not make each board/DOM stage fill it. Root padding also shrinks the scenery. Hiding `.gp-heading` removes its countdown/help without replacing a universal HUD |
+| `gamePlay.css` / `worlds.css` | `.gp-scene` fixed 350 px; `.ow-canvas-wrap` clamp 340–470 px and 350 px on narrow screens; world title/note sit around canvas; nonarena controls/history remain normal stacked blocks | Asking several descendants for height 100% plus sibling controls/notes can overfill the flex root. `overflow:hidden` then clips essential input. Old `.st-*` stages have no equivalent shared fill contract |
+| `roomExperience.css` | Expanded room scrolls with padding; scene minima/clamps use 47/55/60 dvh plus room toolbar/margins | Scene can occupy only part of the viewport while the page scrolls. It can also exceed the short landscape viewport when control panels are added |
+| `web/index.html` | Viewport meta is width/device-width, initial-scale 1, with no `viewport-fit=cover` | Insets alone do not establish notch-to-notch layout. Add cover deliberately and move safe padding to interactive HUD/control layers |
+| `GamePlayStages.tsx` overlays | Hint dialog uses a portal to `document.body`; other dialogs/celebrations likewise need review | Body portals outside the active fullscreen element are not part of its presented subtree; hints may be inaccessible/invisible during native fullscreen |
+| R3F/Babylon sizing/DPR | Three quality chooses DPR1/≤1.5/≤2; Babylon computes equivalent capped render density and resizes its engine | DPR controls pixel resolution/performance, **not CSS screen coverage**. Increasing DPR cannot solve an off-screen control or 350 px container |
+
+The concrete defects are call-site timing, competing controllers, subtree ownership and layout constraints. Do not claim browser incompatibility explains all of them. Native fullscreen requires user activation and can be refused; handle those conditions correctly instead of treating a successful CSS expansion as proof of browser fullscreen. [MDN requestFullscreen](https://developer.mozilla.org/en-US/docs/Web/API/Element/requestFullscreen).
+
+## One persistent shell and one state owner
+
+Evolve `RoundImmersion` into the common controller rather than adding a third fullscreen system. Mount its root for lobby/loading/play/result and keep the **same DOM element** alive while the room starts, receives a new round ID or mounts a lazy stage. Put stage, HUD, hints/help/connection notices, loading/orientation notices and Minimize **inside** that element. Give modals a portal target inside it. Keep claims/results reachable when restoring the room, and avoid reparenting/unmounting the Canvas solely to change viewport mode.
+
+Use explicit state: `embedded`, `entering`, `native-fullscreen`, `css-immersive`, `minimizing`, with round-scoped `userMinimized`. Native mode is established by `document.fullscreenElement===shell`, not by a boolean set before the promise resolves. Browser/system exits and explicit Minimize resolve to embedded, preserving the game. A stale request promise must not re-enter after the user minimizes or changes route. New match IDs reset match-specific suppression, not ownership of an existing native element. Subrounds never request fullscreen repeatedly.
+
+Remove or delegate the room's current `expanded` effect/scroll lock/Escape handling to this owner; do not leave two independently capturing body overflow. If a temporary transition retains room expansion, it must derive solely from the common controller, not auto-expand after an explicit minimize. Shared shell should handle loading/deadline/error states while the game component remains mounted.
+
+## User-gesture entry paths
+
+| Entry | Required behavior |
+| --- | --- |
+| Host “Start game” | In the synchronous click/keyboard handler, request fullscreen on the already-mounted shell and set CSS immersion, **before any await/network request**. Then call existing start API. Show loading/countdown in shell; on start failure restore the lobby and pre-entry viewport/focus. Fullscreen refusal does not block the start API |
+| Guest “Ready & enter” | From this gesture, enter fullscreen/immersive lobby and send existing ready action; retain shell until server start. Explain waiting in the stage. A later server frame starts play in the same root without needing new activation |
+| Guest not immersed when server starts / joins a running match | Enter CSS immersion automatically when the running round arrives, keep input usable, and show a compact “Fullscreen” button for a fresh gesture. Never pretend a remote event can guarantee native fullscreen or block the timer behind a mandatory enter screen |
+| Practice | Present “Start practice” on a mounted shell. Request fullscreen synchronously, then create practice through the existing bounded API. Load selected assets before timed play where possible. The current automatic effect-created practice must not start a timer before a usable entry/loading state exists |
+| User re-expands a minimized round | “Resume game”/“Fullscreen” is a new gesture; enter the same root and state. Do not restart the engine, rejoin, send a game action or reset deadlines |
+| Spectator/admin | Optional explicit “Watch fullscreen” enters the same shell; no participant admission/ready/action is sent |
+
+Feature-detect `requestFullscreen` and `document.fullscreenEnabled`, request with `navigationUI:'hide'` where supported, and handle promise rejection plus fullscreen events. A browser may retain navigation chrome; this option is a request, not a guarantee. Do not add keyboard lock or prevent normal browser escape. For allowed embedded contexts, check iframe `allowfullscreen`/Permissions Policy; do not silently rely on cross-origin embedding permissions.
+
+When unsupported/refused, immediately retain **CSS immersive mode** filling the available browser viewport and show one quiet status: “Browser fullscreen unavailable. Immersive view is active.” Use native/fullscreen wording only when it is true. Do not retry in a loop or require another tap just to use the controls. In-app browsers and mobile WebViews get the same usable fallback. Support should be measured on actual browser versions, not inferred from a mobile user-agent string.
+
+## Viewport/layout contract
+
+The root fills the viewport edge to edge: no center-shell max-width, margins, rounded outer card, footer or scrolling room metadata in immersive modes. Background/scene reaches screen edges; only the HUD/input is padded for safe areas. Prefer a root/body portal for the shell if ancestors establish transform/filter/contain containing blocks; inspect ancestors rather than compensating with arbitrary offsets/z-index. `:fullscreen` uses the same internal layout as CSS immersion.
+
+Use `width:100%`, `height:100dvh`, `box-sizing:border-box`, zero outer padding and `overflow:hidden` on the shell; use a100 vh fallback for old engines. Dynamic viewport units follow changing browser bars; 100 vh alone may correspond to the large viewport and obscure controls. `dvh` is not a substitute for handling the virtual keyboard/visual viewport. [MDN viewport units](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/length), [MDN viewport concepts](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/CSSOM_view/Viewport_concepts).
+
+Add `viewport-fit=cover` to the shipped source HTML; keep zoom enabled. Apply `env(safe-area-inset-*)` with minimum practical gutters to toolbar, input trays, bottom controls and floating actions, not the scene. The Minimize hit box must stay clear of notch/home indicator in either orientation. Account for existing global border-box rules explicitly in standalone/practice contexts. [MDN safe-area values](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/env).
+
+Use a shared stage grid/flex contract with `min-width:0`, `min-height:0` on every growing ancestor. HUD is a reserved safe-area row; central play/scene expands into remaining space; essential input occupies a bounded bottom/side tray. Secondary log/help/leaderboard is a collapsible drawer with its own scroll region. Essential controls cannot sit below a viewport-height scene. All old `.st-*` stages need an adapter to this contract; a `.gp`-only override is insufficient.
+
+Games choose layouts, not fullscreen policies:
+
+- Number Hunt/Closest Call: full scene around a compact numeric input/hints panel; portrait puts input below the exhibit, landscape uses a side tray. Keep range, budget and countdown visible.
+- RPS: two hands and countdown above a large move tray; extended 5 choices wrap without hiding Minimize.
+- Quiz/Word Forge/Typing: readable question/rack/text input panel has priority; 3D scenery uses remaining space/background. A full-height canvas is not the objective if it clips the text.
+- Memory/Puzzle/Prism: fit the entire board to available play width/height, with stable accessible cell targets; allow explicit zoom for a large board but always keep exit/control HUD fixed.
+- Atlas: map fits play area with bounded internal pan/zoom; pin-submit and reset visible, no body scroll stealing touch input.
+- Auction: pedestal and bid/balance tray fit together; no wallet panel occupies play space.
+- Existing movement worlds: scene fills remaining area with overlay touch HUD; shared shell applies without changing authority/world content. Preserve pointer/joystick cleanup on minimize.
+
+Choose minimum usable layout thresholds and collapse decoration before shrinking essential text/touch targets. For 320 px width, zoom/accessibility text 200%, or a short landscape viewport, allow the **control pane** to scroll while leaving Minimize fixed; never globally shrink the page or clip the Submit button. Touch-action is scoped: boards use manipulation/local pan; text allows selection/keyboard; only movement-look regions suppress browser gestures.
+
+On text/numeric focus, listen to `visualViewport.resize/scroll` where available and window resize as fallback. Keep focused input, submit and Minimize in the visible viewport; shrink/collapse decorative scene and move the tray above the keyboard. Treat viewport height/offset in CSS pixels, preserve zoom and avoid double-subtracting keyboard height. Use one measured viewport variable/controller if `dvh` alone does not update as needed. Keyboard opening is not orientation change and must not end fullscreen or mark a no-choice.
+
+Canvas size follows its **actual play region** via existing R3F resize observation/Babylon `engine.resize` or one shared `ResizeObserver`; update camera aspect/projection and render target after fullscreen change/orientation/container resize. Preserve WebGL context/state where possible. CSS dimensions and drawing-buffer dimensions are independent: set backing pixels to CSS size×cappedDPR (Fast 1, Balanced≤1.5, Sharp≤2), and verify reported render size. No device-resolution promise that causes 4×pixel cost. Use demand/invalidation for still boards and continue rendering only the animation interval.
+
+## Persistent Minimize, exit and restoration
+
+Inside every shell state, display a≥44×44 px top-right semantic button with icon **and “Minimize”** label; visible on loading, reconnect, orientation suggestion, WebGL fallback, result presentation and every stage. Reserve its space so timers/room titles cannot overlap it. High contrast, keyboard access and focus-visible styling are required. Auto-hiding controls or a canvas-only icon do not satisfy this requirement.
+
+Minimize exits native fullscreen **only if this shell owns it**, releases this controller's orientation lock/input/pointer lock, restores page scroll/overflow/previous body padding and focus to the relevant Resume/Start element, and returns to embedded game or room results. It does **not** pause server rounds, forfeit, leave the room, cancel an accepted choice, clear the receipt or reset countdown. Show “Round continues” beside the embedded countdown while play is active. Resume uses the same state and requires no payment/rejoin.
+
+Escape/browser Back/system fullscreen exit follows the same restore routine; do not automatically re-enter because the room remains running. Track `userMinimized` for the current match. When a modal is open, Escape first follows the modal's close behavior; the browser may still exit fullscreen, and the event listener must reconcile that truth. Route navigation/unmount/start failure/cancellation/end all release owned resources exactly once, even when a pending fullscreen promise resolves afterward.
+
+Use one scroll-lock owner/reference-counted shared lock if other modals also lock the body; restoring a captured old value from two nested components currently risks a permanently locked page. Capture scroll position, focus and any modified body styles once on entry; restore only what the shell owns. Make background room UI inert while immersed, remove inert on exit, and put dialogs inside the shell so their focus can be reached. Cleanup must not call exit on another component's fullscreen element. Guard disconnected nodes and aborted transitions.
+
+Default at game completion: keep the final in-stage outcome readable, then restore the normal room/practice results after the configured result phase; focus the result heading and render existing winner/settlement/forms/claim UI. Do not keep a native stage fullscreen while showing its result modal in `document.body`. A future immersive results view may stay inside the shell if it includes actual settlement controls; this BUILD's default is normal result restoration.
+
+## Orientation
+
+All new games and Number Hunt/RPS/quiz/memory/puzzles must work in portrait **and** landscape. Remove universal phone portrait inert gating. Board/map layout can recommend landscape if space is limited but must offer playable portrait and visible Minimize. Rotation reflows, preserves drafts/accepted state and never resets clocks or submits an action.
+
+Movement worlds can retain a landscape recommendation, but the shared shell must offer an explicit path out and avoid hiding all controls while the server continues. Use responsive layouts first. Attempt `screen.orientation.lock('landscape')` only on games that request it after native entry and when supported; rejection does not block play. On minimize/unmount, unlock only what this shell acquired. Lock support varies and commonly depends on fullscreen/mobile context. [MDN orientation lock](https://developer.mozilla.org/en-US/docs/Web/API/ScreenOrientation/lock).
+
+## BUILD test plan and acceptance
+
+1. **Browser mode:** real desktop Chromium/Firefox and actual Android Chrome/iOS Safari/in-app browser versions. Host Start, guest Ready, server-triggered start, late join, practice, resume and spectator paths. Assert native request is in a real gesture before await; denial, missing API or iframe restriction produces usable CSS fallback. Headless screenshots alone do not prove native support.
+2. **Coverage:** every registered stage gets a layout test (including `.st-*`), all five new games, both Three/Babylon Token Catch routes. Native root and play-region dimensions fill the intended viewport within one CSS pixel; essential controls/Minimize lie inside the visual viewport and safe area. No body gameplay scroll; drawer scroll is permitted.
+3. **Phone viewports:** 320×568, 390×844, 844×390 and tablet; notch/home indicator and browser bars expanded/collapsed. On-screen numeric/text keyboard, zoom 200%, large text, portrait↔landscape mid-input and during reveal. Verify touch targets and pointer-to-board coordinates after resize; fake viewport sizes are insufficient for keyboard/safe-area behavior.
+4. **State restoration:** Minimize, Escape, browser exit, route change, start failure, cancellation and result exit 20 times, including during pending requests and lazy loading. Focus/scroll/overflow/inert/orientation restore correctly; no re-entry loop, leaked listeners, duplicate canvases or timers. Game drafts/accepted choices and server clock remain correct.
+5. **Modal/fallback:** open hints/help in native fullscreen; its portal/focus is inside shell. WebGL failure/context loss, slow asset loading and reconnect still display countdown/status plus accessible input/Minimize. Reconnect during RPS reveal or auction does not replay the whole animation or erase a lock.
+6. **Network/results:** 150/300/600 ms RTT; 2–5 s disconnect; minimize with a locked choice; engine resolves on time without a second click. Final server outcome restores room results and verified settlement; funded claims/forms remain reachable; practice writes no reward.
+7. **Rendering:** check actual CSS/backing-size ratio, DPR cap, camera aspect and frame intervals before/after fullscreen and rotation. No frozen demand-render scene after resizing; quality tier never changes CSS coverage.
+
+Add focused browser coverage under `tools/tests` using existing fixture/Playwright patterns; adapt existing V4 fullscreen cases to the shared controller and add nonworld stages, refusal and restore checks. Test controller transitions with fake promises/events only for races; verify native behavior on real devices too. Run TypeScript/build and relevant center flow tests in BUILD. Required acceptance is a usable edge-to-edge game with one persistent Minimize on **every** stage; browser-supported native fullscreen follows a gesture, and refusal always leaves a usable immersive viewport.

@@ -1,5 +1,7 @@
 # 2026-10-10 — mandated Babylon Token Catch adoption
 
+> Historical session. Later product-owner feedback superseded this default/adoption decision: Three.js is visually preferred; Babylon remains experimental. See [the current renderer verdict](../research/renderer-verdict-2026-10-10.md). This record retains the earlier implementation evidence.
+
 The product owner rejected the previous keep-Three.js recommendation and required
 Babylon.js. This session resumed an interrupted implementation with planning
 already complete; the task was to finish phases V–X, verify parity and push
