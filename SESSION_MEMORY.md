@@ -384,3 +384,28 @@ evidence, push master:main, and NO Railway deployment.
   exact cannon-es MIT notice in public/dist licenses as well as the source ledger,
   because minification drops its ordinary source comment. No runtime behavior
   changes; served notice bytes are checked against the installed package license.
+
+## 2026-10-10 — Babylon.js mandated and shipped (user override)
+
+User rejected the keep-Three.js decision table: "use Babylon.js... build it new but
+better 100x using all the open-source tools". Directed effort policy: xhigh for
+planning, high for building.
+
+Shipped (commits accd5d9b, f20d0834, 400b3053, 4a61698c, 1fd0baa6):
+- web/src/center/babylon/: @babylonjs/core + Havok foundation, character controller
+  (capsule, 50° slopes, 28cm step-up, accel/decel), animation groups from existing
+  CC0 GLBs (20 clips), prediction/interpolation ported byte-identical from
+  worlds/motion.ts (125ms buffer, bounded extrapolation), staged loading, PBR/fog/
+  shadows, thin-instanced loot (400 piles).
+- Token Catch DEFAULTS to Babylon; ?engine=three keeps legacy. Other games remain
+  Three (legacy marked in worlds/README.md).
+- vite codeSplitting: single babylon-engine lazy chunk (3.7 MB) — landing bundle light.
+- Parity: docs/research/babylon-parity.md — same reducer/protocol/rewards; terrain
+  samples agree within 5.56e-16; real-room reconnect/results/rematch recorded.
+- Tests: 576+21 pytest, 162 forge, 41 frontend, tsc, builds green. Browser evidence
+  desktop/390px/touch/fullscreen.
+
+Honest: SwiftShader frame-time target failed (software renderer); real-phone perf
+unverified; Babylon visual alternatives for Three fur shaders (PBR palette style);
+no funded tx exercised. Deployed: both Railway services SUCCESS 10:49 +08
+(live index-BKP7pPKZ.js, babylon chunks 200).
