@@ -186,7 +186,7 @@ def test_health_and_catalog(tmp_path):
     with TestClient(make_app(tmp_path)) as client:
         assert client.get(f"{API_PREFIX}/health/live").json()["ok"] is True
         t = client.get(f"{API_PREFIX}/templates").json()
-        assert t["count"] == 20, "the full catalog including Arena Duel"
+        assert t["count"] == 25, "the full catalog including the five portfolio games"
         from center.schema import TEMPLATE_RULES
         ids = {x["templateId"] for x in t["templates"]}
         assert ids == set(TEMPLATE_RULES), "the catalog must list every registered template"

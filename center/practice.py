@@ -17,6 +17,7 @@ RULES = {
     'boss-raid':dict(duration_seconds=180,arena_mode=True,world_version=4,team_mode='teams',team_size=2,max_players=50,min_players=2,boss_health=6000,contribution_cap=10000),
     'combat-duel':dict(duration_seconds=180,world_version=4,starting_health=150),
     'reaction-duel':dict(rounds=3),
+    'closest-call': {}, 'word-forge': {}, 'prism-lines': {}, 'relic-auction': {}, 'atlas-quest': {},
 }
 
 
@@ -43,6 +44,20 @@ def mount_practice(app,prefix):
                     choice=rng.choice(engine.choices);salt=rng.draw(16).hex()
                     engine.act(BOTS[0],{'kind':'commit','roundId':engine.round_id,'subroundIndex':engine.round_index,'choice':choice,'salt':salt},now)
                     record['lastBot']=now
+            if engine.template_id in {'prism-lines', 'relic-auction'} and not engine.finished:
+                state=engine.public_state()
+                index=state['index']
+                if state['phase']=='selection' and now-state['phaseStartedAt']>=1:
+                    rng=StreamRNG(engine.seed, f'practice-bot/{engine.template_id}/v1/{index}'.encode())
+                    bot=BOTS[0]
+                    common={'roundId':engine.round_id,'actionId':f'bot-{index}'}
+                    if engine.template_id=='prism-lines' and state['currentPlayer']==bot:
+                        columns=[c for c in range(state['columns']) if state['board'][0][c] is None]
+                        if columns:engine.act(bot,{**common,'kind':'drop','turnIndex':index,'column':rng.choice(columns)},now)
+                    elif engine.template_id=='relic-auction' and not state['submitted'][bot]:
+                        balance=state['balances'][bot];value=state['challenge']['value']
+                        amount=min(balance,rng.between(1,max(1,value)))
+                        engine.act(bot,{**common,'kind':'bid','auctionIndex':index,'amount':amount},now)
             return
         if now-record['startedAt']<8 or now-record['lastBot']<.15:return
         record['lastBot']=now
@@ -78,7 +93,7 @@ def mount_practice(app,prefix):
         state=engine.public_state()
         if engine.finished:
             scores=engine.scores();eligible=engine.eligible()
-            state['finalPlacements']=[{'who':who,'score':scores[who],'rank':rank} for rank,who in enumerate(engine.ranking(),1) if who in eligible]
+            state['finalPlacements']=[{'who':who,'score':scores[who],'rank':rank} for rank,who in enumerate((p for p in engine.ranking() if p in eligible),1)]
         if hasattr(engine,'private_state'):state.update(engine.private_state(PLAYER))
         return {'state':state,'me':PLAYER,'players':engine.participants,'deadline':record['startedAt']+getattr(engine.rules,'duration_seconds', engine.rules.rounds*(engine.rules.choice_window_seconds+engine.rules.reveal_window_seconds) if engine.template_id in {'reaction-duel','rps-duel'} else 120),
             'serverTimeMs':int(time.time()*1000),'practice':True,'rewards':'none'}
@@ -96,11 +111,14 @@ def mount_practice(app,prefix):
             raise HTTPException(429,detail={'code':'PRACTICE_BUSY','message':'Practice is busy. Try again shortly.'})
         template=body.get('templateId')
         if template not in RULES:raise HTTPException(422,detail={'code':'UNKNOWN_PRACTICE_GAME'})
+        from center.admin_games import game_availability
+        if game_availability(app.state.store,template)['status']!='live':
+            raise HTTPException(409,detail={'code':'GAME_UNAVAILABLE','message':'This game is currently paused.'})
         rates[client].append(now)
-        bots=BOTS[:3] if template=='boss-raid' else BOTS[:2] if template=='token-catch' else BOTS[:1] if template in {'combat-duel','reaction-duel'} else []
+        bots=BOTS[:3] if template=='boss-raid' else BOTS[:2] if template=='token-catch' else BOTS[:1] if template in {'combat-duel','reaction-duel','prism-lines','relic-auction'} else []
         players=[PLAYER,*bots]
         config=RoomConfig(name='Practice',template_id=template,rules={'templateId':template,**RULES[template]},
-            admission={'player_cap':len(players),'min_ready_to_start':1},access={'required_amount':0})
+            admission={'player_cap':len(players),'min_ready_to_start':2 if template in {'prism-lines','relic-auction'} else 1},access={'required_amount':0})
         identifier,token=secrets.token_urlsafe(16),secrets.token_urlsafe(32)
         engine=engine_for(config)(config,secrets.token_hex(16),secrets.token_hex(32),players)
         if template=='boss-raid':engine.teams={p:f'team-{i//2+1}' for i,p in enumerate(players)}

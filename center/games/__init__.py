@@ -28,7 +28,18 @@ from center.games.rps_duel import RpsDuelEngine, LegacyRpsDuelEngine
 from center.games.arena import BossArenaEngine, CatchArenaEngine, CombatDuelEngine
 from center.games.field_arena import FieldCatchEngine, FieldBossEngine, FieldCombatEngine
 
+from center.games.closest_call import ClosestCallEngine
+from center.games.word_forge import WordForgeEngine
+from center.games.prism_lines import PrismLinesEngine
+from center.games.relic_auction import RelicAuctionEngine
+from center.games.atlas_quest import AtlasQuestEngine
+
 ENGINES: dict[str, type[Engine]] = {
+    "closest-call": ClosestCallEngine,
+    "word-forge": WordForgeEngine,
+    "prism-lines": PrismLinesEngine,
+    "relic-auction": RelicAuctionEngine,
+    "atlas-quest": AtlasQuestEngine,
     "number-hunt": NumberHuntEngine,
     "live-quiz": QuizEngine,
     "memory-match": MemoryEngine,

@@ -366,6 +366,6 @@ def test_seed_stream_is_reproducible_and_commit_verifies():
 
 def test_every_template_is_registered_and_constructible():
     from center.schema import TEMPLATE_RULES
-    assert len(ENGINES) == len(TEMPLATE_RULES) == 20
+    assert len(ENGINES) == len(TEMPLATE_RULES) == 25
     for tid in ENGINES:
         assert tid in TEMPLATE_RULES

@@ -11,7 +11,8 @@ import time
 from fastapi import Header, HTTPException, Query
 from center.community import CommunityError, DEFAULT_SETTINGS
 
-GAME_IDS = {"number-hunt", "boss-raid", "token-catch", "reaction-duel", "combat-duel"}
+from center.schema import TEMPLATE_RULES
+GAME_IDS = frozenset(TEMPLATE_RULES)
 
 
 def game_availability(store, template_id):
@@ -104,6 +105,9 @@ class AdminGameService:
     def hint(self, actor, room_id, text):
         actor = self._authorize(actor)
         room = self._room(room_id)
+        from center.schema import PORTFOLIO_TEMPLATES
+        if room['template_id'] in PORTFOLIO_TEMPLATES:
+            raise CommunityError('HOST_HINTS_DISABLED', 'Use this game’s bounded private hints.', 409)
         if room["status"] not in {"registration", "ready", "running"}:
             raise CommunityError("ROUND_NOT_OPEN", "Hints are available in a lobby or a live match.", 409)
         if not isinstance(text, str) or not text.strip() or len(text) > 500 or any(ord(c) < 32 and c not in "\n\t" for c in text):

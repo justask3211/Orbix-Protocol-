@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "author": "Orbix original content 2026-10-10",
+  "packs": [
+    {
+      "pack_id": "atlas-world-v1",
+      "sha256": "04dc3818c2871bb7ce0fc27edfadab6adbb1f71fac9dbab781c626888b194273",
+      "bytes": 3194,
+      "license": "Original Orbix prompts; factual coordinate statements from Wikidata (CC0-1.0). No third-party map artwork.",
+      "provenance": "Original prompts, displays, curated English rack and word selection."
+    },
+    {
+      "pack_id": "closest-museum-v1",
+      "sha256": "cc2c4045e935789b67cba8359a86b7f048aaa3dcd9adeb27e1bdd51a8561169f",
+      "bytes": 22036,
+      "license": "Original Orbix exhibits, prompts and layouts.",
+      "provenance": "Original prompts, displays, curated English rack and word selection."
+    },
+    {
+      "pack_id": "word-workshop-en-v1",
+      "sha256": "d22885a774e0d9312629db7d810397c8cc0e6334d426bec5a785311305785f69",
+      "bytes": 2932,
+      "license": "Original Orbix curated word selection and rack bank; ordinary English words, no scraped dictionary.",
+      "provenance": "Original prompts, displays, curated English rack and word selection."
+    }
+  ]
+}

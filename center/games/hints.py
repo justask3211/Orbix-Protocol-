@@ -476,6 +476,15 @@ HINT_POLICIES: dict[str, HintPolicy] = {
     )
 }
 
+HINT_POLICIES.update({tid: HintPolicy(tid, 1, (HintKind(kind, 'private', description, budget, cost),))
+    for tid, kind, description, budget, cost in (
+        ('closest-call', 'scale-reference', 'The public range and a fixed reference prop; no accuracy feedback.', 2, 0),
+        ('word-forge', 'rack-sort', 'Sorts the public rack and counts letters. No suggested word.', 1, 0),
+        ('prism-lines', 'legal-columns', 'Lists columns that are not full. No move recommendation.', 2, 0),
+        ('relic-auction', 'budget-ledger', 'Your confirmed game-credit balance, spending and colour counts.', 2, 0),
+        ('atlas-quest', 'hemisphere', 'The broad northern or southern map half. Costs 100 points this challenge.', 2, 100),
+    )})
+
 
 def policy_for(template_id: str, template_version: int | None = None) -> HintPolicy:
     if template_version == 1 and template_id in {'reaction-duel', 'rps-duel'}:
