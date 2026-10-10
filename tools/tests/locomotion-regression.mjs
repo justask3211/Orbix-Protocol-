@@ -4,8 +4,8 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import {makeRig,selectAction,releaseRig,full,lod,THREE} from './skeletal-actor-regression.mjs'
 import {transformSync} from '../../web/node_modules/rolldown/dist/utils-index.mjs'
-const code=transformSync('catalog.ts',fs.readFileSync('web/src/center/characters.ts','utf8'),{target:'es2022'}).code.replace(/\bexport\s+/g,'')
-const {CHARACTERS}=new Function(code+'\nreturn {CHARACTERS};')()
+const code=transformSync('catalog.ts',fs.readFileSync('web/src/center/characters.ts','utf8'),{target:'es2022'}).code.replace(/import[^;]*;/g,'').replace(/\bexport\s+/g,'')
+const {CHARACTERS}=new Function('catalog',code+'\nreturn {CHARACTERS};')(JSON.parse(fs.readFileSync('center/cosmetics_catalog.json')))
 const evidence=[]
 for(const model of [full,lod])for(const info of CHARACTERS){
  const rig=makeRig(model,info.id,'team-1'),parent=new THREE.Group();parent.scale.set(1.15,.96,1.12);parent.add(rig.scene)

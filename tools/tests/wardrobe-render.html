@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><body style="margin:0;background:#fff4d9"><div id="label" style="position:absolute;top:12px;left:12px;font:18px system-ui;color:#27213f"></div><script type="module">
+import * as THREE from '/center/node_modules/three/build/three.module.js'
+import {GLTFLoader} from '/center/node_modules/three/examples/jsm/loaders/GLTFLoader.js'
+import {GLTFExporter} from '/center/node_modules/three/examples/jsm/exporters/GLTFExporter.js'
+import {buildCuteCharacter} from '/center/src/center/worlds/CuteCharacter.ts'
+const scene=new THREE.Scene();scene.background=new THREE.Color('#FFF4D9');const camera=new THREE.PerspectiveCamera(34,1,.05,100);camera.position.set(2.2,1.7,3.9);camera.lookAt(0,.95,0)
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(640,640);renderer.setPixelRatio(1);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;document.body.append(renderer.domElement)
+scene.add(new THREE.HemisphereLight('#FFF4D9','#7959E8',1.2));const key=new THREE.DirectionalLight('#fff0df',3.2);key.position.set(3,5,4);scene.add(key);const rim=new THREE.DirectionalLight('#37cfc2',1.5);rim.position.set(-3,3,-2);scene.add(rim)
+const gltf=await new GLTFLoader().loadAsync('/center/center-models/orbix-ranger-lod.glb');let owned,mixer
+window.review={show(character,outfit,pose='Idle',fast=false){if(owned){scene.remove(owned.scene);mixer.stopAllAction();mixer.uncacheRoot(owned.scene);owned.release()}owned=buildCuteCharacter(gltf,{character,cosmetics:{outfit}},fast);scene.add(owned.scene);mixer=new THREE.AnimationMixer(owned.scene);mixer.clipAction(owned.animations.find(c=>c.name===pose)).play();mixer.update(.3);owned.scene.updateMatrixWorld(true);renderer.render(scene,camera);document.querySelector('#label').textContent=character+' · '+outfit+' · '+pose;return {triangles:owned.geometry.index.count/3,groups:owned.geometry.groups.length,textures:owned.materials.filter(m=>m.map).map(m=>({role:m.name,width:m.map.image.width}))}},async export(){const bytes=await new GLTFExporter().parseAsync(owned.scene,{binary:true,onlyVisible:true,animations:owned.animations});return Array.from(new Uint8Array(bytes))}}
+window.review.show('cat','dress-sun');window.ready=true
+</script></body></html>

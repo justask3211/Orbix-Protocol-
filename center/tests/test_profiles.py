@@ -125,3 +125,34 @@ def test_invalid_cosmetics_rejected(tmp_path, body):
     response = client.post(f'{api_mod.API_PREFIX}/profile/character', headers=headers, json=body)
     assert response.status_code == 422
     assert client.get(f'{api_mod.API_PREFIX}/profile/{address}').json()['name'] == ''
+
+
+def test_wardrobe_catalog_all_ids_and_legacy_values():
+    from center.characters import CHARACTERS, OPTIONS, CATALOG, validate_customization
+    import json
+    from pathlib import Path
+    assert CATALOG == json.loads(Path('center/cosmetics_catalog.json').read_text())
+    for character in CHARACTERS:
+        for outfit in OPTIONS['outfit']:
+            chosen, cosmetics = validate_customization(character, {'outfit': outfit})
+            assert chosen == character and cosmetics['outfit'] == outfit
+    assert {'dress','coral','mint','lilac','default','dress-sun','dress-festival'} <= OPTIONS['outfit']
+
+
+def test_round_appearance_is_frozen_after_profile_change_and_restart(tmp_path):
+    import asyncio
+    from center.room import RoomRuntime, Hub
+    from center.schema import RoomConfig
+    from center.store import Store
+    from center.vault import VaultService
+    async def run():
+        store = Store(str(tmp_path/'wardrobe.db'));who='0x'+'11'*20
+        store.set_profile_character(who, 'cat', {'outfit':'dress-festival'})
+        config = RoomConfig(template_id='number-hunt', name='Frozen appearance', rules={'templateId':'number-hunt','digits':4,'min':1111,'max':9999,'guess_budget':10,'duration_seconds':60},admission={'player_cap':1,'min_ready_to_start':1})
+        rt=RoomRuntime.create(store,VaultService(store),Hub(),owner=who,config=config);rt.join(who);rt.set_ready(who);await rt.start(100)
+        frozen=rt.presentation_state()['appearances'];assert frozen[who]['cosmetics']['outfit']=='dress-festival'
+        store.set_profile_character(who, 'turtle', {'outfit':'overalls'})
+        restored=RoomRuntime.load(store,VaultService(store),Hub(),rt.room_id)
+        assert restored.presentation_state()['appearances']==frozen
+        assert restored.engine.snapshot()==rt.engine.snapshot()
+    asyncio.run(run())

@@ -1,0 +1,399 @@
+{
+  "version": 1,
+  "date": "2026-10-10",
+  "author": "Orbix",
+  "license": "Original Orbix garments, procedural textiles and seated clips; existing Quaternius CC0 skeleton and source clips.",
+  "rigSources": [
+    "https://quaternius.com/packs/universalbasecharacters.html",
+    "https://quaternius.com/packs/universalanimationlibrary.html"
+  ],
+  "sources": {
+    "web/src/center/worlds/CuteCharacter.ts": {
+      "sha256": "3aeb25abbb748c1224f229f2105b7cb5a3d4756780a57540f0e8167825f00f34",
+      "bytes": 17816
+    },
+    "web/src/center/worlds/wardrobe.ts": {
+      "sha256": "de16746a0773a82d9ddec9b1b8f3ee4b1ece0aa9d3ce20ae25b353b82fda2911",
+      "bytes": 2943
+    },
+    "web/src/center/worlds/seatedClips.ts": {
+      "sha256": "614dbd09a2cb9a3c4779be84210fbf44b0c03d7b6de0b8ce6c52945ee230d645",
+      "bytes": 1244
+    },
+    "center/cosmetics_catalog.json": {
+      "sha256": "f6add1b08df5e009462771597a429515dd6c9552c3f6e016f0bb8f7ea5897ff3",
+      "bytes": 268
+    },
+    "web/public/center-models/orbix-ranger-lod.glb": {
+      "sha256": "23089bb50db116c352b654ae45d1cdab8e0baac4115aee568815342a66c0c06d",
+      "bytes": 1247696
+    }
+  },
+  "textures": [
+    {
+      "file": "overalls-1024.png",
+      "bytes": 43521,
+      "width": 1024,
+      "height": 1024,
+      "sha256": "7beae60bbe4b797a3f994560ee3e765d1f87d29d5d7ef98d0587bc4c59b8cbd4",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "overalls-512.png",
+      "bytes": 11720,
+      "width": 512,
+      "height": 512,
+      "sha256": "ee2000b58eae80273da8cd29c7cbef2117b9e1b6f9aadddd4b0bf54e5f9ad903",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "rain-jacket-1024.png",
+      "bytes": 32100,
+      "width": 1024,
+      "height": 1024,
+      "sha256": "28ced781562c9a945d472b269d0148ca23c60ceb4e4510d783322246ebe0291a",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "rain-jacket-512.png",
+      "bytes": 8309,
+      "width": 512,
+      "height": 512,
+      "sha256": "598f061fd0725a709bb315fddf043d55e0f487b411ca2d2f1f06de3d359fd61b",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "festival-jacket-1024.png",
+      "bytes": 38975,
+      "width": 1024,
+      "height": 1024,
+      "sha256": "5074cdca4be41f1a0e8655518e19739264b45a58dec57ad2d651a4f3a945ad39",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "festival-jacket-512.png",
+      "bytes": 11230,
+      "width": 512,
+      "height": 512,
+      "sha256": "e9e0738beaf45b195a4d1f5a2cd9252bee63c2b73a2b071565db10f78fd68a4f",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "tunic-1024.png",
+      "bytes": 32458,
+      "width": 1024,
+      "height": 1024,
+      "sha256": "234563a9784fd93c45699d59008fcc6b7eaec7c4d9712edf10770ba5783a2c53",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "tunic-512.png",
+      "bytes": 8781,
+      "width": 512,
+      "height": 512,
+      "sha256": "00923d40e7aba85d19d0cc900ddb476343bd3204e7faa314f1d908ecc592261e",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "dress-sun-1024.png",
+      "bytes": 47279,
+      "width": 1024,
+      "height": 1024,
+      "sha256": "1c4bb5112b228a087c0e85505210abb849672c286779e58db08841df834ec240",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "dress-sun-512.png",
+      "bytes": 11170,
+      "width": 512,
+      "height": 512,
+      "sha256": "383a3eeac21a89ae4edbe14c74e8adc3198a40e8a9f46fbff1a4da0b8e57f49d",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "dress-festival-1024.png",
+      "bytes": 38975,
+      "width": 1024,
+      "height": 1024,
+      "sha256": "5074cdca4be41f1a0e8655518e19739264b45a58dec57ad2d651a4f3a945ad39",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    },
+    {
+      "file": "dress-festival-512.png",
+      "bytes": 11230,
+      "width": 512,
+      "height": 512,
+      "sha256": "e9e0738beaf45b195a4d1f5a2cd9252bee63c2b73a2b071565db10f78fd68a4f",
+      "source": "web/src/center/worlds/wardrobe.ts",
+      "role": "neutral sRGB cloth albedo with UVs; actor primary tint applied once"
+    }
+  ],
+  "assets": [
+    {
+      "file": "cat-overalls.glb",
+      "sourceSha256": "2a9425ba8a7a522cee59a583900773b1173af9e98b911ff5bd18b817ddacb341",
+      "sha256": "d370d206330701aa9ec023c905aef4226fc786f6f28025a32e5bad4824004c8f",
+      "bytes": 1478488,
+      "clips": [
+        "Death",
+        "Dodge",
+        "Guard",
+        "Hit",
+        "Idle",
+        "Interact",
+        "JumpLand",
+        "JumpLoop",
+        "JumpStart",
+        "Kick",
+        "PistolAim",
+        "PistolIdle",
+        "PistolShoot",
+        "PunchCross",
+        "PunchJab",
+        "Run",
+        "Sprint",
+        "SwordAttack",
+        "SwordIdle",
+        "Walk",
+        "OrbixSeatedIdle",
+        "OrbixGesture",
+        "OrbixTurn",
+        "OrbixCelebrate"
+      ],
+      "roles": [
+        "skin",
+        "fur",
+        "eyes",
+        "metal",
+        "accent",
+        "cloth_main",
+        "cloth_trim"
+      ]
+    },
+    {
+      "file": "cat-rain-jacket.glb",
+      "sourceSha256": "9a371232209259ebf0190efd0ecf3f404c563c60d84ed2f6491950a934450169",
+      "sha256": "388329245a0b9528a178bfb9469a1212c538c0215a795bcc30018f4d7dddbb79",
+      "bytes": 1356472,
+      "clips": [
+        "Death",
+        "Dodge",
+        "Guard",
+        "Hit",
+        "Idle",
+        "Interact",
+        "JumpLand",
+        "JumpLoop",
+        "JumpStart",
+        "Kick",
+        "PistolAim",
+        "PistolIdle",
+        "PistolShoot",
+        "PunchCross",
+        "PunchJab",
+        "Run",
+        "Sprint",
+        "SwordAttack",
+        "SwordIdle",
+        "Walk",
+        "OrbixSeatedIdle",
+        "OrbixGesture",
+        "OrbixTurn",
+        "OrbixCelebrate"
+      ],
+      "roles": [
+        "skin",
+        "fur",
+        "eyes",
+        "metal",
+        "accent",
+        "cloth_main",
+        "cloth_trim"
+      ]
+    },
+    {
+      "file": "cat-festival-jacket.glb",
+      "sourceSha256": "a816c7cab6969b1e0bdefc81351eb9125d23a25a074e1d1c1c87a430cc860444",
+      "sha256": "c82736f86f206128427eb862dfc7c2c8e866d4e0d17ab54175af673ab416388c",
+      "bytes": 1324624,
+      "clips": [
+        "Death",
+        "Dodge",
+        "Guard",
+        "Hit",
+        "Idle",
+        "Interact",
+        "JumpLand",
+        "JumpLoop",
+        "JumpStart",
+        "Kick",
+        "PistolAim",
+        "PistolIdle",
+        "PistolShoot",
+        "PunchCross",
+        "PunchJab",
+        "Run",
+        "Sprint",
+        "SwordAttack",
+        "SwordIdle",
+        "Walk",
+        "OrbixSeatedIdle",
+        "OrbixGesture",
+        "OrbixTurn",
+        "OrbixCelebrate"
+      ],
+      "roles": [
+        "skin",
+        "fur",
+        "eyes",
+        "metal",
+        "accent",
+        "cloth_main",
+        "cloth_trim"
+      ]
+    },
+    {
+      "file": "cat-tunic.glb",
+      "sourceSha256": "8626c93ff30686ed00e0d786f903e07a6b64ea123085cbe6ccc347e26d3e039f",
+      "sha256": "a9da801bf666eb80e79bce8dce403dea4f8693258889b20daf7dbf99fb59f701",
+      "bytes": 1188956,
+      "clips": [
+        "Death",
+        "Dodge",
+        "Guard",
+        "Hit",
+        "Idle",
+        "Interact",
+        "JumpLand",
+        "JumpLoop",
+        "JumpStart",
+        "Kick",
+        "PistolAim",
+        "PistolIdle",
+        "PistolShoot",
+        "PunchCross",
+        "PunchJab",
+        "Run",
+        "Sprint",
+        "SwordAttack",
+        "SwordIdle",
+        "Walk",
+        "OrbixSeatedIdle",
+        "OrbixGesture",
+        "OrbixTurn",
+        "OrbixCelebrate"
+      ],
+      "roles": [
+        "skin",
+        "fur",
+        "eyes",
+        "metal",
+        "accent",
+        "cloth_main",
+        "cloth_trim"
+      ]
+    },
+    {
+      "file": "cat-dress-sun.glb",
+      "sourceSha256": "6333d3e071db19df39bd120f7ac75dce8121df2190af71acf1f1c7e7b6d46db6",
+      "sha256": "ef816dcfdb8973256e4532bea7077b027b01b717a0d52e989b3cf7b3b3816fc3",
+      "bytes": 1288988,
+      "clips": [
+        "Death",
+        "Dodge",
+        "Guard",
+        "Hit",
+        "Idle",
+        "Interact",
+        "JumpLand",
+        "JumpLoop",
+        "JumpStart",
+        "Kick",
+        "PistolAim",
+        "PistolIdle",
+        "PistolShoot",
+        "PunchCross",
+        "PunchJab",
+        "Run",
+        "Sprint",
+        "SwordAttack",
+        "SwordIdle",
+        "Walk",
+        "OrbixSeatedIdle",
+        "OrbixGesture",
+        "OrbixTurn",
+        "OrbixCelebrate"
+      ],
+      "roles": [
+        "skin",
+        "fur",
+        "eyes",
+        "metal",
+        "accent",
+        "cloth_main",
+        "cloth_trim"
+      ]
+    },
+    {
+      "file": "cat-dress-festival.glb",
+      "sourceSha256": "944039b37fba477ada44363b185cdc3eac8070ef8132cdaf2e602ed95541c4b5",
+      "sha256": "d2382446cbc4a8fa196453fc405925f7ca5afce4d7af890e7b6fc69284f8e6ed",
+      "bytes": 1335956,
+      "clips": [
+        "Death",
+        "Dodge",
+        "Guard",
+        "Hit",
+        "Idle",
+        "Interact",
+        "JumpLand",
+        "JumpLoop",
+        "JumpStart",
+        "Kick",
+        "PistolAim",
+        "PistolIdle",
+        "PistolShoot",
+        "PunchCross",
+        "PunchJab",
+        "Run",
+        "Sprint",
+        "SwordAttack",
+        "SwordIdle",
+        "Walk",
+        "OrbixSeatedIdle",
+        "OrbixGesture",
+        "OrbixTurn",
+        "OrbixCelebrate"
+      ],
+      "roles": [
+        "skin",
+        "fur",
+        "eyes",
+        "metal",
+        "accent",
+        "cloth_main",
+        "cloth_trim"
+      ]
+    }
+  ],
+  "export": "tools/tests/wardrobe-browser.cjs then tools/game-lab/scripts/wardrobe-manifest.mjs",
+  "runtime": "Production creates selected per-character fitted UV-bearing garments from source; six cat GLBs are interchange references, not extra gameplay downloads. Body/fur hooks stay in Three.js; exported PBR contains verified cloth maps.",
+  "budgets": {
+    "observedFullMaxTriangles": 16824,
+    "observedLodMaxTriangles": 3312,
+    "observedMaterialGroups": 7,
+    "materialTarget": 6,
+    "phonePerformance": "Not measured on physical devices."
+  }
+}
