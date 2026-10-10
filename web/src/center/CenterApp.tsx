@@ -1153,12 +1153,12 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   }, [finished, currentRound, Boolean(settlement), podium.length, presentedRound])
   useEffect(()=>{
     const key=`${roomId}:${me}:${session.token}`
-    if(adminObserver || !amPlayer || room?.status!=='running' || !session.token || channel.status!=='idle' || reconnectAttempt.current===key)return
+    if(adminObserver || room?.gameConfig?.available_modes.join === false || !amPlayer || room?.status!=='running' || !session.token || channel.status!=='idle' || reconnectAttempt.current===key)return
     reconnectAttempt.current=key
     void center.join(roomId,session.token,new URLSearchParams(window.location.search).get('invite')??undefined)
       .then(joined=>{setTicket(joined.ticket);channel.connect(joined.ticket)})
       .catch(err=>setError(explainError(err)))
-  },[roomId,me,session.token,room?.status,amPlayer,adminObserver,channel.status,channel.connect])
+  },[roomId,me,session.token,room?.status,room?.gameConfig?.available_modes.join,amPlayer,adminObserver,channel.status,channel.connect])
 
   return (
     <div ref={roomElement} className="ct-page ct-game-room">
@@ -1357,7 +1357,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       {rematchNotice && <p className="ct-observer-note" role="status">{rematchNotice}</p>}
       {rewardKind === 'funded-assets' && finished && session.token && <MyRewards session={session} roomId={roomId} onContinue={Boolean((room?.config.rewards as {forms?:FormReward[]})?.forms?.length)?()=>setFormsReady(true):undefined}/>}
       {rewardKind === 'funded-assets' && isHost && finished && <CreatorRewardAllocation session={session} roomId={roomId}/>}
-      {isHost && finished && room && <section className="ct-rematch-panel"><div><span>KEEP THE CREW TOGETHER</span><h2>One more round?</h2><p>{room.rematch?.supported ? 'Keep this room and its players. Each match gets its own result, and everyone confirms readiness again.' : 'This room uses a financial entry or funded reward. A fresh room and funding are required for the next match.'}</p></div><div className="ct-actions">{room.rematch?.supported ? <><button className="btn-primary" disabled={busy} onClick={() => void playAgain()}>Play again · same settings</button><button className="btn-ghost" disabled={busy} onClick={() => setEditingRematch(true)}>Edit next match</button></> : <button className="btn-primary" onClick={() => go(`/center/create/${templateId}?from=${roomId}`)}>Prepare a fresh room</button>}</div></section>}
+      {isHost && finished && room && <section className="ct-rematch-panel"><div><span>KEEP THE CREW TOGETHER</span><h2>One more round?</h2><p>{room.rematch?.supported ? 'Keep this room and its players. Each match gets its own result, and everyone confirms readiness again.' : 'This room uses a financial entry or funded reward. A fresh room and funding are required for the next match.'}</p></div><div className="ct-actions">{room.rematch?.supported ? <><button className="btn-primary" disabled={busy} onClick={() => void playAgain()}>Play again · same settings</button><button className="btn-ghost" disabled={busy} onClick={() => setEditingRematch(true)}>Edit next match</button></> : room.gameConfig?.available_modes.create !== false && <button className="btn-primary" onClick={() => go(`/center/create/${templateId}?from=${roomId}`)}>Prepare a fresh room</button>}</div></section>}
       {editingRematch && room && <Suspense fallback={<p role="status">Opening next-match settings…</p>}><RematchSettings room={room} onClose={() => setEditingRematch(false)} onSave={playAgain} /></Suspense>}
       {isHost && session.token && Boolean((room?.config.waitlist as WaitlistOptions | undefined)?.enabled) && <CreatorWaitlist roomId={roomId} token={session.token}/>}
       {isHost && session.token && ((room?.config.rewards as {forms?:FormReward[]})?.forms??[]).map(form=><CreatorFormResponses key={form.kind} roomId={roomId} token={session.token!} kind={form.kind}/>)}

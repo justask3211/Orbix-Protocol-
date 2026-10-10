@@ -442,3 +442,51 @@ Tests: 799 pytest (778 center + 21 community), 162 forge, 41 frontend, tsc, buil
 Deployed: both Railway services SUCCESS 19:58 +08 (live index-Fl9LeYyT.js; all 5 new game
 IDs in served bundle). Limits: latency figures are estimates; no real-phone measurement;
 content packs need curation before treating answer-leak resistance as meaningful.
+
+## 2026-10-10 — Per-game admin customization and offline preview (BUILD)
+
+User intent: individually control every game’s catalog/More/upcoming/hidden
+placement, configurable blue “Coming soon” overlay and development tag, ordering,
+Try now versus offline Preview, and separate create/join toggles through a smooth
+signed-admin editor. Build the feature; push master:main; Hermes handles deployment.
+
+Shipped:
+- Strict per-template `game-config:*` settings with placement, overlay, tag,
+  practice/preview/create/join toggles and sort order. Each save records its
+  timestamp, admin actor/proof digest and an atomic `game.customization` entry in
+  the existing audit chain. Public `available_modes` exposes effective gates;
+  stored toggles survive placement changes.
+- Card editor with placement/banner/play-mode steps, original shared banner art,
+  live badges, contrast-aware custom colors, preserved unsaved drafts, reset,
+  ordering and the existing fresh wallet-signature flow. Mobile 390px and reduced
+  motion supported.
+- Games and More games tabs; upcoming cards show banner/overlay/tag and only
+  enabled offline Preview. Catalog, wizard, public-room directory and room
+  admission actions respect per-game placement/modes. Server publishing,
+  drafting, reward preparation, joining and practice enforce the toggles.
+- `/center/preview/{templateId}` reuses all 25 existing stage components with
+  public build-time seeded fixtures and a local, disconnected demo reducer.
+  Movement, interaction, seed/reset/pause and a persistent offline badge work
+  without API calls, WebSockets, session initialization or storage. Local motion
+  bypasses network interpolation; the badge remains visible in fullscreen.
+  Only the initial page request checks policy; the site proxy forwards that read
+  to Center and disabled previews return 404. Demo outcomes are illustrative.
+- Existing Try now presets retain server-managed ephemeral behavior (the brief’s
+  DB description differed from the actual code: practice already writes no rooms
+  or ledger). Other templates can opt into the same server practice shell through
+  their admin toggle; formerly unsupported templates stay disabled by default.
+- Isolation and API notes: `center/PREVIEW_ISOLATION.md`. Fixture generator and
+  backend/browser regressions added. Prebuilt `web/dist` and
+  `deploy/site/center-dist` refreshed for both service images.
+
+Validation: full `pytest center/tests tests` **848 passed**; **162 Forge tests**;
+TypeScript and production build passed. Offline reducer tests forbid network and
+storage access; browser sweep verifies 25 stages with a saved wallet and zero API
+requests/WebSockets, local inputs, fullscreen badge, signed saves/draft
+preservation, mode gates and reduced-motion 390px layouts. Existing admin browser
+polling/signature/cap checks pass at 1200/390/320px; wallet and real-room motion
+regressions remain green. Intentional existing-test updates: portfolio placement
+`featured` → `catalog`, and shared image/vector admin banner assertion.
+
+No Railway deployment was requested or performed. Unrelated pre-existing Python
+cache and cockpit build changes were excluded from the commits.
