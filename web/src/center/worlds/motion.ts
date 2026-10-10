@@ -90,6 +90,13 @@ export class MotionTrack {
     const latest = this.samples.at(-1)
     if (!latest) return
     const body = latest.body, age = now - latest.received
+    if (state._offline) {
+      // Local fixture frames need no network interpolation or reconciliation.
+      pose.x = num(body.x); pose.y = num(body.y); pose.z = num(body.z); pose.yaw = num(body.yaw)
+      pose.speed = body.moving ? num(body.speed, 5) * (body.sprinting ? 1.6 : 1) : 0
+      pose.moving = body.moving ? 1 : 0
+      return
+    }
     let x: number, y: number, z: number, yaw: number, speed = 0
     if (input) {
       const elapsed = Math.max(0, Math.min(now - this.lastFrame, 250)) / 1000, before = { ...this.predicted }

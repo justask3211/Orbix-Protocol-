@@ -704,6 +704,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             "rooms": [
                 {
                     "roomId": r["id"], "name": r["config"]["name"], "templateId": r["template_id"],
+                    "gameConfig": public_game_config(store, r["template_id"]),
                     "roomNumber": r["join_code"], "joinCode": r["join_code"],
                     "status": r["status"], "visibility": r["visibility"], "mode": r["mode"],
                     "players": len([p for p in store.participants(r["id"]) if p["role"] == "player"]),
@@ -1467,8 +1468,15 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             candidate = os.path.join(dist, rest)
             if rest and os.path.isfile(candidate) and os.path.abspath(candidate).startswith(os.path.abspath(dist)):
                 return FileResponse(candidate)
+            # Initial HTML is the only policy read for offline preview. The
+            # client subsequently loads assets only: no auth, room or API calls.
+            if rest.startswith("preview/"):
+                template_id = rest.removeprefix("preview/").rstrip("/")
+                from center.admin_games import GAME_IDS
+                if template_id not in GAME_IDS or not public_game_config(store, template_id)["available_modes"]["preview"]:
+                    return HTMLResponse("<h1>Preview unavailable</h1><p>This game’s offline preview is disabled.</p><a href='/center'>Game center</a>", status_code=404)
             # Client-side routes (/center/create, /center/rooms/x) all serve the shell.
-            return HTMLResponse(open(index, encoding="utf-8").read())
+            return HTMLResponse(open(index, encoding="utf-8").read(), headers={"Cache-Control": "no-store"})
 
     return app
 

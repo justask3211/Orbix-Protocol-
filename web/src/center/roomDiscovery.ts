@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { center, explainError, type RoomSummary } from './api'
-import { isFeaturedGame } from './featuredGames'
 
 /** A bare room ID or a complete Orbix invite; never navigate to an external site. */
 export function roomPathFromInput(input: string): string | null {
@@ -24,7 +23,7 @@ export const OPEN_ROOM_STATES = new Set(['registration', 'ready'])
 export const ACTIVE_ROOM_STATES = new Set([...OPEN_ROOM_STATES, 'running'])
 
 export function isDiscoverableRoom(room: RoomSummary) {
-  return room.visibility === 'public' && isFeaturedGame(room.templateId) && ACTIVE_ROOM_STATES.has(room.status)
+  return room.visibility === 'public' && room.gameConfig?.available_modes.join !== false && room.gameConfig?.placement !== 'hidden' && room.gameConfig?.placement !== 'upcoming' && ACTIVE_ROOM_STATES.has(room.status)
 }
 
 /** Poll only a visible page, preserving a successful list on a transient failure. */

@@ -75,7 +75,7 @@ function GameFrame({ game, title, eyebrow, icon, children, help, state, me, play
       <div className="gp-title-icon" aria-hidden>{icon}</div>
       <div><span className="gp-eyebrow">{eyebrow}</span><h3>{title}</h3></div>
       <div className="gp-heading-actions">
-        {clock.seconds !== null && <span className={`gp-clock${clock.seconds <= 10 ? ' urgent' : ''}`} aria-label={`${clock.seconds} seconds left`}><Clock3 size={16} aria-hidden />{finished ? 'Finished' : `${clock.seconds}s`}</span>}
+        {!state._offline && clock.seconds !== null && <span className={`gp-clock${clock.seconds <= 10 ? ' urgent' : ''}`} aria-label={`${clock.seconds} seconds left`}><Clock3 size={16} aria-hidden />{finished ? 'Finished' : `${clock.seconds}s`}</span>}
         <button type="button" className="gp-help-toggle" onClick={() => setHelpOpen(!helpOpen)} aria-expanded={helpOpen} aria-controls={helpId}><CircleHelp size={18} aria-hidden /><span>How to play</span></button>
       </div>
     </header>
@@ -84,7 +84,7 @@ function GameFrame({ game, title, eyebrow, icon, children, help, state, me, play
       <SceneBoundary key={game}><Suspense fallback={<div className="gp-world-fallback"><Sparkles aria-hidden /><p>Opening your game world…</p><span>You can use the controls while the scene loads.</span></div>}>
         <GameWorld game={game} state={state} me={me} players={state._hidePlayers ? (me ? [me] : []) : players} reducedMotion={reducedMotion} onLane={onLane} onAttack={onAttack} onCatch={onCatch} />
       </Suspense></SceneBoundary>
-      <span className="gp-world-label"><span aria-hidden />{finished ? 'Round complete' : state._connection === 'reconnecting' || state._connection === 'connecting' ? 'Reconnecting…' : 'Live game world'}</span>
+      <span className="gp-world-label"><span aria-hidden />{state._offline ? 'Preview — offline demo' : finished ? 'Round complete' : state._connection === 'reconnecting' || state._connection === 'connecting' ? 'Reconnecting…' : 'Live game world'}</span>
     </div>
     <div className="gp-input-layer">
     {state._canAct === false && !finished && <p className="gp-status" role="status">{state._spectating ? 'You are watching this round. Join as a player to take part.' : state._connection && state._connection !== 'open' ? 'Waiting for your connection. Controls resume after the room synchronizes.' : 'You are watching this round. Join as a player to take part.'}</p>}
@@ -149,8 +149,8 @@ export function NumberHuntPlay(props: StageProps) {
   const log: { who: string; number: number; hit?: boolean; hint?: { direction: string } }[] = Array.isArray(state.guessLog) ? state.guessLog : []
   const mine = log.filter((row) => row.who === me)
   const latestMine = mine.at(-1)
-  const cooldownMs = numeric(state.guessCooldownMs, 500)
-  const pending = Boolean(submitted && guessCount <= submitted.count && Date.now() - submitted.at < 1600 && !state._actionError)
+  const cooldownMs = state._offline ? 0 : numeric(state.guessCooldownMs, 500)
+  const pending = !state._offline && Boolean(submitted && guessCount <= submitted.count && Date.now() - submitted.at < 1600 && !state._actionError)
   const cooling = Boolean(submitted && Date.now() < submitted.at + cooldownMs)
   const valid = guess.length === digits && Number(guess) >= numeric(state.min) && Number(guess) <= numeric(state.max)
   const duplicate = mine.some((row) => row.number === Number(guess))
@@ -178,7 +178,7 @@ export function NumberHuntPlay(props: StageProps) {
         <div className="gp-number-entry"><div className="gp-digit-pad"><input id={inputId} className="gp-number-input" type="text" inputMode="numeric" autoComplete="off" maxLength={digits} value={guess} onChange={(event) => setGuess(event.target.value.replace(/\D/g, '').slice(0, digits))} disabled={!allowed(state, finished) || remaining <= 0} aria-describedby={`${inputId}-help`} /><div className="gp-number-slots" style={{ gridTemplateColumns: `repeat(${digits}, minmax(0, 1fr))` }} aria-hidden>{Array.from({ length: digits }, (_, index) => <span key={index} className={`${guess[index] ? 'filled' : ''}${index === Math.min(guess.length, digits - 1) ? ' current' : ''}`}>{guess[index] || '·'}</span>)}</div></div><button className="gp-action" type="submit" disabled={!playable || !valid || duplicate}><Target size={18} aria-hidden />{finished ? 'Round complete' : remaining <= 0 ? 'No guesses left' : pending ? 'Checking…' : cooling ? 'Recharging…' : 'Send guess'}</button><button className="gp-suggest" type="button" onClick={() => setGuess(randomSuggestion(numeric(state.min), numeric(state.max)))} disabled={!playable}><Sparkles size={15} aria-hidden />Randomize</button></div>
         <p id={`${inputId}-help`} className="gp-muted">{duplicate ? 'You already tried this number.' : guess.length === digits && !valid ? `Enter a number from ${state.min} to ${state.max}.` : 'Type or paste a number, then press Enter. Randomize fills a local suggestion without submitting.'}</p>
       </form>
-      {submitted && <p className="gp-status" role="status">{guessCount > submitted.count ? `The server recorded ${submitted.number}.` : pending ? `Sent ${submitted.number}. Waiting for the server…` : `Last sent: ${submitted.number}. Check the live log for confirmation.`}</p>}
+      {submitted && <p className="gp-status" role="status">{guessCount > submitted.count ? `${state._offline ? 'Local demo recorded' : 'The server recorded'} ${submitted.number}.` : pending ? `Sent ${submitted.number}. Waiting for the server…` : `Last sent: ${submitted.number}. Check the live log for confirmation.`}</p>}
       {hint && <div className="gp-hint" role="status">{hint === 'higher' ? <ArrowUp size={22} aria-hidden /> : <ArrowDown size={22} aria-hidden />}<div><strong>Try {String(hint) === 'higher' ? 'higher' : 'lower'}</strong><span>Confirmed {state.hintVisibility === 'private' ? 'private ' : ''}hint from your latest guess.</span></div></div>}
       <button type="button" className="gp-hint-toggle" onClick={() => setHintOpen(true)} aria-haspopup="dialog"><CircleHelp size={16} aria-hidden />Open hint desk</button>
       <HintDesk open={hintOpen} onClose={() => setHintOpen(false)} enabled={state.hints === 'on'} hint={hint} visibility={String(state.hintVisibility ?? 'public')} />
@@ -258,7 +258,7 @@ function LegacyDuelPlay(props: StageProps) {
   const { state, act, me, players, finished } = props
   const round = numeric(state.roundIndex)
   const roundId = String(state.roundId ?? state._roundId ?? '')
-  const storageKey = roundId && me ? `orbix:duel-choice:${String(state._roomId ?? '')}:${roundId}:${me}:${round}` : ''
+  const storageKey = !state._offline && roundId && me ? `orbix:duel-choice:${String(state._roomId ?? '')}:${roundId}:${me}:${round}` : ''
   const [sealed, setSealed] = useState<SealedChoice | null>(null)
   const [busyUntil, setBusyUntil] = useState(0)
   const [storageError, setStorageError] = useState(false)
@@ -362,7 +362,7 @@ function AutomaticDuelPlay(props: StageProps) {
     <div className="gp-control-panel">
       <h4>{state.phase==='commit'?`${clock.seconds ?? '—'} seconds to choose`:'Automatic reveal'}</h4>
       <div className="gp-move-grid">{choices.map(choice=><button type="button" key={choice} className={`gp-move${(receipt?.choice ?? pending?.choice)===choice?' selected':''}`} disabled={locked || finished || state.phase!=='commit' || Boolean(pending && pending.choice!==choice)} onClick={()=>choose(choice)}><span aria-hidden>{moveSymbols[choice]}</span><strong>{choice}</strong><small>{moveRules[choice]}</small></button>)}</div>
-      <p role="status">{locked?`Locked by server${receipt ? ': '+receipt.choice : ''}. Reveals automatically at close.`:pending?'Sent. Awaiting server lock; tap the same move to retry.':'Tap one move to lock it. No choice forfeits this subround.'}</p>
+      <p role="status">{state._offline?'Offline demo · choices resolve locally.':locked?`Locked by server${receipt ? ': '+receipt.choice : ''}. Reveals automatically at close.`:pending?'Sent. Awaiting server lock; tap the same move to retry.':'Tap one move to lock it. No choice forfeits this subround.'}</p>
       {state.phase!=='commit' && last && <p className="gp-outcome" role="status">{last.a ?? 'No choice — round forfeited'} vs {last.b ?? 'No choice — round forfeited'} · {last.winner ? `${name(last.winner,me,state)} wins` : 'Draw'} · {last.reason}</p>}
     </div>
     <details className="gp-live-log"><summary>Resolved subrounds</summary>{state.history?.map((row:any)=><p key={row.round}>Round {row.round+1}: {row.a ?? 'No choice'} / {row.b ?? 'No choice'} — {row.reason}</p>)}</details>

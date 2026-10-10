@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { ArrowUpRight, ChevronDown, Coins, Gamepad2, KeyRound, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react'
 import type { RoomSummary } from './api'
+import { BannerBadges } from './BannerBadges'
+import { GameArtwork } from './GameArtwork'
 import { FEATURED_GAMES } from './featuredGames'
 import { isDiscoverableRoom, OPEN_ROOM_STATES, roomPathFromInput, usePublicRooms } from './roomDiscovery'
 import type { SessionState } from './session'
@@ -11,13 +13,13 @@ type Filters = { game: string; status: string; entry: string; reward: string; qu
 const DEFAULT_FILTERS: Filters = { game: 'all', status: 'all', entry: 'all', reward: 'all', query: '' }
 
 function RoomCard({ room, navigate }: { room: RoomSummary; navigate: (path: string) => void }) {
-  const game = FEATURED_GAMES.find((item) => item.id === room.templateId)!
+  const game = FEATURED_GAMES.find(item => item.id === room.templateId) ?? { id: room.templateId, name: room.templateId.split('-').join(' '), color: '#c2b5ec', ink: '#29355c' }
   const waiting = OPEN_ROOM_STATES.has(room.status)
   const tokenEntry = room.entryKind === 'erc20'
   const status = room.status === 'running' ? 'Match in progress' : room.status === 'ready' ? 'Ready to start' : 'Waiting for players'
   const reward = room.rewards === 'funded-assets' ? 'Funded asset rewards' : room.rewards === 'preview-points' ? 'Preview game points' : 'Check room rewards'
   return <article className="center-join-room" style={{ '--room-accent': game.color, '--room-ink': game.ink } as CSSProperties}>
-    <div className="center-join-room-art"><img src={`${import.meta.env.BASE_URL}center-art/${game.id}.webp`} alt="" loading="lazy" decoding="async" width={960} height={640} /><span>{game.name}</span></div>
+    <div className="center-join-room-art gc-banner"><GameArtwork id={game.id} color={game.color}/><BannerBadges overlay={room.gameConfig?.overlay} tag={room.gameConfig?.tag}/><span>{game.name}</span></div>
     <div className="center-join-room-body">
       <span className={`center-join-status ${waiting ? 'waiting' : 'running'}`}><span aria-hidden="true" />{status}</span>
       <h3>{room.name}</h3>
@@ -43,7 +45,7 @@ export function CenterJoin({ session, onConnect, navigate }: CenterJoinProps) {
     && (filters.entry === 'all' || (filters.entry === 'paid' ? room.entryKind === 'erc20' : room.entryKind !== 'erc20'))
     && (filters.reward === 'all' || room.rewards === filters.reward)
     && `${room.name} ${FEATURED_GAMES.find((game) => game.id === room.templateId)?.name ?? ''}`.toLowerCase().includes(filters.query.toLowerCase().trim())
-  ).sort((left, right) => Number(left.status === 'running') - Number(right.status === 'running')), [activeRooms, filters])
+  ).sort((left, right) => (left.gameConfig?.sort_order ?? 0) - (right.gameConfig?.sort_order ?? 0) || Number(left.status === 'running') - Number(right.status === 'running')), [activeRooms, filters])
   const filtered = Object.entries(filters).some(([key, value]) => value !== DEFAULT_FILTERS[key as keyof Filters])
   function setFilter(key: keyof Filters, value: string) { setFilters((current) => ({ ...current, [key]: value })) }
   function openInvite(event: FormEvent) {
