@@ -1,3 +1,4 @@
+import { PORTFOLIO_BANNERS } from './PortfolioBanners'
 /**
  * Generated banner art for every game format.
  *
@@ -197,6 +198,7 @@ function GuardianScene(){return <FieldBanner world="guardian"/>}
 function OutpostScene(){return <FieldBanner world="island"/>}
 
 const SCENES: Record<string, (p: SceneProps) => ReactElement> = {
+  ...PORTFOLIO_BANNERS,
   'combat-duel': CombatScene,
   'number-hunt': TargetScene,
   'live-quiz': TargetScene,

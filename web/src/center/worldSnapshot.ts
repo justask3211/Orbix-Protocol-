@@ -9,5 +9,6 @@ export function applyWorldPatch(previous: Record<string, any> | null, patch: Rec
     const {bodyDelta: _delta, removedBodies: _removed, baseTick: _base, delta: _flag, ...fields} = patch
     return {...previous, ...fields, bodies}
   }
-  return {...(previous ?? {}), ...patch}
+  const phaseChanged = previous && (previous.roundId !== patch.roundId || previous.index !== patch.index)
+  return {...(previous ?? {}), ...(phaseChanged ? {ownSubmission:null,hintReceipt:null} : {}), ...patch}
 }
