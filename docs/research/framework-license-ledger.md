@@ -18,3 +18,13 @@ must record source URL, explicit CC0/MIT permission, authorship, SHA256, byte si
 meshes/texture sizes/clip names and optimization settings before import. Inspect
 rest pose, units (meters), Y-up and scale; root motion off, no double displacement.
 GLB is artwork interchange: behavior, collision and money logic stay in Orbix.
+
+
+### 2026-10-10 code-license override
+
+The product owner now permits Apache-2.0 for code dependencies and mandates
+Babylon.js. The earlier research-only/excluded Babylon rows are historical.
+Babylon core/loaders 9.30.0 and Havok 1.3.14 are runtime dependencies for Token
+Catch; `THIRD_PARTY_NOTICES.md` and shipped Apache LICENSE/NOTICE/Havok MIT files
+record their terms. Original/CC0 art restrictions remain in force. See
+`babylon-parity.md` for current implementation and measured limits.

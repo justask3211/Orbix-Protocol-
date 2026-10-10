@@ -1,10 +1,68 @@
-# SESSION MEMORY — Orbix Protocol (updated 2026-10-09, v2 hardening round)
+# SESSION MEMORY — Orbix Protocol (updated 2026-10-10, Babylon build round)
 
 Handoff document. Read this first in a new session, then the technical ledgers:
 ORBIX_PROTOCOL_V6_DELIVERY.md, ORBIX_CENTER_V5_EXECUTION.md,
 ORBIX_CENTER_A_TO_Z_PLAN.md, USER_DEVELOPMENT_INTENT.md.
 
 Repo of record: **github.com/justask3211/Orbix-Protocol-** (branch `main`, CI green).
+
+## Latest renderer handoff — mandated Babylon adoption, 2026-10-10
+
+The product owner explicitly rejected the keep-Three.js verdict and mandated
+Babylon.js. This round resumed the interrupted BUILD after planning was complete;
+do not reopen engine selection. Apache-2.0 is accepted for code dependencies.
+Art stays original/CC0. The reason for the transition is the user's engine choice,
+not a demonstrated performance advantage. Existing reward-hardening requirements
+in the next section still apply.
+
+- Phase U was already committed: foundation `accd5d9b`, route selector `f20d0834`.
+  Phase V `400b3053` completes the native Token Catch scene. Phase W `4a61698c`
+  records verification, repairs loading/terrain/lifecycle and ships static builds.
+  Phase X records this override and completion for delivery to `master:main`.
+- Token Catch defaults to Babylon/Havok; `?engine=babylon` selects it explicitly
+  and `?engine=three` retains the legacy comparison. Other games and shared
+  preview/podium components continue to use Three. Do not silently switch the
+  flagship back to Three because of older documents.
+- The scene owns native cameras, a capsule/mesh Havok world, staged loading,
+  PBR/fog/shadows, instanced vegetation/loot, native pickup/equipment feedback,
+  original mascot GLBs and their 20 CC0 clips as layered AnimationGroups.
+  It disposes its resources and creates a new world for round, terrain or identity
+  changes. The first terrain snapshot arrives before colliders are constructed.
+- Authority, scoring, hints, private snapshots, settlement, claims and rewards use
+  the same Python reducers, DOM controls and WebSocket protocol. No Python or
+  Solidity source was changed. Prediction/interpolation is the byte-identical
+  motion port, with acknowledged replay and outage freeze.
+- Functional parity is verified, with documented presentation alternatives:
+  Babylon PBR instead of Three fur shaders, native simplified item meshes and
+  Fast GLB LOD. Havok free-motor slope/28 cm step-up is tested independently;
+  live motion follows authoritative prediction. Automatic cover climbing is not
+  added to saved server rules. Never claim native physics can award value or
+  change authoritative displacement.
+- Required checks passed: 597 Python tests, 162 Forge tests/16 suites, 41 frontend
+  tests, 17 existing regression scripts, Babylon motion/jitter/envelope checks,
+  608 Python/Babylon terrain samples, TypeScript and Center/root production builds.
+  The final existing Token Catch browser regression also exits 0.
+- Browser evidence covers native groups, 400 instanced piles, classic pointer
+  catching, delayed snapshots, three clean remounts, desktop, 390px portrait,
+  landscape touch/FPV/TPV and fullscreen. Two real local authenticated wallets
+  exercise default-Babylon WebSocket move/jump/dodge, reconnect, server preview
+  settlement and rematch history; no funded transfer or wallet send was issued.
+- Measurements are honest limits: Babylon engine 3,864,044 raw bytes; Havok WASM
+  2,094,563; total renderer additions 6,009,929 raw/1,569,733 gzip-9 versus Three
+  1,188,516 raw/323,891 gzip-9 (GLBs/shared code excluded). Landing is lazy.
+  Fixed SwiftShader p95 is Babylon 2876.4 ms versus Three 1399.8 ms; both fail
+  30 FPS. Physical phone/GPU, cold-network budgets and funded payouts are unproven.
+  Do not turn these results into a speed or hardware certification claim.
+- Evidence and reproduction: `docs/research/babylon-parity.md`,
+  `tools/tests/evidence/babylon/`, and
+  `docs/sessions/2026-10-10-babylon-adoption.md`. Engine-analysis addendum preserves
+  the old verdict as history and records the override/completion.
+- `web/dist`, root `deploy/site` and `deploy/site/center-dist` are assembled with
+  matching licenses/notice files for Hermes. Only Git delivery is authorized in
+  this round. NO Railway deploy, production environment update or on-chain
+  transaction was performed. Hermes owns deployment. Final response verifies
+  the pushed commit against remote `main`; local Python bytecode changes remain
+  outside these commits.
 
 ## Latest handoff — v2 reward hardening, 2026-10-09
 
