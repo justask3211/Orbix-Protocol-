@@ -1,0 +1,17 @@
+{
+  "stage": "uvwx-baseline",
+  "viewport": [
+    960,
+    640
+  ],
+  "dpr": 1,
+  "shadows": false,
+  "renderer": "Chromium SwiftShader",
+  "fixture": "two actors, fixed public field-v1 state; excludes network",
+  "samples": 15,
+  "p50": 741,
+  "p95": 1129.0999999046326,
+  "calls": 63,
+  "triangles": 124246,
+  "errors": []
+}
