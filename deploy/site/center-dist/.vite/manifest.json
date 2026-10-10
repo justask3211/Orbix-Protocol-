@@ -1,0 +1,1114 @@
+{
+  "_AlertController-BpsyVP3b.js": {
+    "file": "assets/AlertController-BpsyVP3b.js",
+    "name": "AlertController",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_ApiController-yLRCxiLD.js",
+      "_index.es-DjP4BrYO.js"
+    ]
+  },
+  "_ApiController-yLRCxiLD.js": {
+    "file": "assets/ApiController-yLRCxiLD.js",
+    "name": "ApiController",
+    "imports": [
+      "index.html",
+      "_ccip-CZsqB8Yk.js",
+      "__esm-DcfBYNfu.js"
+    ],
+    "dynamicImports": [
+      "__esm-DcfBYNfu.js"
+    ]
+  },
+  "_CaipNetworkUtil-592rxk_X.js": {
+    "file": "assets/CaipNetworkUtil-592rxk_X.js",
+    "name": "CaipNetworkUtil",
+    "imports": [
+      "_ApiController-yLRCxiLD.js",
+      "__esm-DcfBYNfu.js",
+      "_chain-cZ6vgtW1.js",
+      "_HelpersUtil-B8UneSIB.js"
+    ]
+  },
+  "_CuteCharacter-CIseUNYC.js": {
+    "file": "assets/CuteCharacter-CIseUNYC.js",
+    "name": "CuteCharacter",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "node_modules/three/build/three.module.js",
+      "_SkeletonUtils-CHxfGqZJ.js",
+      "_characters-nA5rnGq5.js",
+      "_cartoonStyle-BsYcvIoG.js"
+    ]
+  },
+  "_GLTFLoader-BlbACvEK.js": {
+    "file": "assets/GLTFLoader-BlbACvEK.js",
+    "name": "GLTFLoader",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "node_modules/three/build/three.module.js",
+      "_SkeletonUtils-CHxfGqZJ.js"
+    ]
+  },
+  "_HelpersUtil-B8UneSIB.js": {
+    "file": "assets/HelpersUtil-B8UneSIB.js",
+    "name": "HelpersUtil",
+    "imports": [
+      "_ApiController-yLRCxiLD.js"
+    ]
+  },
+  "_SkeletonUtils-CHxfGqZJ.js": {
+    "file": "assets/SkeletonUtils-CHxfGqZJ.js",
+    "name": "SkeletonUtils"
+  },
+  "__esm-DcfBYNfu.js": {
+    "file": "assets/_esm-DcfBYNfu.js",
+    "name": "_esm",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "index.html",
+      "_ccip-CZsqB8Yk.js",
+      "_chain-cZ6vgtW1.js",
+      "_sha3-DfR2K4sp.js",
+      "_serializeSignature-BZ1XitlE.js"
+    ],
+    "dynamicImports": [
+      "_secp256k1-DzX_oVuu.js"
+    ]
+  },
+  "__u64-qA0ksYE_.js": {
+    "file": "assets/_u64-qA0ksYE_.js",
+    "name": "_u64"
+  },
+  "_api-IAAh_q3C.js": {
+    "file": "assets/api-IAAh_q3C.js",
+    "name": "api"
+  },
+  "_babylon-engine-CI3wIcq5.js": {
+    "file": "assets/babylon-engine-CI3wIcq5.js",
+    "name": "babylon-engine",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "index.html"
+    ],
+    "dynamicImports": [
+      "_babylon-engine-CI3wIcq5.js"
+    ],
+    "assets": [
+      "assets/HavokPhysics-BqNY-4N9.wasm"
+    ]
+  },
+  "_browser-CQ2H9MfN.js": {
+    "file": "assets/browser-CQ2H9MfN.js",
+    "name": "browser",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js"
+    ]
+  },
+  "_cartoonStyle-BsYcvIoG.js": {
+    "file": "assets/cartoonStyle-BsYcvIoG.js",
+    "name": "cartoonStyle"
+  },
+  "_ccip-CZsqB8Yk.js": {
+    "file": "assets/ccip-CZsqB8Yk.js",
+    "name": "ccip",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "index.html",
+      "_chain-cZ6vgtW1.js"
+    ],
+    "dynamicImports": [
+      "_ccip-CZsqB8Yk.js"
+    ]
+  },
+  "_chain-cZ6vgtW1.js": {
+    "file": "assets/chain-cZ6vgtW1.js",
+    "name": "chain",
+    "imports": [
+      "_sha3-DfR2K4sp.js"
+    ]
+  },
+  "_characters-nA5rnGq5.js": {
+    "file": "assets/characters-nA5rnGq5.js",
+    "name": "characters"
+  },
+  "_health-Dm556Y6S.js": {
+    "file": "assets/health-Dm556Y6S.js",
+    "name": "health"
+  },
+  "_hmac-DX0A5VYH.js": {
+    "file": "assets/hmac-DX0A5VYH.js",
+    "name": "hmac",
+    "imports": [
+      "__u64-qA0ksYE_.js"
+    ]
+  },
+  "_index.es-B-SwwkmJ.js": {
+    "file": "assets/index.es-B-SwwkmJ.js",
+    "name": "index.es",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_index.es-DjP4BrYO.js"
+    ]
+  },
+  "_index.es-DjP4BrYO.js": {
+    "file": "assets/index.es-DjP4BrYO.js",
+    "name": "index.es",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js"
+    ]
+  },
+  "_property-DuZ9DLP4.js": {
+    "file": "assets/property-DuZ9DLP4.js",
+    "name": "property"
+  },
+  "_react-B83maXwk.js": {
+    "file": "assets/react-B83maXwk.js",
+    "name": "react",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js"
+    ]
+  },
+  "_resultPresentation-ByWMIZHq.js": {
+    "file": "assets/resultPresentation-ByWMIZHq.js",
+    "name": "resultPresentation"
+  },
+  "_rolldown-runtime-C_s2cVnS.js": {
+    "file": "assets/rolldown-runtime-C_s2cVnS.js",
+    "name": "rolldown-runtime"
+  },
+  "_secp256k1-DzX_oVuu.js": {
+    "file": "assets/secp256k1-DzX_oVuu.js",
+    "name": "secp256k1",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "__u64-qA0ksYE_.js",
+      "_hmac-DX0A5VYH.js"
+    ]
+  },
+  "_serializeSignature-BZ1XitlE.js": {
+    "file": "assets/serializeSignature-BZ1XitlE.js",
+    "name": "serializeSignature",
+    "imports": [
+      "_secp256k1-DzX_oVuu.js",
+      "_chain-cZ6vgtW1.js",
+      "_sha256-CCGdtkwE.js"
+    ]
+  },
+  "_sha256-CCGdtkwE.js": {
+    "file": "assets/sha256-CCGdtkwE.js",
+    "name": "sha256",
+    "imports": [
+      "_hmac-DX0A5VYH.js"
+    ]
+  },
+  "_sha3-DfR2K4sp.js": {
+    "file": "assets/sha3-DfR2K4sp.js",
+    "name": "sha3",
+    "imports": [
+      "__u64-qA0ksYE_.js"
+    ]
+  },
+  "_types-D2Fo3MGr.js": {
+    "file": "assets/types-D2Fo3MGr.js",
+    "name": "types"
+  },
+  "_wallet-C5yNOSvz.js": {
+    "file": "assets/wallet-C5yNOSvz.js",
+    "name": "wallet",
+    "imports": [
+      "_x-C8aMEezJ.js"
+    ]
+  },
+  "_wizardForms-DXPXaDNP.js": {
+    "file": "assets/wizardForms-DXPXaDNP.js",
+    "name": "wizardForms",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "_x-C8aMEezJ.js"
+    ]
+  },
+  "_worlds-CQglA47s.css": {
+    "file": "assets/worlds-CQglA47s.css",
+    "src": "_worlds-CQglA47s.css"
+  },
+  "_wui-list-item-CCaqwbGC.js": {
+    "file": "assets/wui-list-item-CCaqwbGC.js",
+    "name": "wui-list-item",
+    "imports": [
+      "index.html",
+      "_HelpersUtil-B8UneSIB.js"
+    ],
+    "dynamicImports": [
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowCircleDown.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowClockwise.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowDown.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowLeft.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowRight.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowSquareOut.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsDownUp.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsLeftRight.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowUp.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowUpRight.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsClockwise.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhBank.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhBrowser.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretDown.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretLeft.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretRight.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretUp.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCheck.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCircleHalf.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhClock.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCompass.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCopy.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCreditCard.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCurrencyDollar.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhDesktop.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhDeviceMobile.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhDotsThree.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhVault.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhEnvelope.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhFunnelSimple.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhGlobe.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhIdentificationCard.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhImage.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhInfo.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhLightbulb.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhMagnifyingGlass.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPaperPlaneRight.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPlus.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPower.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPuzzlePiece.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhQrCode.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhQuestion.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhQuestionMark.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhSealCheck.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhSignOut.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhSpinner.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhTrash.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhUser.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhWallet.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhWarning.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhWarningCircle.mjs",
+      "node_modules/@phosphor-icons/webcomponents/dist/icons/PhX.mjs"
+    ]
+  },
+  "_x-C8aMEezJ.js": {
+    "file": "assets/x-C8aMEezJ.js",
+    "name": "x",
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js"
+    ]
+  },
+  "index.html": {
+    "file": "assets/index-BKP7pPKZ.js",
+    "name": "index",
+    "src": "index.html",
+    "isEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js"
+    ],
+    "dynamicImports": [
+      "src/center/CenterApp.tsx",
+      "src/CockpitApp.tsx"
+    ],
+    "css": [
+      "assets/index-DHZniTkk.css"
+    ]
+  },
+  "node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm": {
+    "file": "assets/HavokPhysics-BqNY-4N9.wasm",
+    "src": "node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm"
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowCircleDown.mjs": {
+    "file": "assets/PhArrowCircleDown-D97G-BOA.js",
+    "name": "PhArrowCircleDown",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowCircleDown.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowClockwise.mjs": {
+    "file": "assets/PhArrowClockwise-DVgyFuez.js",
+    "name": "PhArrowClockwise",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowClockwise.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowDown.mjs": {
+    "file": "assets/PhArrowDown-87b1BizM.js",
+    "name": "PhArrowDown",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowDown.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowLeft.mjs": {
+    "file": "assets/PhArrowLeft-Da0MfnbK.js",
+    "name": "PhArrowLeft",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowLeft.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowRight.mjs": {
+    "file": "assets/PhArrowRight-AdrIL4DW.js",
+    "name": "PhArrowRight",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowRight.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowSquareOut.mjs": {
+    "file": "assets/PhArrowSquareOut-Bk2CMG3I.js",
+    "name": "PhArrowSquareOut",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowSquareOut.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowUp.mjs": {
+    "file": "assets/PhArrowUp-4sgyKPGx.js",
+    "name": "PhArrowUp",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowUp.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowUpRight.mjs": {
+    "file": "assets/PhArrowUpRight-BNghD2zq.js",
+    "name": "PhArrowUpRight",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowUpRight.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsClockwise.mjs": {
+    "file": "assets/PhArrowsClockwise-BXRn1GEl.js",
+    "name": "PhArrowsClockwise",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsClockwise.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsDownUp.mjs": {
+    "file": "assets/PhArrowsDownUp-DM09Jo_3.js",
+    "name": "PhArrowsDownUp",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsDownUp.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsLeftRight.mjs": {
+    "file": "assets/PhArrowsLeftRight-MuKBLUoF.js",
+    "name": "PhArrowsLeftRight",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhArrowsLeftRight.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhBank.mjs": {
+    "file": "assets/PhBank-fHbgCqqZ.js",
+    "name": "PhBank",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhBank.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhBrowser.mjs": {
+    "file": "assets/PhBrowser-2-9m-AkM.js",
+    "name": "PhBrowser",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhBrowser.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretDown.mjs": {
+    "file": "assets/PhCaretDown-BDNabFuL.js",
+    "name": "PhCaretDown",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretDown.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretLeft.mjs": {
+    "file": "assets/PhCaretLeft-CI460R-A.js",
+    "name": "PhCaretLeft",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretLeft.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretRight.mjs": {
+    "file": "assets/PhCaretRight-D7ZS3Ls8.js",
+    "name": "PhCaretRight",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretRight.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretUp.mjs": {
+    "file": "assets/PhCaretUp-C-iIfyvO.js",
+    "name": "PhCaretUp",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCaretUp.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCheck.mjs": {
+    "file": "assets/PhCheck-DxQXn57r.js",
+    "name": "PhCheck",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCheck.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCircleHalf.mjs": {
+    "file": "assets/PhCircleHalf-MJZeRBGF.js",
+    "name": "PhCircleHalf",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCircleHalf.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhClock.mjs": {
+    "file": "assets/PhClock-x3MS3Mwi.js",
+    "name": "PhClock",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhClock.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCompass.mjs": {
+    "file": "assets/PhCompass-hYn3HhGN.js",
+    "name": "PhCompass",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCompass.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCopy.mjs": {
+    "file": "assets/PhCopy-CWNYcABI.js",
+    "name": "PhCopy",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCopy.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCreditCard.mjs": {
+    "file": "assets/PhCreditCard-Fy4pzwtt.js",
+    "name": "PhCreditCard",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCreditCard.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCurrencyDollar.mjs": {
+    "file": "assets/PhCurrencyDollar-BgiaenCi.js",
+    "name": "PhCurrencyDollar",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhCurrencyDollar.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhDesktop.mjs": {
+    "file": "assets/PhDesktop-CxrzCSv5.js",
+    "name": "PhDesktop",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhDesktop.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhDeviceMobile.mjs": {
+    "file": "assets/PhDeviceMobile-CsyA5Goi.js",
+    "name": "PhDeviceMobile",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhDeviceMobile.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhDotsThree.mjs": {
+    "file": "assets/PhDotsThree-D-k1BiYg.js",
+    "name": "PhDotsThree",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhDotsThree.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhEnvelope.mjs": {
+    "file": "assets/PhEnvelope-D8kzeNox.js",
+    "name": "PhEnvelope",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhEnvelope.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhFunnelSimple.mjs": {
+    "file": "assets/PhFunnelSimple-CfQs5DAW.js",
+    "name": "PhFunnelSimple",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhFunnelSimple.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhGlobe.mjs": {
+    "file": "assets/PhGlobe-DvmSc9_A.js",
+    "name": "PhGlobe",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhGlobe.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhIdentificationCard.mjs": {
+    "file": "assets/PhIdentificationCard-CfkZm-5K.js",
+    "name": "PhIdentificationCard",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhIdentificationCard.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhImage.mjs": {
+    "file": "assets/PhImage-Cf0J2ZfJ.js",
+    "name": "PhImage",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhImage.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhInfo.mjs": {
+    "file": "assets/PhInfo-Bwi51-2X.js",
+    "name": "PhInfo",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhInfo.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhLightbulb.mjs": {
+    "file": "assets/PhLightbulb-C4FZV7Es.js",
+    "name": "PhLightbulb",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhLightbulb.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhMagnifyingGlass.mjs": {
+    "file": "assets/PhMagnifyingGlass-C9u8jSCJ.js",
+    "name": "PhMagnifyingGlass",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhMagnifyingGlass.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPaperPlaneRight.mjs": {
+    "file": "assets/PhPaperPlaneRight-zxQVvPLX.js",
+    "name": "PhPaperPlaneRight",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPaperPlaneRight.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPlus.mjs": {
+    "file": "assets/PhPlus-C4UoW-2n.js",
+    "name": "PhPlus",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPlus.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPower.mjs": {
+    "file": "assets/PhPower-CFyWDmgD.js",
+    "name": "PhPower",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPower.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPuzzlePiece.mjs": {
+    "file": "assets/PhPuzzlePiece-BjoNVfST.js",
+    "name": "PhPuzzlePiece",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhPuzzlePiece.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhQrCode.mjs": {
+    "file": "assets/PhQrCode-CP3tFauY.js",
+    "name": "PhQrCode",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhQrCode.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhQuestion.mjs": {
+    "file": "assets/PhQuestion-wOWJBd3G.js",
+    "name": "PhQuestion",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhQuestion.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhQuestionMark.mjs": {
+    "file": "assets/PhQuestionMark-CV0k9C0Y.js",
+    "name": "PhQuestionMark",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhQuestionMark.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhSealCheck.mjs": {
+    "file": "assets/PhSealCheck-vIKzREuN.js",
+    "name": "PhSealCheck",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhSealCheck.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhSignOut.mjs": {
+    "file": "assets/PhSignOut-CxELV-i0.js",
+    "name": "PhSignOut",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhSignOut.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhSpinner.mjs": {
+    "file": "assets/PhSpinner-CGDmbzUd.js",
+    "name": "PhSpinner",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhSpinner.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhTrash.mjs": {
+    "file": "assets/PhTrash-C9PD0SAt.js",
+    "name": "PhTrash",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhTrash.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhUser.mjs": {
+    "file": "assets/PhUser-0sWNXQeZ.js",
+    "name": "PhUser",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhUser.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhVault.mjs": {
+    "file": "assets/PhVault-6JTskUcC.js",
+    "name": "PhVault",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhVault.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhWallet.mjs": {
+    "file": "assets/PhWallet-DzNiREN9.js",
+    "name": "PhWallet",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhWallet.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhWarning.mjs": {
+    "file": "assets/PhWarning-CoKs3gz6.js",
+    "name": "PhWarning",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhWarning.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhWarningCircle.mjs": {
+    "file": "assets/PhWarningCircle-BXHw1fCt.js",
+    "name": "PhWarningCircle",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhWarningCircle.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@phosphor-icons/webcomponents/dist/icons/PhX.mjs": {
+    "file": "assets/PhX-DX0SFIqC.js",
+    "name": "PhX",
+    "src": "node_modules/@phosphor-icons/webcomponents/dist/icons/PhX.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "_property-DuZ9DLP4.js"
+    ]
+  },
+  "node_modules/@react-three/fiber/dist/react-three-fiber.esm.js": {
+    "file": "assets/react-three-fiber.esm-CD5NjR3d.js",
+    "name": "react-three-fiber.esm",
+    "src": "node_modules/@react-three/fiber/dist/react-three-fiber.esm.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "node_modules/three/build/three.module.js"
+    ]
+  },
+  "node_modules/@reown/appkit-controllers/dist/esm/exports/features.js": {
+    "file": "assets/features-BqiT4FMy.js",
+    "name": "features",
+    "src": "node_modules/@reown/appkit-controllers/dist/esm/exports/features.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_ApiController-yLRCxiLD.js"
+    ]
+  },
+  "node_modules/@reown/appkit-scaffold-ui/dist/esm/exports/basic.js": {
+    "file": "assets/basic-DZOADuUd.js",
+    "name": "basic",
+    "src": "node_modules/@reown/appkit-scaffold-ui/dist/esm/exports/basic.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_ApiController-yLRCxiLD.js",
+      "_CaipNetworkUtil-592rxk_X.js",
+      "_HelpersUtil-B8UneSIB.js",
+      "_wui-list-item-CCaqwbGC.js",
+      "_browser-CQ2H9MfN.js"
+    ]
+  },
+  "node_modules/@reown/appkit-scaffold-ui/dist/esm/exports/w3m-modal.js": {
+    "file": "assets/w3m-modal-BeB-bp_9.js",
+    "name": "w3m-modal",
+    "src": "node_modules/@reown/appkit-scaffold-ui/dist/esm/exports/w3m-modal.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_ApiController-yLRCxiLD.js",
+      "_HelpersUtil-B8UneSIB.js",
+      "_wui-list-item-CCaqwbGC.js",
+      "_AlertController-BpsyVP3b.js"
+    ]
+  },
+  "node_modules/@reown/appkit/dist/esm/exports/core.js": {
+    "file": "assets/core-CM10Ooem.js",
+    "name": "core",
+    "src": "node_modules/@reown/appkit/dist/esm/exports/core.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "index.html",
+      "__u64-qA0ksYE_.js",
+      "_hmac-DX0A5VYH.js",
+      "_ApiController-yLRCxiLD.js",
+      "_index.es-B-SwwkmJ.js",
+      "_chain-cZ6vgtW1.js",
+      "_sha3-DfR2K4sp.js",
+      "_CaipNetworkUtil-592rxk_X.js",
+      "_HelpersUtil-B8UneSIB.js",
+      "_index.es-DjP4BrYO.js",
+      "_AlertController-BpsyVP3b.js"
+    ],
+    "dynamicImports": [
+      "node_modules/@reown/appkit-controllers/dist/esm/exports/features.js",
+      "node_modules/@reown/appkit-scaffold-ui/dist/esm/exports/basic.js",
+      "node_modules/@reown/appkit-scaffold-ui/dist/esm/exports/w3m-modal.js"
+    ]
+  },
+  "node_modules/@walletconnect/ethereum-provider/dist/index.js": {
+    "file": "assets/dist-DFJRDjFs.js",
+    "name": "dist",
+    "src": "node_modules/@walletconnect/ethereum-provider/dist/index.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "index.html",
+      "__u64-qA0ksYE_.js",
+      "_hmac-DX0A5VYH.js",
+      "_index.es-B-SwwkmJ.js",
+      "_sha3-DfR2K4sp.js",
+      "_sha256-CCGdtkwE.js",
+      "_index.es-DjP4BrYO.js"
+    ],
+    "dynamicImports": [
+      "node_modules/@reown/appkit/dist/esm/exports/core.js"
+    ]
+  },
+  "node_modules/three/build/three.module.js": {
+    "file": "assets/three.module-B2R18cCg.js",
+    "name": "three.module",
+    "src": "node_modules/three/build/three.module.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js"
+    ]
+  },
+  "src/CockpitApp.tsx": {
+    "file": "assets/CockpitApp-CaEX1ryE.js",
+    "name": "CockpitApp",
+    "src": "src/CockpitApp.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "_ccip-CZsqB8Yk.js",
+      "__esm-DcfBYNfu.js",
+      "_chain-cZ6vgtW1.js",
+      "_serializeSignature-BZ1XitlE.js",
+      "node_modules/@walletconnect/ethereum-provider/dist/index.js",
+      "_x-C8aMEezJ.js",
+      "_wallet-C5yNOSvz.js"
+    ]
+  },
+  "src/center/CenterApp.tsx": {
+    "file": "assets/CenterApp-DeyV1-5I.js",
+    "name": "CenterApp",
+    "src": "src/center/CenterApp.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "_ccip-CZsqB8Yk.js",
+      "__esm-DcfBYNfu.js",
+      "_chain-cZ6vgtW1.js",
+      "_x-C8aMEezJ.js",
+      "_wallet-C5yNOSvz.js",
+      "_wizardForms-DXPXaDNP.js",
+      "_api-IAAh_q3C.js",
+      "_characters-nA5rnGq5.js",
+      "_resultPresentation-ByWMIZHq.js",
+      "src/center/session.ts"
+    ],
+    "dynamicImports": [
+      "src/center/worlds/GameWorld.tsx",
+      "src/center/WinnerCelebration.tsx",
+      "src/center/session.ts",
+      "src/center/WalletQr.tsx",
+      "src/center/CharacterPreview.tsx",
+      "src/center/CharacterLobby.tsx",
+      "src/center/RematchSettings.tsx"
+    ],
+    "css": [
+      "assets/CenterApp-BtFD748y.css"
+    ]
+  },
+  "src/center/CharacterLobby.tsx": {
+    "file": "assets/CharacterLobby-Ck8Imj9u.js",
+    "name": "CharacterLobby",
+    "src": "src/center/CharacterLobby.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "node_modules/three/build/three.module.js",
+      "node_modules/@react-three/fiber/dist/react-three-fiber.esm.js",
+      "_GLTFLoader-BlbACvEK.js",
+      "_characters-nA5rnGq5.js",
+      "_CuteCharacter-CIseUNYC.js"
+    ]
+  },
+  "src/center/CharacterPreview.tsx": {
+    "file": "assets/CharacterPreview-Bm6AXped.js",
+    "name": "CharacterPreview",
+    "src": "src/center/CharacterPreview.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "node_modules/three/build/three.module.js",
+      "node_modules/@react-three/fiber/dist/react-three-fiber.esm.js",
+      "_GLTFLoader-BlbACvEK.js",
+      "_characters-nA5rnGq5.js",
+      "_CuteCharacter-CIseUNYC.js"
+    ]
+  },
+  "src/center/RematchSettings.tsx": {
+    "file": "assets/RematchSettings-DM1TDeDa.js",
+    "name": "RematchSettings",
+    "src": "src/center/RematchSettings.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "_x-C8aMEezJ.js",
+      "_wizardForms-DXPXaDNP.js",
+      "_api-IAAh_q3C.js"
+    ],
+    "css": [
+      "assets/RematchSettings-R2_qk1v4.css"
+    ]
+  },
+  "src/center/WalletQr.tsx": {
+    "file": "assets/WalletQr-DHkB2TVg.js",
+    "name": "WalletQr",
+    "src": "src/center/WalletQr.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "_browser-CQ2H9MfN.js"
+    ]
+  },
+  "src/center/WinnerCelebration.tsx": {
+    "file": "assets/WinnerCelebration-BhUw0O6x.js",
+    "name": "WinnerCelebration",
+    "src": "src/center/WinnerCelebration.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "_resultPresentation-ByWMIZHq.js",
+      "_cartoonStyle-BsYcvIoG.js"
+    ],
+    "dynamicImports": [
+      "node_modules/@react-three/fiber/dist/react-three-fiber.esm.js",
+      "node_modules/three/build/three.module.js",
+      "_GLTFLoader-BlbACvEK.js",
+      "_CuteCharacter-CIseUNYC.js"
+    ],
+    "css": [
+      "assets/WinnerCelebration-DFZIjPO3.css"
+    ]
+  },
+  "src/center/babylon/BabylonWorld.tsx": {
+    "file": "assets/BabylonWorld-Da3zaS_X.js",
+    "name": "BabylonWorld",
+    "src": "src/center/babylon/BabylonWorld.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "_types-D2Fo3MGr.js"
+    ],
+    "dynamicImports": [
+      "src/center/babylon/runtime.ts"
+    ],
+    "css": [
+      "assets/BabylonWorld-DX0yLkPk.css",
+      "assets/worlds-CQglA47s.css"
+    ]
+  },
+  "src/center/babylon/runtime.ts": {
+    "file": "assets/runtime-BRjIJO5d.js",
+    "name": "runtime",
+    "src": "src/center/babylon/runtime.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "_babylon-engine-CI3wIcq5.js",
+      "_characters-nA5rnGq5.js",
+      "_types-D2Fo3MGr.js",
+      "_health-Dm556Y6S.js"
+    ]
+  },
+  "src/center/session.ts": {
+    "file": "assets/session-CNjrFEln.js",
+    "name": "session",
+    "src": "src/center/session.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "_secp256k1-DzX_oVuu.js",
+      "_chain-cZ6vgtW1.js",
+      "_serializeSignature-BZ1XitlE.js",
+      "_api-IAAh_q3C.js"
+    ],
+    "dynamicImports": [
+      "node_modules/@walletconnect/ethereum-provider/dist/index.js"
+    ]
+  },
+  "src/center/worlds/GameWorld.tsx": {
+    "file": "assets/GameWorld-CoIMlCmZ.js",
+    "name": "GameWorld",
+    "src": "src/center/worlds/GameWorld.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html"
+    ],
+    "dynamicImports": [
+      "src/center/worlds/WorldScene.tsx",
+      "src/center/babylon/BabylonWorld.tsx"
+    ],
+    "css": [
+      "assets/worlds-CQglA47s.css"
+    ]
+  },
+  "src/center/worlds/WorldScene.tsx": {
+    "file": "assets/WorldScene-vU1Y5X3I.js",
+    "name": "WorldScene",
+    "src": "src/center/worlds/WorldScene.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-C_s2cVnS.js",
+      "_react-B83maXwk.js",
+      "index.html",
+      "node_modules/three/build/three.module.js",
+      "node_modules/@react-three/fiber/dist/react-three-fiber.esm.js",
+      "_GLTFLoader-BlbACvEK.js",
+      "_CuteCharacter-CIseUNYC.js",
+      "_cartoonStyle-BsYcvIoG.js",
+      "_health-Dm556Y6S.js"
+    ]
+  }
+}

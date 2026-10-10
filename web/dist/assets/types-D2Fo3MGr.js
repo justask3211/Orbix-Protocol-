@@ -1,0 +1,1 @@
+var e={engine:`Starting the Babylon renderer`,physics:`Preparing capsule contacts`,characters:`Loading characters and 20 animations`,shaders:`Warming materials and the first frame`,snapshot:`Waiting for the first world snapshot`,ready:`Ready`},t=(e,t=0)=>typeof e==`number`&&Number.isFinite(e)?e:t;export{t as n,e as t};

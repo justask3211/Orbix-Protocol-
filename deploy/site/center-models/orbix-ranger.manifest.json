@@ -1,0 +1,646 @@
+{
+  "bytes": 1728160,
+  "sha256": "ac29179150ebaa248ae6345357af6d527a513de4ead2da8006f2e732f3460350",
+  "animations": [
+    {
+      "name": "Idle",
+      "source": "Idle_Loop",
+      "duration": 2.5,
+      "frames": 61
+    },
+    {
+      "name": "Walk",
+      "source": "Walk_Loop",
+      "duration": 1.3333333333333333,
+      "frames": 33
+    },
+    {
+      "name": "Run",
+      "source": "Jog_Fwd_Loop",
+      "duration": 0.9166666666666666,
+      "frames": 23
+    },
+    {
+      "name": "Sprint",
+      "source": "Sprint_Loop",
+      "duration": 0.6666666666666666,
+      "frames": 17
+    },
+    {
+      "name": "JumpStart",
+      "source": "Jump_Start",
+      "duration": 1.3333333333333333,
+      "frames": 33
+    },
+    {
+      "name": "JumpLoop",
+      "source": "Jump_Loop",
+      "duration": 2.5,
+      "frames": 61
+    },
+    {
+      "name": "JumpLand",
+      "source": "Jump_Land",
+      "duration": 1.25,
+      "frames": 31
+    },
+    {
+      "name": "PunchJab",
+      "source": "Punch_Jab",
+      "duration": 0.8333333333333334,
+      "frames": 21
+    },
+    {
+      "name": "PunchCross",
+      "source": "Punch_Cross",
+      "duration": 1,
+      "frames": 25
+    },
+    {
+      "name": "Guard",
+      "source": "Punch_Enter",
+      "duration": 0.8333333333333334,
+      "frames": 21
+    },
+    {
+      "name": "SwordAttack",
+      "source": "Sword_Attack",
+      "duration": 1.5,
+      "frames": 37
+    },
+    {
+      "name": "SwordIdle",
+      "source": "Sword_Idle",
+      "duration": 1.6666666666666667,
+      "frames": 41
+    },
+    {
+      "name": "PistolIdle",
+      "source": "Pistol_Idle_Loop",
+      "duration": 1.6666666666666667,
+      "frames": 41
+    },
+    {
+      "name": "PistolAim",
+      "source": "Pistol_Aim_Neutral",
+      "duration": 0.16666666666666666,
+      "frames": 5
+    },
+    {
+      "name": "PistolShoot",
+      "source": "Pistol_Shoot",
+      "duration": 0.625,
+      "frames": 16
+    },
+    {
+      "name": "Hit",
+      "source": "Hit_Chest",
+      "duration": 0.3333333333333333,
+      "frames": 9
+    },
+    {
+      "name": "Death",
+      "source": "Death01",
+      "duration": 2.375,
+      "frames": 58
+    },
+    {
+      "name": "Dodge",
+      "source": "Roll",
+      "duration": 1.4583333333333333,
+      "frames": 36
+    },
+    {
+      "name": "Interact",
+      "source": "Interact",
+      "duration": 2,
+      "frames": 49
+    },
+    {
+      "name": "Kick",
+      "source": "Orbix original guarded front-kick poses",
+      "duration": 0.7083333333333334,
+      "frames": 18
+    }
+  ],
+  "bone_map": {
+    "root": "root",
+    "pelvis": "DEF-hips",
+    "spine_01": "DEF-spine.001",
+    "spine_02": "DEF-spine.002",
+    "spine_03": "DEF-spine.003",
+    "neck_01": "DEF-neck",
+    "Head": "DEF-head",
+    "clavicle_l": "DEF-shoulder.L",
+    "upperarm_l": "DEF-upper_arm.L",
+    "lowerarm_l": "DEF-forearm.L",
+    "hand_l": "DEF-hand.L",
+    "index_01_l": "DEF-f_index.01.L",
+    "index_02_l": "DEF-f_index.02.L",
+    "index_03_l": "DEF-f_index.03.L",
+    "middle_01_l": "DEF-f_middle.01.L",
+    "middle_02_l": "DEF-f_middle.02.L",
+    "middle_03_l": "DEF-f_middle.03.L",
+    "pinky_01_l": "DEF-f_pinky.01.L",
+    "pinky_02_l": "DEF-f_pinky.02.L",
+    "pinky_03_l": "DEF-f_pinky.03.L",
+    "ring_01_l": "DEF-f_ring.01.L",
+    "ring_02_l": "DEF-f_ring.02.L",
+    "ring_03_l": "DEF-f_ring.03.L",
+    "thumb_01_l": "DEF-thumb.01.L",
+    "thumb_02_l": "DEF-thumb.02.L",
+    "thumb_03_l": "DEF-thumb.03.L",
+    "clavicle_r": "DEF-shoulder.R",
+    "upperarm_r": "DEF-upper_arm.R",
+    "lowerarm_r": "DEF-forearm.R",
+    "hand_r": "DEF-hand.R",
+    "index_01_r": "DEF-f_index.01.R",
+    "index_02_r": "DEF-f_index.02.R",
+    "index_03_r": "DEF-f_index.03.R",
+    "middle_01_r": "DEF-f_middle.01.R",
+    "middle_02_r": "DEF-f_middle.02.R",
+    "middle_03_r": "DEF-f_middle.03.R",
+    "pinky_01_r": "DEF-f_pinky.01.R",
+    "pinky_02_r": "DEF-f_pinky.02.R",
+    "pinky_03_r": "DEF-f_pinky.03.R",
+    "ring_01_r": "DEF-f_ring.01.R",
+    "ring_02_r": "DEF-f_ring.02.R",
+    "ring_03_r": "DEF-f_ring.03.R",
+    "thumb_01_r": "DEF-thumb.01.R",
+    "thumb_02_r": "DEF-thumb.02.R",
+    "thumb_03_r": "DEF-thumb.03.R",
+    "thigh_l": "DEF-thigh.L",
+    "calf_l": "DEF-shin.L",
+    "foot_l": "DEF-foot.L",
+    "ball_l": "DEF-toe.L",
+    "thigh_r": "DEF-thigh.R",
+    "calf_r": "DEF-shin.R",
+    "foot_r": "DEF-foot.R",
+    "ball_r": "DEF-toe.R"
+  },
+  "bones": [
+    "root",
+    "pelvis",
+    "spine_01",
+    "spine_02",
+    "spine_03",
+    "neck_01",
+    "Head",
+    "clavicle_l",
+    "upperarm_l",
+    "lowerarm_l",
+    "hand_l",
+    "index_01_l",
+    "index_02_l",
+    "index_03_l",
+    "index_04_leaf_l",
+    "middle_01_l",
+    "middle_02_l",
+    "middle_03_l",
+    "middle_04_leaf_l",
+    "pinky_01_l",
+    "pinky_02_l",
+    "pinky_03_l",
+    "pinky_04_leaf_l",
+    "ring_01_l",
+    "ring_02_l",
+    "ring_03_l",
+    "ring_04_leaf_l",
+    "thumb_01_l",
+    "thumb_02_l",
+    "thumb_03_l",
+    "thumb_04_leaf_l",
+    "clavicle_r",
+    "upperarm_r",
+    "lowerarm_r",
+    "hand_r",
+    "index_01_r",
+    "index_02_r",
+    "index_03_r",
+    "index_04_leaf_r",
+    "middle_01_r",
+    "middle_02_r",
+    "middle_03_r",
+    "middle_04_leaf_r",
+    "pinky_01_r",
+    "pinky_02_r",
+    "pinky_03_r",
+    "pinky_04_leaf_r",
+    "ring_01_r",
+    "ring_02_r",
+    "ring_03_r",
+    "ring_04_leaf_r",
+    "thumb_01_r",
+    "thumb_02_r",
+    "thumb_03_r",
+    "thumb_04_leaf_r",
+    "thigh_l",
+    "calf_l",
+    "foot_l",
+    "ball_l",
+    "ball_leaf_l",
+    "thigh_r",
+    "calf_r",
+    "foot_r",
+    "ball_r",
+    "ball_leaf_r"
+  ],
+  "triangles": 16064,
+  "character_height": 1.8230232000350952,
+  "coordinate_system": {
+    "up": "+Y",
+    "forward": "+Z",
+    "feet_Y": 0,
+    "units": "meters",
+    "rightHand": "hand_r"
+  },
+  "license": "CC0-1.0",
+  "source_base": {
+    "source": "https://quaternius.itch.io/universal-base-characters",
+    "archive_bytes": 128968391,
+    "archive_sha256": "fdbf1804c90dfc1ea03e992bff7da2dfd1a79318e13270a660180f9308455f40",
+    "files": [
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Female_FullBody.bin",
+        "bytes": 990808,
+        "sha256": "3a8220a485b33d05d879115a50697728b45a151781106033afb8b8c243fca208"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Female_FullBody.gltf",
+        "bytes": 31656,
+        "sha256": "adedf28000a0716f689b009a70314506fc62f827498f77ba852acb5610f3f3f4"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Male_FullBody.bin",
+        "bytes": 720076,
+        "sha256": "459003f9745853ae562a85506a2b94dd56515c1f37728f9fa3d2ce1a3e4cd92f"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Male_FullBody.gltf",
+        "bytes": 30989,
+        "sha256": "e7fcea214ecf8855afbf910b50de6f9c7d1decfb71ca28bad8a4481452dafeb4"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Eye_Brown.png",
+        "bytes": 35958,
+        "sha256": "d08e3356a83211bc6ca21fe3a8e39f4b5c1a3b8f85457fc2c0fb57be09935025"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Eye_Normal.png",
+        "bytes": 15099,
+        "sha256": "9ed61f7726a54fe346a78b9e5a18905d8e2b88f86235d97f53cd207a26f3f8c7"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Hair_1_BaseColor.png",
+        "bytes": 1570376,
+        "sha256": "bc7aa863bd22ab0a995cd838cceb4d3a5186ee54ee2fb0108fad85d20c057e6e"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Hair_1_BaseColor_png.png",
+        "bytes": 1570376,
+        "sha256": "bc7aa863bd22ab0a995cd838cceb4d3a5186ee54ee2fb0108fad85d20c057e6e"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Hair_1_Normal.png",
+        "bytes": 4326126,
+        "sha256": "57fd0ad8c96a4d01b38769637e066cecaa285b456f6e48ce00863754a457affb"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Hair_2_BaseColor.png",
+        "bytes": 1729467,
+        "sha256": "f9f4f2fb3eeeefb0b6f0fdef38b0770fd6607640c1c680b8139dd76697e9f9b3"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Hair_2_BaseColor_png.png",
+        "bytes": 1729467,
+        "sha256": "f9f4f2fb3eeeefb0b6f0fdef38b0770fd6607640c1c680b8139dd76697e9f9b3"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Hair_2_Normal.png",
+        "bytes": 4710013,
+        "sha256": "172f230aae0d4366c3cfc0402b2e6d1811b11f8487344bff28605eeacac1558d"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Female_Dark_BaseColor.png",
+        "bytes": 1319410,
+        "sha256": "d366843ee7d9e9f37ec87a0e1c98c7f2e45573c08eeb80a51a6d9344e68cf288"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Female_Normal.png",
+        "bytes": 3940537,
+        "sha256": "cf922460b43ccd31e983e34db05514c9d451dd2f9cdd01a843978e797719f859"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Female_Roughness.png",
+        "bytes": 3277022,
+        "sha256": "d2beabf2bd0313e32c68dcdbb80dca371a6e994fabf96efa97128bf9f14fa57b"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Male_Dark.png",
+        "bytes": 1384380,
+        "sha256": "df680cbc1967a61e85998bfafb8f7bc0a36dd604bb3266486c4b06b1a184bb45"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Male_Normal.png",
+        "bytes": 4252937,
+        "sha256": "9b25cf9200216eb754b79cf4c63b5380c419780788322f3c57cdd2b3e02679a6"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Base Characters/Godot - UE/T_Superhero_Male_Roughness.png",
+        "bytes": 3152049,
+        "sha256": "c70dabf48574cda55644d556beae1ee7cf1bdcf68a50d259d20f2f2358f27991"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Eyebrows_Female.bin",
+        "bytes": 67248,
+        "sha256": "f2efdf2b9d44137630ff4df01cfd9068fe3c3f8c2896c009860404ea17989dbf"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Eyebrows_Female.gltf",
+        "bytes": 2855,
+        "sha256": "9d24b43ac63197c3c242349d54d599d7d8dd5bdee6e7ce37847224f3ff1fb14d"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Eyebrows_Regular.bin",
+        "bytes": 26576,
+        "sha256": "434c62e704037b5d2a12a0c7237513617806fc6cf53d67608f120b0908dd3396"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Eyebrows_Regular.gltf",
+        "bytes": 2018,
+        "sha256": "a91059d18fad4bd3af7546a4226976d8a2139eb82c3fe0790a1c5287c6ac6ed8"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Beard.bin",
+        "bytes": 25276,
+        "sha256": "781cf9b719d75a9f8d73881d2ca0713fe580d774edc96adaded392aad37a72b7"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Beard.gltf",
+        "bytes": 2005,
+        "sha256": "c91ef54606aad25a9d1191deaba90cb411c0067d8cef262b2f4819f242e5b365"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Buns.bin",
+        "bytes": 131768,
+        "sha256": "4f6d4c010201278483da8d6d46ec40e3beb8d9e679ec2139bed216c561bccd38"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Buns.gltf",
+        "bytes": 2243,
+        "sha256": "2bb3593575e21c9af39a53e48c42c1314b0a894e9577f3f14abffcb145cd56c5"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Buzzed.bin",
+        "bytes": 19892,
+        "sha256": "89992fc7a5319df6f2908e44a3b694329fac4b500629a573224702e5fdd16f77"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Buzzed.gltf",
+        "bytes": 2006,
+        "sha256": "43752a4c8f2464eb2494a8ab179bf7ad237638a3d47fb3de0a38361db40e1451"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_BuzzedFemale.bin",
+        "bytes": 19892,
+        "sha256": "6f1ab9bc997b01311dc0635ee165edfe27bd9715222718bc4cf4265e10b933af"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_BuzzedFemale.gltf",
+        "bytes": 2191,
+        "sha256": "3f30e5a7b0fc6d04d2980a4e937cc5e4b03ca923c9247869168ef13e1b40b747"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Long.bin",
+        "bytes": 115996,
+        "sha256": "13996da35c7afbf8cb5097da37207ee5b7c2e2904d4ab9e2ace9843030fff8d5"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_Long.gltf",
+        "bytes": 2056,
+        "sha256": "94500e2e37e09efc8b8b920b8c6437ef1c76ca35863992b82d0d5de6e77122e9"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_SimpleParted.bin",
+        "bytes": 32032,
+        "sha256": "57c6359703a37e346ee38a9c7ba55c8dee761c0a02da99847d06f5a91728f3cc"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/Hair_SimpleParted.gltf",
+        "bytes": 2010,
+        "sha256": "ce6c666d00bcca2baa0c58d0442505f90f8feff952592effc4697a2341e9e56d"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/T_Hair_1_BaseColor.png",
+        "bytes": 1570376,
+        "sha256": "bc7aa863bd22ab0a995cd838cceb4d3a5186ee54ee2fb0108fad85d20c057e6e"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/T_Hair_1_Normal.png",
+        "bytes": 4326126,
+        "sha256": "57fd0ad8c96a4d01b38769637e066cecaa285b456f6e48ce00863754a457affb"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/T_Hair_2_BaseColor.png",
+        "bytes": 1729467,
+        "sha256": "f9f4f2fb3eeeefb0b6f0fdef38b0770fd6607640c1c680b8139dd76697e9f9b3"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/Hairstyles/Origin at 0/glTF (Godot)/T_Hair_2_Normal.png",
+        "bytes": 4710013,
+        "sha256": "172f230aae0d4366c3cfc0402b2e6d1811b11f8487344bff28605eeacac1558d"
+      },
+      {
+        "path": "Universal Base Characters[Standard]/License_Standard.txt",
+        "bytes": 806,
+        "sha256": "0f4beaf0fe360a7732e58bbe3dbf60a2422367fbea60cb9ea4add968f383268e"
+      }
+    ]
+  },
+  "source_animations": [
+    {
+      "path": "LICENSE",
+      "bytes": 7048,
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+      "url": "https://raw.githubusercontent.com/J-Ponzo/gltf-universal-animation-library/e24c23cf2a1323488a3faa226ea7ea21f644b73e/LICENSE"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1051,
+      "sha256": "370e6ff244ef43b269f936be7d630a77a3eb7ed8bbc3315ffcae5b327b814fcb",
+      "url": "https://raw.githubusercontent.com/J-Ponzo/gltf-universal-animation-library/e24c23cf2a1323488a3faa226ea7ea21f644b73e/README.md"
+    },
+    {
+      "path": "glTF/AnimationLibrary_Godot_Standard.gltf",
+      "bytes": 2459987,
+      "sha256": "0ff075c7ad6855c5c2c37a171592ee8f0d6ab2f58259e2be77a9b63dd8027765",
+      "url": "https://raw.githubusercontent.com/J-Ponzo/gltf-universal-animation-library/e24c23cf2a1323488a3faa226ea7ea21f644b73e/glTF/AnimationLibrary_Godot_Standard.gltf"
+    },
+    {
+      "path": "glTF/AnimationLibrary_Godot_Standard.bin",
+      "bytes": 1587224,
+      "sha256": "6e65377d81558333c4093dbb144a48fd19019343d82b1a3a7992a98ec0e0543c",
+      "url": "https://raw.githubusercontent.com/J-Ponzo/gltf-universal-animation-library/e24c23cf2a1323488a3faa226ea7ea21f644b73e/glTF/AnimationLibrary_Godot_Standard.bin"
+    }
+  ],
+  "optimization": {
+    "resampleTolerance": 5e-05,
+    "dedup": true,
+    "prune": true,
+    "removedConstantChannels": 2757
+  },
+  "exportedAnimations": [
+    {
+      "name": "Death",
+      "channels": 53
+    },
+    {
+      "name": "Dodge",
+      "channels": 68
+    },
+    {
+      "name": "Guard",
+      "channels": 53
+    },
+    {
+      "name": "Hit",
+      "channels": 53
+    },
+    {
+      "name": "Idle",
+      "channels": 63
+    },
+    {
+      "name": "Interact",
+      "channels": 55
+    },
+    {
+      "name": "JumpLand",
+      "channels": 63
+    },
+    {
+      "name": "JumpLoop",
+      "channels": 63
+    },
+    {
+      "name": "JumpStart",
+      "channels": 63
+    },
+    {
+      "name": "Kick",
+      "channels": 51
+    },
+    {
+      "name": "PistolAim",
+      "channels": 50
+    },
+    {
+      "name": "PistolIdle",
+      "channels": 53
+    },
+    {
+      "name": "PistolShoot",
+      "channels": 50
+    },
+    {
+      "name": "PunchCross",
+      "channels": 63
+    },
+    {
+      "name": "PunchJab",
+      "channels": 53
+    },
+    {
+      "name": "Run",
+      "channels": 58
+    },
+    {
+      "name": "Sprint",
+      "channels": 63
+    },
+    {
+      "name": "SwordAttack",
+      "channels": 53
+    },
+    {
+      "name": "SwordIdle",
+      "channels": 52
+    },
+    {
+      "name": "Walk",
+      "channels": 63
+    }
+  ],
+  "lod": {
+    "url": "orbix-ranger-lod.glb",
+    "bytes": 1247696,
+    "sha256": "23089bb50db116c352b654ae45d1cdab8e0baac4115aee568815342a66c0c06d",
+    "triangles": 3123
+  },
+  "verification": {
+    "main": {
+      "path": "orbix-ranger.glb",
+      "bytes": 1728160,
+      "sha256": "ac29179150ebaa248ae6345357af6d527a513de4ead2da8006f2e732f3460350",
+      "triangles": 16064,
+      "bones": 65,
+      "animations": [
+        "Death",
+        "Dodge",
+        "Guard",
+        "Hit",
+        "Idle",
+        "Interact",
+        "JumpLand",
+        "JumpLoop",
+        "JumpStart",
+        "Kick",
+        "PistolAim",
+        "PistolIdle",
+        "PistolShoot",
+        "PunchCross",
+        "PunchJab",
+        "Run",
+        "Sprint",
+        "SwordAttack",
+        "SwordIdle",
+        "Walk"
+      ],
+      "primitives": 7
+    },
+    "lod": {
+      "path": "orbix-ranger-lod.glb",
+      "bytes": 1247696,
+      "sha256": "23089bb50db116c352b654ae45d1cdab8e0baac4115aee568815342a66c0c06d",
+      "triangles": 3123,
+      "bones": 65,
+      "animations": [
+        "Death",
+        "Dodge",
+        "Guard",
+        "Hit",
+        "Idle",
+        "Interact",
+        "JumpLand",
+        "JumpLoop",
+        "JumpStart",
+        "Kick",
+        "PistolAim",
+        "PistolIdle",
+        "PistolShoot",
+        "PunchCross",
+        "PunchJab",
+        "Run",
+        "Sprint",
+        "SwordAttack",
+        "SwordIdle",
+        "Walk"
+      ],
+      "primitives": 7
+    },
+    "finite_tracks": true,
+    "server_owned_root_translation": true,
+    "embedded_textures": true,
+    "runtime_decoders_required": false
+  }
+}

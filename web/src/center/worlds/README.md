@@ -128,5 +128,6 @@ Preserve old session records and add dated evidence for new releases.
 # Legacy renderer — 2026-10-10
 
 The user mandated Babylon.js adoption. Token Catch is rebuilt in `../babylon/`;
-`?engine=babylon` selects it during gates and `?engine=three` retains this route.
+It is the default Token Catch renderer; `?engine=babylon` explicitly selects it
+and `?engine=three` retains the legacy route.
 This module remains for other games and compatibility. Delete nothing in this round.

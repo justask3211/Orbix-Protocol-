@@ -15,6 +15,7 @@ export default function BabylonWorld(props:GameWorldProps) {
   const [metrics,setMetrics]=useState<FrameStats|null>(null)
   const [motion,setMotion]=useState(()=>matchMedia('(prefers-reduced-motion:reduce)').matches)
   const reduced=props.reducedMotion??motion
+  const worldKey=`${props.me}:${props.state.roundId??''}:${Boolean(props.state.arena)}:${props.state.terrain?.kind??'flat'}:${props.state.terrain?.theme??''}`
   useEffect(()=>{const query=matchMedia('(prefers-reduced-motion:reduce)'),change=()=>setMotion(query.matches);query.addEventListener('change',change);return()=>query.removeEventListener('change',change)},[])
   useEffect(()=>{
     let active=true,owned:BabylonRuntime|undefined
@@ -25,8 +26,9 @@ export default function BabylonWorld(props:GameWorldProps) {
       runtime.current=owned;await owned.start()
     }).catch(failure=>{if(active)setError(failure instanceof Error?failure.message:'The world could not load.')})
     return()=>{active=false;owned?.dispose();runtime.current=null}
-  // Loading is independent of high-rate snapshots. Quality/retry owns a fresh scene.
-  },[quality,attempt])
+  // High-rate body snapshots keep the scene. A new round or terrain descriptor
+  // owns fresh colliders, including host rematches between flat and field-v1.
+  },[quality,attempt,worldKey])
   useEffect(()=>{runtime.current?.update({...props,quality,reducedMotion:reduced})},[props,quality,reduced])
   return <section className="ow-world ow-token-catch ow-perspective-world ob-world" data-renderer="babylon" aria-label="Sunnydrop Outpost 3D game environment">
     <div className="ow-world-title"><span className="ow-world-dot" aria-hidden/><span>Sunnydrop Outpost</span><small>{metrics?`${metrics.fps} FPS`:'TOKEN CATCH'}</small>{metrics&&<details className="ow-performance"><summary aria-label="Frame performance">{Math.round(metrics.p95)} ms p95</summary><div><strong>Frame intervals</strong><span>p50 {metrics.p50.toFixed(1)} ms · p95 {metrics.p95.toFixed(1)} ms</span><span>{metrics.samples} samples · {metrics.calls} draw calls</span><span>{Math.round(metrics.triangles).toLocaleString()} triangles · DPR {metrics.dpr.toFixed(2)}</span><span>{metrics.p95<=33.3?'Within the 30 FPS frame target':'Above the 30 FPS frame target'}</span></div></details>}<label className="ow-quality">Graphics<select value={quality} onChange={event=>setQuality(event.target.value as WorldQuality)}><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="sharp">Sharp</option></select></label></div>

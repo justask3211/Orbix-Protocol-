@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-10",
+  "checks": [
+    {
+      "command": "python -m pytest center/tests tests -o addopts= -q",
+      "tests": 597,
+      "exitCode": 0,
+      "note": "one existing Starlette/httpx deprecation warning"
+    },
+    {
+      "command": "forge test",
+      "tests": 162,
+      "suites": 16,
+      "exitCode": 0
+    },
+    {
+      "command": "node --test web/src/*.test.mjs web/src/center/*.test.mjs",
+      "tests": 41,
+      "exitCode": 0
+    },
+    {
+      "command": "node tools/tests/*regression.* + terrain-parity (supervised)",
+      "scripts": 17,
+      "exitCode": 0
+    },
+    {
+      "command": "node tools/tests/babylon-regression.cjs",
+      "exitCode": 0,
+      "note": "9 motion cases, jitter at 30/60/144 Hz, jump envelope and 608 Python/Babylon terrain samples"
+    },
+    {
+      "command": "tsc -p web --noEmit + npm --prefix web run build -- --manifest",
+      "exitCode": 0
+    },
+    {
+      "command": "vite build --base / --outDir /tmp/orbix-babylon-root-dist --manifest",
+      "exitCode": 0
+    }
+  ],
+  "browserResults": "browser.json and room.json",
+  "deployment": "Artifacts assembled for Hermes; no Railway deployment",
+  "browserChecks": [
+    {
+      "command": "babylon-browser.cjs (fixtures, isolated measure, practice)",
+      "exitCode": 0,
+      "evidence": "browser.json"
+    },
+    {
+      "command": "babylon-room-browser.cjs",
+      "exitCode": 0,
+      "evidence": "room.json"
+    },
+    {
+      "command": "ORBIX_WORLD_GAMES=token-catch node tools/tests/v4-worlds-browser.cjs",
+      "exitCode": 0,
+      "note": "Final source: visible loading, rendering, authoritative movement/jump, exit and zero page errors. Duel and Boss Raid assertions also passed in an earlier combined run interrupted before its Token Catch finished; no combined-run exit-0 claim."
+    }
+  ],
+  "qualityGates": {
+    "functionalParity": "PASS",
+    "swiftShader30FPS": "FAIL, both engines",
+    "realPhonePerformance": "UNPROVEN",
+    "liveFundedPayout": "UNPROVEN",
+    "lazyLanding": "PASS"
+  }
+}

@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs')
 const {transformSync}=require('../../web/node_modules/rolldown/dist/utils-index.mjs')
-const result=transformSync('motion.ts',fs.readFileSync('web/src/center/worlds/motion.ts','utf8').replace(/import.*\n/g,''),{target:'es2022'})
+const result=transformSync('motion.ts',fs.readFileSync(process.env.ORBIX_MOTION_SOURCE||'web/src/center/worlds/motion.ts','utf8').replace(/import.*\n/g,''),{target:'es2022'})
 const {MotionTrack,blocked,support}=new Function('stateGround',result.code.replace(/\bexport\s+/g,'')+'\nreturn {MotionTrack,blocked,support};')((state,x,z)=>state.slope?x*.1:0)
 const state={serverTimeMs:10000,bounds:{width:40,depth:40}},body={x:0,y:0,z:0,hp:100,yaw:0,onGround:true,speed:5,inputSeq:0,respawnAt:0}
 const pose=()=>({x:0,y:0,z:0,yaw:0,moving:0}),intent={dx:1,dz:0,active:true,changedAt:0,history:[]}

@@ -34,7 +34,7 @@ export class SunnydropEnvironment {
     const skyContext=skyTexture.getContext(),gradient=skyContext.createLinearGradient(0,0,0,256)
     gradient.addColorStop(0,'#379ac9');gradient.addColorStop(.55,'#a1d5e6');gradient.addColorStop(.8,'#dcefdc');gradient.addColorStop(1,'#b8dfed')
     skyContext.fillStyle=gradient;skyContext.fillRect(0,0,64,256);skyTexture.update()
-    const skyMaterial=new StandardMaterial('sky-gradient',scene);skyMaterial.emissiveTexture=skyTexture;skyMaterial.emissiveColor=Color3.White();skyMaterial.disableLighting=true;skyMaterial.backFaceCulling=false;skyMaterial.fogEnabled=false
+    const skyMaterial=material(scene,'sky-gradient','#87c7e3');skyMaterial.albedoTexture=skyTexture;skyMaterial.unlit=true;skyMaterial.backFaceCulling=false;skyMaterial.fogEnabled=false
     const sky=MeshBuilder.CreateSphere('sky-dome',{diameter:260,segments:16},scene);sky.material=skyMaterial;sky.isPickable=false;sky.infiniteDistance=true
     const faces=['#cce3e6','#cce3e6','#d9efff','#71865f','#cee2de','#cee2de'].map(hex=>{const c=Color3.FromHexString(hex);return new Uint8Array([c.r*255,c.g*255,c.b*255,255,c.r*255,c.g*255,c.b*255,255,c.r*255,c.g*255,c.b*255,255,c.r*255,c.g*255,c.b*255,255])})
     const environment=new RawCubeTexture(scene,faces,2,EngineConstants.RGBA,EngineConstants.UNSIGNED_BYTE,true,false,Texture.TRILINEAR_SAMPLINGMODE)
@@ -63,6 +63,9 @@ export class SunnydropEnvironment {
     const ground=new Mesh('authoritative-field-v1',this.scene);data.applyToMesh(ground)
     ground.useVertexColors=true;ground.hasVertexAlpha=false;ground.receiveShadows=true;this.collisions.add(ground)
     const grass=material(this.scene,'meadow-soil','#ffffff')
+    // This hand-authored field uses server x/z winding, independent of Babylon
+    // builder orientation. Keep its surface visible in the right-handed scene.
+    grass.backFaceCulling=false
     const texture=new DynamicTexture('original-meadow-grain',{width:128,height:128},this.scene,true)
     const context=texture.getContext(),random=rng(140)
     context.fillStyle='#e0ddbf';context.fillRect(0,0,128,128)

@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-10",
+  "renderer": "Default Babylon Token Catch, production build; Chromium SwiftShader",
+  "realUsers": 2,
+  "webSocket": true,
+  "inputKinds": [
+    "move",
+    "jump",
+    "dodge"
+  ],
+  "inputSequenced": true,
+  "inputSeqAcknowledged": true,
+  "jumpAccepted": true,
+  "dodgeAccepted": true,
+  "receivedTypes": [
+    "session.ready",
+    "round.started",
+    "game.patch",
+    "connection.pong",
+    "settlement.finalized",
+    "room.rematch"
+  ],
+  "reconnect": true,
+  "serverFinish": "claimable",
+  "rematchFreshRound": true,
+  "previousRoundInHistory": true,
+  "pageErrors": [],
+  "rewards": "Preview only; no wallet sends, token transfers or funded payout claim"
+}

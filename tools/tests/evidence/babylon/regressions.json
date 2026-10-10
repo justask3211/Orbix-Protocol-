@@ -1,0 +1,87 @@
+[
+  {
+    "script": "tools/tests/actor-state-regression.mjs",
+    "exitCode": 0,
+    "output": "Skeletal regression passed: actual GLTF binding, StrictMode animation survival, idle input, Kick availability and unmount cleanup.\nPASS: 144 real RigActor state selections for all 12 characters, locomotion, accepted combat, expiry, jumping, landing and finish.\n"
+  },
+  {
+    "script": "tools/tests/framework-regression.mjs",
+    "exitCode": 0,
+    "output": "PASS: FSM priority/expiry/contact dedup, round/health reset, lethal damage, thin-wall camera collision, bounded lead and collider disposal; query p95 0.05330599999996366\nPASS: two-bone foot contact is finite, bounded and leaves motion root unchanged\n"
+  },
+  {
+    "script": "tools/tests/item-assets-regression.mjs",
+    "exitCode": 0,
+    "output": "Original item geometry (6656 triangles across 9 meshes), wrist attachments and confirmed-removal dissolve passed.\n"
+  },
+  {
+    "script": "tools/tests/locomotion-regression.mjs",
+    "exitCode": 0,
+    "output": "Skeletal regression passed: actual GLTF binding, StrictMode animation survival, idle input, Kick availability and unmount cleanup.\nPASS: 72 actual mixer/gait cases; all characters and LODs, no combat weight, synchronized layers, planted-foot cadence within 6%.\n"
+  },
+  {
+    "script": "tools/tests/motion-envelope-regression.cjs",
+    "exitCode": 0,
+    "output": "{\"jumpHeight200ms\":[1.079999999999999,1.0799999999999996,1.0799999999999998],\"frameRateSpread\":8.881784197001252e-16}\n{\"remoteObserverMaxDifference\":0,\"remoteDelayBeyondTransitMs\":125.00000000000091}\n"
+  },
+  {
+    "script": "tools/tests/motion-jitter-regression.cjs",
+    "exitCode": 0,
+    "output": "30 Hz, synthetic 120 ms RTT + 0\u201335 ms snapshot jitter: min frame displacement 0.1167, max error 0.132 units\n60 Hz, synthetic 120 ms RTT + 0\u201335 ms snapshot jitter: min frame displacement 0.0583, max error 0.131 units\n144 Hz, synthetic 120 ms RTT + 0\u201335 ms snapshot jitter: min frame displacement 0.0243, max error 0.116 units\n"
+  },
+  {
+    "script": "tools/tests/motion-regression.cjs",
+    "exitCode": 0,
+    "output": "9 motion regressions passed (frame rates, input, authority, jitter/outage, collisions, jump).\n"
+  },
+  {
+    "script": "tools/tests/original-character-regression.mjs",
+    "exitCode": 0,
+    "output": "12 original characters \u00d7 20 clips passed, full/LOD, five palette groups, finite skinning and idempotent cleanup. Mean customized triangles: 12516.8.\n"
+  },
+  {
+    "script": "tools/tests/performance-regression.mjs",
+    "exitCode": 0,
+    "output": "PASS: 60Hz frame intervals, unhidden 1s slow frames, actual render counters, bounded DPR fallback and bounded history\n"
+  },
+  {
+    "script": "tools/tests/profile-image-regression.cjs",
+    "exitCode": 0,
+    "output": "Avatar crop, null export, unavailable canvas and URL cleanup passed.\n"
+  },
+  {
+    "script": "tools/tests/rematch-settings-regression.cjs",
+    "exitCode": 0,
+    "output": "20 rematch settings checks passed against actual Python schemas.\n"
+  },
+  {
+    "script": "tools/tests/result-presentation-regression.cjs",
+    "exitCode": 0,
+    "output": "7 result presentation regressions passed.\n"
+  },
+  {
+    "script": "tools/tests/skeletal-actor-regression.mjs",
+    "exitCode": 0,
+    "output": "Skeletal regression passed: actual GLTF binding, StrictMode animation survival, idle input, Kick availability and unmount cleanup.\n"
+  },
+  {
+    "script": "tools/tests/terrain-parity.mjs",
+    "exitCode": 0,
+    "output": "608 cross-language terrain samples passed; maximum height difference 5.551115123125783e-16\n"
+  },
+  {
+    "script": "tools/tests/verified-podium-regression.cjs",
+    "exitCode": 0,
+    "output": "14 verified podium regressions passed.\n"
+  },
+  {
+    "script": "tools/tests/wallet-session-regression.cjs",
+    "exitCode": 0,
+    "output": "13 wallet regression checks passed: verified completion, rejected signatures, failed verification, no account and modal retry.\n"
+  },
+  {
+    "script": "tools/tests/world-snapshot-regression.cjs",
+    "exitCode": 0,
+    "output": "Snapshot regressions passed: full replacement, baseline deltas, removal, stale frames and resync.\n"
+  }
+]
