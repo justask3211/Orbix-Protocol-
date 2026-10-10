@@ -5,6 +5,7 @@ Record new substantial updates here; preserve earlier entries as history.
 
 | Session | Request and resulting change | Source revision |
 | --- | --- | --- |
+| [2026-10-10 Babylon adoption](2026-10-10-babylon-adoption.md) | Product-owner engine override; native Token Catch, parity evidence and static builds; Hermes deploys | V `400b3053`, W `4a61698c`, X documentation |
 | [2026-10-08 upgrade](2026-10-08-center-upgrade.md) | Eight ordered Center fixes and arcade UX changes; no Railway deployment | Per-task commits |
 | 2026-10-05 | Game skills/tooling research and isolated game lab | `b499d82` |
 | 2026-10-06, homepage | Illustrated game center, wallet and room discovery | `04167c0` |

@@ -1,9 +1,21 @@
 # Orbix game center: implementation and intent
 
-Read this before changing `/center`. Current implementation: October 8, 2026.
+Read this before changing `/center`. Current implementation: October 10, 2026.
 The latest human request takes precedence. Preserve these established mechanics
 and design choices unless the user requests a change; do not silently substitute
 an overhead board or unrelated game for the intended experience.
+
+## 2026-10-10 Babylon adoption
+
+The product owner rejected the keep-Three.js verdict and mandated Babylon.js;
+Apache-2.0 is accepted for code dependencies. Token Catch now defaults to the
+native Babylon/Havok module in `web/src/center/babylon/`; `?engine=three` retains
+the legacy renderer. Other games and shared preview/podium components still use
+Three. Python authority, WebSocket inputs/snapshots, scores, hints and reward/claim
+flows are unchanged. See `docs/research/babylon-parity.md` and the dated session
+record for parity alternatives, software measurements and limits. No Railway
+deployment is authorized in this round; Hermes handles deployment. Earlier engine
+preferences below are historical where they conflict with this adoption.
 
 ## Product intent
 

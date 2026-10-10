@@ -88,3 +88,14 @@ Research clones, node_modules, build output and verification artifacts are ignor
 - [Kenney characters](https://kenney.nl/assets/animated-characters-protagonists), [Quaternius base characters](https://quaternius.com/packs/universalbasecharacters.html) and [animation library](https://quaternius.com/packs/universalanimationlibrary.html): check free-subset boundaries and exact rigs/formats.
 - [Poly Haven license](https://polyhaven.com/license), [API terms](https://polyhaven.com/our-api) and [ambientCG](https://ambientcg.com/): future CC0 textures/environments, import only selected assets with source records.
 - [UI design plugin source](https://github.com/wshobson/agents/tree/main/plugins/ui-design), [Anthropic frontend skill](https://github.com/anthropics/skills/tree/main/skills/frontend-design), [TasteSkill](https://github.com/Leonxlnx/taste-skill), [Vercel skills](https://github.com/vercel-labs/agent-skills), [game-development bundle](https://github.com/sickn33/antigravity-awesome-skills/tree/main/skills/game-development), [Three.js references](https://github.com/alton47/threejs-skills), [Blender MCP](https://github.com/ahujasid/mcp-for-blender).
+
+
+## 2026-10-10 Babylon implementation update
+
+The product-owner override mandates Babylon.js and accepts Apache-2.0 code deps.
+Token Catch uses `web/src/center/babylon/` by default (Babylon core/loaders 9.30.0,
+Havok 1.3.14); the earlier engine recommendation is superseded for this game.
+`?engine=three` and other games retain the existing renderer. See
+`docs/research/babylon-parity.md` for implementation, identical authority protocol,
+CC0/original GLBs, test evidence and performance/bundle limitations. Deployable
+static inputs are assembled locally; Hermes deploys, not this build round.

@@ -174,3 +174,45 @@ T adds honest bounded frame telemetry and verifies loading/launch/mobile/fullscr
 Each phase commits separately. Baseline/after captures, actual query timings, full
 pytest/forge/TypeScript/build and existing browser/netcode regressions finish the
 work. Real phones, GPU timings and absent review compliance remain unproven.
+
+
+## Addendum — 2026-10-10 product-owner override and implementation
+
+The user rejected the earlier keep-Three.js decision table and mandated Babylon.js
+adoption. Apache-2.0 is accepted for Babylon code dependencies; art remains
+original/CC0. The verdicts above are historical analysis, not authority to reverse
+this product-owner decision. Three.js worlds are marked legacy pending the wider
+migration and remain available for other games and `?engine=three` comparisons.
+
+Phase U foundation (`accd5d9b`) and its route selector (`f20d0834`) were already
+committed when the interrupted build resumed. Phase V (`400b3053`) completed the
+Babylon Token Catch world. Phase W (`4a61698c`) completes the parity evidence, corrects the
+lazy chunk boundary, late-snapshot terrain initialization and terrain winding,
+and promotes Babylon as the default Token Catch renderer. Phase X records this
+completion and delivers the per-phase commits to `master:main` without a Railway
+deployment. Hermes owns deployment.
+
+The implementation uses Babylon 9.30.0, Havok 1.3.14, capsule/mesh contacts,
+native cameras, PBR/fog/shadows and thin-instance scenery/loot. Existing original
+mascots retain their CC0 skeleton and 20 clips as native AnimationGroups, with
+body layers and additive feedback. The same DOM controls and Python WebSocket
+protocol own movement inputs, scoring, hints, settlement, claims and rematch.
+No Python reducer or contract source is changed. Live prediction/interpolation
+is the exact existing engine-neutral port; Havok presentation cannot award value
+or create cover-climbing displacement outside the saved rules.
+
+Functional checks cover both classic and arena Catch, delayed snapshots,
+instanced piles, disposal, desktop/touch/fullscreen, and a real admitted two-user
+WebSocket round through reconnect, authoritative results and rematch history.
+Required Python/Forge/TypeScript/build checks pass. Specific measurements,
+commands, parity alternatives and screenshots are in
+[babylon-parity.md](babylon-parity.md) and `tools/tests/evidence/babylon/`.
+
+This is adoption completion, not a performance-win claim. The Babylon engine chunk
+is 3,864,044 raw bytes and Havok WASM is 2,094,563; renderer additions including WASM
+are 6,009,929 raw bytes versus 1,188,516 for the Three baseline. Both software
+Chromium comparisons miss 30 FPS and Babylon is slower in that fixture despite
+fewer calls/triangles. Real GPU/phone performance and live funded payouts remain
+unproven. Normal landing pages fetch no Babylon chunk. Apache LICENSE/NOTICE and
+Havok MIT attribution are shipped through `THIRD_PARTY_NOTICES.md` and static
+license files. The initial keep-Three recommendation is superseded by the override.
