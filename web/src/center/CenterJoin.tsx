@@ -19,7 +19,7 @@ function RoomCard({ room, navigate }: { room: RoomSummary; navigate: (path: stri
   const status = room.status === 'running' ? 'Match in progress' : room.status === 'ready' ? 'Ready to start' : 'Waiting for players'
   const reward = room.rewards === 'funded-assets' ? 'Funded asset rewards' : room.rewards === 'preview-points' ? 'Preview game points' : 'Check room rewards'
   return <article className="center-join-room" style={{ '--room-accent': game.color, '--room-ink': game.ink } as CSSProperties}>
-    <div className="center-join-room-art gc-banner"><GameArtwork id={game.id} color={game.color}/><BannerBadges overlay={room.gameConfig?.overlay} tag={room.gameConfig?.tag}/><span>{game.name}</span></div>
+    <div className="center-join-room-art gc-banner"><GameArtwork id={game.id} color={game.color}/><BannerBadges overlay={room.gameConfig?.overlay} tag={room.gameConfig?.tag}/><span className="center-join-game-label">{game.name}</span></div>
     <div className="center-join-room-body">
       <span className={`center-join-status ${waiting ? 'waiting' : 'running'}`}><span aria-hidden="true" />{status}</span>
       <h3>{room.name}</h3>
@@ -39,6 +39,7 @@ export function CenterJoin({ session, onConnect, navigate }: CenterJoinProps) {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const inviteField = useRef<HTMLInputElement>(null)
   const activeRooms = useMemo(() => rooms.filter(isDiscoverableRoom), [rooms])
+  const roomGames = [...new Map(activeRooms.map(room => [room.templateId, {id:room.templateId, name:FEATURED_GAMES.find(game=>game.id===room.templateId)?.name ?? room.templateId.split('-').join(' ')}])).values()]
   const filteredRooms = useMemo(() => activeRooms.filter((room) =>
     (filters.game === 'all' || room.templateId === filters.game)
     && (filters.status === 'all' || room.status === filters.status)
@@ -75,7 +76,7 @@ export function CenterJoin({ session, onConnect, navigate }: CenterJoinProps) {
         <div className="center-join-search"><Search size={17} aria-hidden="true" /><input type="search" value={filters.query} onChange={(event) => setFilter('query', event.target.value)} placeholder="Search room or game" aria-label="Search public rooms" /></div>
         <div className="center-join-filter-title"><SlidersHorizontal size={16} aria-hidden="true" />Find your fit<span className="center-join-public">Public rooms only</span></div>
         <div className="center-join-filter-grid">
-          <label>Game<span><select value={filters.game} onChange={(event) => setFilter('game', event.target.value)}><option value="all">All featured games</option>{FEATURED_GAMES.map((game) => <option key={game.id} value={game.id}>{game.name}</option>)}</select><ChevronDown size={16} aria-hidden="true" /></span></label>
+          <label>Game<span><select value={filters.game} onChange={(event) => setFilter('game', event.target.value)}><option value="all">All available games</option>{roomGames.map((game) => <option key={game.id} value={game.id}>{game.name}</option>)}</select><ChevronDown size={16} aria-hidden="true" /></span></label>
           <label>Room state<span><select value={filters.status} onChange={(event) => setFilter('status', event.target.value)}><option value="all">All active rooms</option><option value="registration">Waiting for players</option><option value="ready">Ready to start</option><option value="running">Match in progress</option></select><ChevronDown size={16} aria-hidden="true" /></span></label>
           <label>Entry<span><select value={filters.entry} onChange={(event) => setFilter('entry', event.target.value)}><option value="all">Any entry type</option><option value="free">No token entry</option><option value="paid">Paid token entry</option></select><ChevronDown size={16} aria-hidden="true" /></span></label>
           <label>Rewards<span><select value={filters.reward} onChange={(event) => setFilter('reward', event.target.value)}><option value="all">Any reward type</option><option value="funded-assets">Funded assets</option><option value="preview-points">Preview points</option></select><ChevronDown size={16} aria-hidden="true" /></span></label>

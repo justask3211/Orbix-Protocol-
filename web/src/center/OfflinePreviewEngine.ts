@@ -22,8 +22,10 @@ export class OfflinePreviewEngine {
     Object.assign(this.state, {_offline: true, _canAct: true, _connection: 'open', _playerNames: Object.fromEntries(this.players.map((p, i) => [p, i ? 'Demo bot' : 'You'])), finished: false})
     if (this.state.arena) {
       this.state.duration = 86400
-      this.state.airdrops = [{id: 'offline-airdrop', x: 2, z: 2, y: stateGround(this.state, 2, 2), landAt: 0, value: 50, opened: false}]
-      this.state.drops.push({id:'offline-coin',kind:'coin',value:5,x:1,z:3,y:stateGround(this.state,1,3),landAt:0,expiresAt:86400000})
+      if (templateId === 'token-catch') {
+        this.state.airdrops = [{id: 'offline-airdrop', x: 2, z: 2, y: stateGround(this.state, 2, 2), landAt: 0, value: 50, opened: false}]
+        this.state.drops.push({id:'offline-coin',kind:'coin',value:5,x:1,z:3,y:stateGround(this.state,1,3),landAt:0,expiresAt:86400000})
+      }
     }
     if (templateId === 'prism-lines') this.state.currentPlayer = this.me
     if (templateId === 'mev-rush') this.state.live = [0, 1, 2]
