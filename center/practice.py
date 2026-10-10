@@ -7,7 +7,7 @@ import time
 
 from fastapi import HTTPException, Request, Header
 from center.games import engine_for, StreamRNG
-from center.schema import RoomConfig
+from center.schema import RoomConfig, TEMPLATE_RULES, SOLO_TEMPLATES
 
 PLAYER = '0x'+'11'*20
 BOTS = ['0x'+f'{i:02x}'*20 for i in range(32,36)]
@@ -19,6 +19,26 @@ RULES = {
     'reaction-duel':dict(rounds=3),
     'closest-call': {}, 'word-forge': {}, 'prism-lines': {}, 'relic-auction': {}, 'atlas-quest': {},
 }
+
+
+# Existing practice presets keep their rules and behavior. Other templates can
+# opt into the same server practice shell through their signed admin toggle.
+# Authored demo content only; never read a live room or user-created quiz.
+_DEMO_RULES = {
+    'live-quiz': {'question_seconds':30, 'questions':[{'prompt':f'Which number is {i}?','choices':['One','Two','Three','Four'],'correct_index':i-1} for i in [1,2,3,4,1]]},
+    'memory-match': {'duration_seconds':120}, 'puzzle-sprint': {'duration_seconds':120},
+    'hash-hunt': {'duration_seconds':120, 'difficulty_bits':8},
+    'typing-sprint': {'prompt_id':'orbix-preview'},
+    'airdrop-quest': {'campaign_name':'Offline explorer','achievements':['Explore the playground'],'stop_at':9999999999},
+}
+for _template, _model in TEMPLATE_RULES.items():
+    if _template not in RULES:
+        _rules = dict(_DEMO_RULES.get(_template, {}))
+        for _key, _field in _model.model_fields.items():
+            if _field.is_required() and _key not in _rules:
+                _property = _model.model_json_schema()['properties'][_field.alias or _key]
+                _rules[_key] = _property.get('minimum', 1)
+        RULES[_template] = _rules
 
 
 def mount_practice(app,prefix):
@@ -116,7 +136,7 @@ def mount_practice(app,prefix):
             raise HTTPException(409,detail={'code':'GAME_UNAVAILABLE','message':'This game is currently paused.'})
         require_game_mode(app.state.store, template, 'practice')
         rates[client].append(now)
-        bots=BOTS[:3] if template=='boss-raid' else BOTS[:2] if template=='token-catch' else BOTS[:1] if template in {'combat-duel','reaction-duel','prism-lines','relic-auction'} else []
+        bots=BOTS[:3] if template=='boss-raid' else BOTS[:2] if template=='token-catch' else BOTS[:1] if template in {'combat-duel','reaction-duel','prism-lines','relic-auction'} else [] if template in SOLO_TEMPLATES else BOTS[:1]
         players=[PLAYER,*bots]
         config=RoomConfig(name='Practice',template_id=template,rules={'templateId':template,**RULES[template]},
             admission={'player_cap':len(players),'min_ready_to_start':2 if template in {'prism-lines','relic-auction'} else 1},access={'required_amount':0})

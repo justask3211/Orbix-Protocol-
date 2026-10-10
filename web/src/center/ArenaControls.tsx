@@ -77,7 +77,7 @@ export function ArenaPlay(props: StageProps) {
     if (!enabledRef.current || document.hidden) return
     refreshInput()
     // Coalesce rapid key transitions without losing a stop/release behind the server rate limit.
-    if (Date.now() - lastSend.current < 40) {
+    if (!stateRef.current._offline && Date.now() - lastSend.current < 40) {
       if (pendingMove.current === null) pendingMove.current = window.setTimeout(() => { pendingMove.current = null; sendMovement() }, 40 - (Date.now() - lastSend.current))
       return
     }
@@ -87,7 +87,7 @@ export function ArenaPlay(props: StageProps) {
     actRef.current({ kind: 'move', dx: input.current.dx, dz: input.current.dz, yaw: camera.current.yaw, aimPitch: -camera.current.pitch, sprint: Boolean(input.current.sprint), seq: sequence })
   }
   const action = (kind: string, extra: Record<string, unknown> = {}) => {
-    if (!enabledRef.current || document.hidden || Date.now() - lastAction.current < 90) return
+    if (!enabledRef.current || document.hidden || !stateRef.current._offline && Date.now() - lastAction.current < 90) return
     lastAction.current = Date.now()
     if (kind === 'attack' || kind === 'punch' || kind === 'push') sendMovement()
     if (Number(stateRef.current.worldVersion) < 3) {
@@ -221,7 +221,7 @@ export function ArenaPlay(props: StageProps) {
   const stopFire = () => { fireHeld.current = false }
 
   return <section className={`gp gp-${game} gp-arena`} ref={panel} tabIndex={0} aria-label={`${title} playable 3D world. WASD moves, drag looks, Space jumps.`} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) releaseAll() }}>
-    <header className="gp-heading"><div className="gp-title-icon" aria-hidden>{game === 'token-catch' ? <Gem /> : <Swords />}</div><div><span className="gp-eyebrow">{game === 'token-catch' ? 'Airdrop island · run, loot, survive' : game === 'boss-raid' ? 'Guardian outpost · squad raid' : 'Twinlight arena · move, dodge, combo'}</span><h3>{title}</h3></div><div className="gp-heading-actions"><span className="gp-clock"><Clock3 size={16} />{finished ? 'Finished' : `${Math.ceil(remainingMs / 1000)}s`}</span><button type="button" className="gp-help-toggle" aria-label="Show game controls and rules" aria-expanded={help} onClick={() => setHelp(!help)}><Info size={16} /> Controls</button></div></header>
+    <header className="gp-heading"><div className="gp-title-icon" aria-hidden>{game === 'token-catch' ? <Gem /> : <Swords />}</div><div><span className="gp-eyebrow">{game === 'token-catch' ? 'Airdrop island · run, loot, survive' : game === 'boss-raid' ? 'Guardian outpost · squad raid' : 'Twinlight arena · move, dodge, combo'}</span><h3>{title}</h3></div><div className="gp-heading-actions">{!state._offline && <span className="gp-clock"><Clock3 size={16} />{finished ? 'Finished' : `${Math.ceil(remainingMs / 1000)}s`}</span>}<button type="button" className="gp-help-toggle" aria-label="Show game controls and rules" aria-expanded={help} onClick={() => setHelp(!help)}><Info size={16} /> Controls</button></div></header>
     {help && <div className="gp-rule-help"><p><strong>WASD / arrows</strong> move relative to your view. <strong>Drag the world</strong> to look · <strong>Space</strong> jump · <strong>Shift</strong> sprint · <strong>click / Fire</strong> attack · <strong>Q</strong> punch · <strong>E</strong> loot · <strong>R</strong> dodge · <strong>J / K / L</strong> light / heavy / kick · hold <strong>F</strong> guard. On mobile, use the left joystick and swipe the right side to look.</p><p>{game === 'token-catch' ? 'Run to landed airdrops, open the supply crate, then select individual loot piles. Other players compete for the same loot. Bomb loot scatters half your collected coins. Guns knock rivals down temporarily; punches interrupt nearby rivals.' : game === 'boss-raid' ? 'Your squad starts with equal guns. Dodge the guardian’s telegraphed attacks and collect upgrades as its health falls. Knocked players respawn. Team damage determines placement; the creator’s reward settings determine eligible teams.' : 'Move and face your rival, jump or dodge attacks, and chain strikes when in range. Pick up weapons and hold guard to reduce incoming damage. Only server-confirmed hits count.'}</p><p>Coins and damage are game score. Confirmed room results and settlement determine wallet rewards.</p></div>}
     <div className="gp-scene ar-scene" ref={scene} onPointerDown={startLook} onPointerMove={moveLook} onPointerUp={event => stopLook(event)} onPointerCancel={event => stopLook(event, true)} onLostPointerCapture={event => stopLook(event, true)} onContextMenu={event => event.preventDefault()}>
       <Suspense fallback={<div className="ar-loading" role="status"><span className="ar-loading-orb" /><strong>Preparing {title}…</strong><p>Building the compact world and loading character controls.</p></div>}><GameWorld game={game} state={state} me={me} players={players} inputRef={input} cameraRef={camera} /></Suspense>

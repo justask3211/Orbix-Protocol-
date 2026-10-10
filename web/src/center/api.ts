@@ -1,3 +1,4 @@
+import type { GameConfig, GameModes, SavedGameConfig } from './gameCustomization'
 import type {FormStatus} from './FormRewards'
 import type { GateAuthorization } from './gate'
 import type { Funding, RewardClaim, RewardPlan } from './rewardWallet'
@@ -8,7 +9,11 @@ import type { Appearance, Cosmetics } from './characters'
 export const API_BASE: string = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_CENTER_API ?? '/api/center/v1'
 
 export type TemplateMeta = {
-  placement?: 'featured'|'more'|'coming-soon'|'hidden'
+  placement?: 'catalog'|'more'|'upcoming'|'hidden'
+  overlay?: GameConfig['overlay']
+  tag?: GameConfig['tag']
+  available_modes?: GameModes
+  sort_order?: number
   latencySensitivity?: 'tolerant'|'sensitive'
   practiceAvailable?: boolean
   templateId: string
@@ -25,6 +30,7 @@ export type TemplateMeta = {
 export type TemplateList = { templates: TemplateMeta[]; count: number }
 
 export type RoomSummary = {
+  gameConfig?: { placement: GameConfig['placement']; available_modes: GameModes; overlay: GameConfig['overlay']; tag: GameConfig['tag']; sort_order: number }
   roomId: string
   roomNumber?: string
   joinCode?: string
@@ -43,6 +49,7 @@ export type RoomSummary = {
 export type Participant = { who: string; role: string; ready: boolean; connected?: boolean }
 
 export type RoomDetail = {
+  gameConfig?: { placement: GameConfig['placement']; available_modes: GameModes }
   entryGate?: `0x${string}`
   roomId: string
   roomNumber?: string
@@ -195,9 +202,11 @@ export const center = {
       '/admin/pricing',
       { method: 'PATCH', body: JSON.stringify(body), headers: { 'X-Admin-Proof': signature } },
       token),
-  adminGames: (token: string) => request<{ games: { templateId: string; status: 'live' | 'maintenance' | 'offline'; message: string }[] }>('/admin/games', {}, token),
+  adminGames: (token: string) => request<{ games: { templateId: string; status: 'live' | 'maintenance' | 'offline'; message: string; config?: SavedGameConfig }[] }>('/admin/games', {}, token),
   adminGameUpdate: (templateId: string, token: string, proof: string, body: { status: string; message?: string }) =>
     request(`/admin/games/${encodeURIComponent(templateId)}`, { method: 'PATCH', body: JSON.stringify(body), headers: { 'X-Admin-Proof': proof } }, token),
+  adminGameConfig: (templateId: string, token: string, proof: string, config: GameConfig) =>
+    request<SavedGameConfig>(`/admin/games/${encodeURIComponent(templateId)}/config`, { method: 'PATCH', body: JSON.stringify(config), headers: { 'X-Admin-Proof': proof } }, token),
   adminRooms: (token: string, offset = 0) => request<{ rooms: { roomId: string; name: string; templateId: string; owner: string; status: string; visibility: string; mode: string; players: number; archived: boolean; createdAt: number; rewardKind: string }[]; total: number }>(`/admin/rooms?offset=${offset}`, {}, token),
   adminRoomObserve: (roomId: string, token: string) => request<{
     roomId: string; name: string; templateId: string; status: string; owner: string; archived: boolean;

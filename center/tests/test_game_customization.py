@@ -121,3 +121,15 @@ def test_failed_audit_rolls_back_configuration(setup):
     with pytest.raises(sqlite3.IntegrityError):
         app.state.admin_games.customize(admin.address,'number-hunt',GameConfig(placement='hidden'))
     assert game_config(app.state.store,'number-hunt')==before
+
+
+@pytest.mark.parametrize('tid', sorted(__import__('center.schema',fromlist=['TEMPLATE_RULES']).TEMPLATE_RULES))
+def test_admin_can_enable_practice_for_each_game(setup,tid):
+    app, client, save, *_=setup
+    assert save(GameConfig().model_dump(),tid).status_code==200
+    result=client.post(P+'/practice',json={'templateId':tid})
+    assert result.status_code==200,result.text
+    assert result.json()['state']
+    with app.state.store.tx() as cx:
+        assert cx.execute('SELECT COUNT(*) FROM rooms').fetchone()[0]==0
+        assert cx.execute('SELECT COUNT(*) FROM ledger').fetchone()[0]==0

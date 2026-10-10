@@ -1,11 +1,11 @@
 import { isPortfolio } from './gamePortfolio'
 import { activeWalletProvider } from './walletConnectors'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Eye, Gamepad2, ShieldCheck, Sparkles, Users, Wrench, Archive, RefreshCw, Radio, Search, MessageSquare } from 'lucide-react'
+import { Eye, Gamepad2, ShieldCheck, Sparkles, Users, Archive, RefreshCw, Radio, Search, MessageSquare } from 'lucide-react'
 import { center, explainError } from './api'
 import { FEATURED_GAMES } from './featuredGames'
 import { TEMPLATE_META } from './gameArt'
-import { GameBanner } from './bannerArt'
+import { GameCustomizationCard } from './GameCustomizationCard'
 import { shortAddress, type SessionState } from './session'
 import './adminGames.css'
 
@@ -37,10 +37,10 @@ function useAdminAction(session: SessionState) {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const run = async (job: (proof: string) => Promise<unknown>, success: string, after?: () => void) => {
-    if (!session.token || busy) return
+    if (!session.token || busy) return false
     setBusy(true); setError(''); setMessage('')
-    try { await job(await signedProof(session)); setMessage(success); after?.() }
-    catch (e) { setError(explainError(e)) }
+    try { await job(await signedProof(session)); setMessage(success); after?.(); return true }
+    catch (e) { setError(explainError(e)); return false }
     finally { setBusy(false) }
   }
   return { busy, error, message, run }
@@ -164,8 +164,10 @@ export function AdminPanel({ session }: { session: SessionState }) {
         const featured = FEATURED_GAMES.find(game => game.id === id)
         const meta = TEMPLATE_META[id]
         const game = { id, name: featured?.name ?? id.split('-').map(word => word[0].toUpperCase() + word.slice(1)).join(' '), description: featured?.description ?? meta?.blurb ?? 'Server-managed game template.' }
-        const current = availability.status
-        return <article className="ag-game-card" key={game.id}><div className="ag-game-art"><GameBanner templateId={game.id} hue={featured?.color ?? meta?.hue ?? '#95e7ef'}/></div><div className="ag-game-body"><span className={`ag-state ag-state-${current}`}>{current === 'live' ? <Radio size={13}/> : <Wrench size={13}/>} {current}</span><h3>{game.name}</h3><p>{game.description}</p>{availability.message && <p className="ag-game-notice">{availability.message}</p>}<div className="ag-availability" role="group" aria-label={`${game.name} availability`}>{(['live', 'maintenance', 'offline'] as const).map(status => <button aria-pressed={current === status} className={current === status ? 'selected' : ''} key={status} disabled={action.busy} onClick={() => void action.run(proof => center.adminGameUpdate(game.id, session.token!, proof, { status, message: status === 'maintenance' ? 'A quick tune-up. Check back soon.' : '' }), `${game.name} is now ${status}.`, refreshAll)}>{status === 'live' ? 'Live' : status === 'maintenance' ? 'Tune-up' : 'Offline · hidden'}</button>)}</div>{featured && <a className="ag-trial" href={`/center/practice/${game.id}`}><Gamepad2 size={17}/> Trial play <span>No room or wallet</span></a>}</div></article>
+        return <GameCustomizationCard key={game.id} game={{...game, hue: featured?.color ?? meta?.hue ?? '#95e7ef'}} availability={availability} busy={action.busy}
+          onAvailability={status => void action.run(proof => center.adminGameUpdate(game.id, session.token!, proof, {status, message: status === 'maintenance' ? 'A quick tune-up. Check back soon.' : ''}), `${game.name} is now ${status}.`, refreshAll)}
+          onSave={async config => { const ok = await action.run(async proof => {const saved = await center.adminGameConfig(game.id, session.token!, proof, config);setGames(current => current.map(item => item.templateId === game.id ? {...item, config: saved} : item))}, `${game.name} customization saved.`, refreshAll); if (!ok) throw new Error('Save failed') }}/>
+
       })}</div>
       <div className="ag-section-head"><div><span className="ag-eyebrow">Live oversight</span><h2>Every room, one view</h2></div><button className="ag-secondary" disabled={action.busy} onClick={() => void action.run(proof => center.adminArchiveUnused(session.token!, proof), 'Unused empty rooms older than 24 hours archived.', refreshAll)}><Archive size={16}/> Clean unused rooms</button></div>
       <section className="ag-overview" aria-label="Live room overview"><div className="ag-overview-head"><div><strong>Rooms on this page</strong><span>{updatedAt ? `Updated ${new Date(updatedAt).toLocaleTimeString()}` : 'Waiting for room data'} · {live ? 'refreshes every 5 seconds' : 'auto-refresh paused'}</span></div><button className="ag-secondary" aria-pressed={live} onClick={() => setLive(value => !value)}><Radio size={16}/>{live ? 'Pause live updates' : 'Resume live updates'}</button><button className="ag-secondary" onClick={() => setRoomRefresh(value => value + 1)}><RefreshCw size={16}/>Refresh rooms</button></div><dl><div><dt>Running matches</dt><dd>{running.length}</dd></div><div><dt>Waiting rooms</dt><dd>{waiting.length}</dd></div><div><dt>Admitted players</dt><dd>{rooms.filter(room => !room.archived).reduce((sum, room) => sum + room.players, 0)}</dd></div><div><dt>Archived rooms</dt><dd>{rooms.filter(room => room.archived).length}</dd></div></dl><p>Counts cover the current page of up to 100 rooms. Admitted players include disconnected players.</p></section>

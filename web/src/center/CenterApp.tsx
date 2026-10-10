@@ -21,6 +21,9 @@ import { FOUR_STAGE_VIEWS } from './GamePlayStages'
 import { CenterJoin } from './CenterJoin'
 import { RoomCommunity } from './RoomCommunity'
 import { ArcadeChoices, ArcadeNumber, ArcadeShares, ArcadeToggle, numericError, type NumericBounds } from './ArcadeSettings'
+import { GameArtwork } from './GameArtwork'
+import { BannerBadges } from './BannerBadges'
+import { PreviewArena } from './PreviewArena'
 import { PracticeArena } from './PracticeArena'
 import { AdminRoomTools } from './AdminRoomTools'
 import { CharacterPicker } from './ArenaControls'
@@ -48,7 +51,7 @@ import { copyText } from './share'
 import { useRoomChannel } from './ws'
 import { GameCenterHome } from './GameCenterHome'
 import { CenterVault } from './CenterVault'
-import { FEATURED_GAMES, isReleasedGame } from './featuredGames'
+import { FEATURED_GAMES } from './featuredGames'
 import { Gamepad2, Plus, Wallet as WalletIcon, ArrowUpRight, LogOut } from 'lucide-react'
 import './center.css'
 import './centerShell.css'
@@ -409,7 +412,6 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
   const changeStep = (step: number) => {
     if (fundingLocked) { setError('Finish your saved funded publication before editing its settings.'); return }
     if (step > 1 && !templates.data?.templates.some(template => template.templateId === draft.templateId)) { setError('Wait for game availability to load, or retry the connection.'); return }
-    if (step > 1 && !isReleasedGame(draft.templateId)) return
     if (step > 2 && (draft.name.trim().length < 3 || draft.name.trim().length > 60)) { setError('Give your room a name between 3 and 60 characters.'); return }
     if (step > wizardStep && (currentStepErrors.length || step > 2 && Object.values(basicErrors).some(Boolean) || step > 3 && [...Object.values(ruleErrors),...hintErrors].some(Boolean))) { setError('Correct the highlighted settings before continuing.'); return }
     if (step > 1 && !gameAvailable) { setError('This game is currently unavailable. Pick a live game.'); return }
@@ -481,7 +483,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
   const allErrors = [...Object.values(basicErrors),...Object.values(ruleErrors),...hintErrors,...Object.values(feeErrors)].filter(Boolean)
   const currentStepErrors = wizardStep === 1 ? [] : wizardStep === 2 ? Object.values(basicErrors).filter(Boolean) : wizardStep === 3 ? [...Object.values(basicErrors),...Object.values(ruleErrors),...hintErrors].filter(Boolean) : allErrors
   const gameMeta = templates.data?.templates.find(template => template.templateId === draft.templateId)
-  const gameAvailable = Boolean(gameMeta && (!gameMeta.playStatus || gameMeta.playStatus === 'live'))
+  const gameAvailable = Boolean(gameMeta && (!gameMeta.playStatus || gameMeta.playStatus === 'live') && gameMeta.available_modes?.create !== false)
 
   const buildConfig = () => {
     const rules: Record<string, unknown> = { templateId: draft.templateId, ...draft.rules }
@@ -656,7 +658,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
         <h2>1 · Pick a game</h2>
         {picking ? (
           <div className="ct-grid ct-grid-formats">
-            {(templates.data?.templates ?? []).filter((t) => isReleasedGame(t.templateId) && t.playStatus !== 'offline' && t.placement !== 'hidden').map((t: TemplateMeta) => (
+            {(templates.data?.templates ?? []).filter((t) => t.playStatus !== 'offline' && t.available_modes?.create !== false && t.placement !== 'hidden' && t.placement !== 'upcoming').map((t: TemplateMeta) => (
               <button
                 key={t.templateId}
                 className={`ct-format${draft.templateId === t.templateId ? ' on' : ''}`}
@@ -664,7 +666,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
                 disabled={Boolean(t.playStatus && t.playStatus !== 'live')}
                 aria-pressed={draft.templateId === t.templateId}
               >
-                <img src={`${import.meta.env.BASE_URL}center-art/${t.templateId}.webp`} alt="" width="320" height="200" loading="lazy" />
+                <div className="gc-banner"><GameArtwork id={t.templateId} color={TEMPLATE_META[t.templateId]?.hue ?? '#95e7ef'}/><BannerBadges overlay={t.overlay} tag={t.tag}/></div>
                 <b>{FEATURED_GAMES.find((game) => game.id === t.templateId)?.name ?? t.label}</b>
                 {t.playStatus && t.playStatus !== 'live' && <span className="ct-game-status-tag">{t.playStatus === 'maintenance' ? 'Under maintenance' : 'Offline'}</span>}
                 <span>{FEATURED_GAMES.find(game => game.id === t.templateId)?.description ?? t.blurb}</span>
@@ -1211,7 +1213,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
           {(room?.participants ?? []).length === 0 && <span className="muted">Nobody yet.</span>}
         </div>
         <div className="ct-actions">
-          {!ticket && (
+          {!ticket && room?.gameConfig?.available_modes.join !== false && (
             <details className="ct-presign">
               <summary>Before you join — read the room terms</summary>
               <ul className="ct-presign-list">
@@ -1267,7 +1269,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
               </ul>
             </details>
           )}
-          {!ticket && (
+          {!ticket && room?.gameConfig?.available_modes.join !== false && (
             <button className="btn-primary" onClick={join} disabled={busy || !session.token || Boolean(room?.archived) || Boolean(room?.gameStatus && room.gameStatus !== 'live' && !amPlayer)} title={!session.token ? "Sign in with your wallet to join" : undefined}>
               {busy && joinStep ? 'Working…' : players.includes(me) ? 'Reconnect to room' : 'Join room'}
             </button>
@@ -1444,6 +1446,20 @@ const NAV: { label: string; path: string }[] = [
 ]
 
 export function CenterApp() {
+  const [path, setPath] = useState(window.location.pathname)
+  useEffect(() => {
+    const changed = () => setPath(window.location.pathname)
+    window.addEventListener('popstate', changed)
+    return () => window.removeEventListener('popstate', changed)
+  }, [])
+  const match = /^\/center\/preview\/([^/]+)\/?$/.exec(path)
+  // Branch before the session hook: saved wallets must never probe or sign in
+  // while a preview is loaded. This also unmounts all room/session polling.
+  if (match) return <PreviewArena key={match[1]} templateId={match[1]} />
+  return <ConnectedCenterApp />
+}
+
+function ConnectedCenterApp() {
   const session = useSession()
   const [walletOpen, setWalletOpen] = useState(false)
   const [walletNotice, setWalletNotice] = useState<string | null>(null)
@@ -1490,7 +1506,7 @@ export function CenterApp() {
   const body = useMemo(() => {
     switch (route.name) {
       case 'create':
-        return route.templateId && !isReleasedGame(route.templateId) ? <div className="ct-page ct-unavailable"><Gamepad2 size={48} /><h1>More worlds are on the way.</h1><p>This game is coming soon. Pick a featured game for your next room.</p><button className="btn-primary" onClick={() => go('/center')}>Explore games</button></div> : <Wizard key={`${route.templateId ?? 'choose'}:${route.fromRoom ?? ''}`} session={session} initialTemplateId={route.templateId} fromRoom={route.fromRoom} onConnect={() => setWalletOpen(true)} />
+        return <Wizard key={`${route.templateId ?? 'choose'}:${route.fromRoom ?? ''}`} session={session} initialTemplateId={route.templateId} fromRoom={route.fromRoom} onConnect={() => setWalletOpen(true)} />
       case 'practice':
         return <PracticeArena templateId={route.templateId} navigate={go} />
       case 'room':

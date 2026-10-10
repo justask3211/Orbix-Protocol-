@@ -22,7 +22,9 @@ const CENTER_TARGET =
 // path makes Express strip that prefix before the proxy sees it, which forwarded
 // /api/center/v1/health as /v1/health and returned 404.
 const centerProxy = createProxyMiddleware({
-  pathFilter: '/api/center',
+  // Preview page navigation checks the signed policy once on the backend.
+  // Its subsequent assets stay local to this site; the demo makes no API calls.
+  pathFilter: pathname => pathname.startsWith('/api/center') || pathname.startsWith('/center/preview/'),
   target: CENTER_TARGET,
   changeOrigin: true,
   ws: true,
