@@ -657,6 +657,27 @@ class Store:
                 (room_id, seq, who, json.dumps(payload), 1 if accepted else 0, time.time()),
             )
 
+    def checkpoint_timed(self, room_id, round_id, snapshot, who=None, action=None, at=None, accepted=False):
+        """Clock transitions + accepted input + snapshot are one durable transaction.
+
+        Transitions are deduplicated by their full logical identity, across restart.
+        """
+        with self.tx() as c:
+            start = c.execute('SELECT action_start_seq FROM rounds WHERE round_id=?', (round_id,)).fetchone()[0] or 0
+            rows = c.execute('SELECT payload FROM actions WHERE room_id=? AND seq>? AND who=?', (room_id, start, 'clock')).fetchall()
+            recorded = {r['payload'] for r in rows}
+            seq = c.execute('SELECT COALESCE(MAX(seq),0)+1 n FROM actions WHERE room_id=?', (room_id,)).fetchone()['n']
+            for transition in snapshot.get('transitions', []):
+                payload = json.dumps({'kind': 'phase-transition', **transition}, sort_keys=True)
+                if payload not in recorded:
+                    c.execute('INSERT INTO actions VALUES (?,?,?,?,?,?)', (room_id, seq, 'clock', payload, 1, transition['at']))
+                    recorded.add(payload)
+                    seq += 1
+            if action is not None:
+                c.execute('INSERT INTO actions VALUES (?,?,?,?,?,?)', (room_id, seq, who, json.dumps(action), int(accepted), at))
+            c.execute('UPDATE rounds SET snapshot_json=? WHERE round_id=?', (json.dumps(snapshot), round_id))
+        return seq
+
     def checkpoint_arena(self, room_id: str, round_id: str, snapshot: dict, actions: list[dict]) -> None:
         """Commit simulation recovery and its accepted input batch atomically."""
         with self.tx() as c:

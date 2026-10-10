@@ -161,7 +161,7 @@ class RoomRuntime:
             engine_cls = engine_for(config)
             rt.engine = engine_cls.restore(config, rnd["round_id"], rnd["seed"], rnd["snapshot"])
             duration = float(getattr(config.rules, "duration_seconds", 120))
-            if config.template_id == "reaction-duel":
+            if config.template_id in {"reaction-duel", "rps-duel"}:
                 duration = config.rules.rounds * (config.rules.choice_window_seconds + config.rules.reveal_window_seconds)
             rt._deadline = rnd["started_at"] + duration
         if rnd:
@@ -397,7 +397,7 @@ class RoomRuntime:
                 elif chosen.get(p) in CHARACTERS:
                     body['character'] = chosen[p]
         duration = float(getattr(self.config.rules, "duration_seconds", 120))
-        if self.config.template_id == "reaction-duel":
+        if self.config.template_id in {"reaction-duel", "rps-duel"}:
             duration = self.config.rules.rounds * (self.config.rules.choice_window_seconds + self.config.rules.reveal_window_seconds)
         self._deadline = now + duration
         self._set_status(lc.RUNNING)
@@ -432,9 +432,18 @@ class RoomRuntime:
             self.action_guard(who.lower())
         if getattr(self.engine, 'arena', False):
             return await self._arena_act(who.lower(), action, now)
+        if getattr(self.engine, 'timed_sealed', False):
+            await self.tick(now)
+            if not self.is_playable(): return {'ok': False, 'error': 'ROUND_NOT_OPEN'}
+        before = self.engine.snapshot() if getattr(self.engine, 'timed_sealed', False) else None
         seq = self.store.next_seq(self.room_id)
         result = self.engine.act(who.lower(), action, now)
-        self.store.append_action(self.room_id, seq, who.lower(), action, result.ok)
+        if getattr(self.engine, 'timed_sealed', False):
+            after = self.engine.snapshot()
+            if before != after:
+                seq = self.store.checkpoint_timed(self.room_id, self.round_id, after, who.lower(), action, now, result.ok)
+        else:
+            self.store.append_action(self.room_id, seq, who.lower(), action, result.ok)
         if result.ok:
             self.actions_seen.append({"who": who.lower(), "action": action, "at": round(now, 3)})
             # Durability: a restart must resume mid-round, so checkpoint after every
@@ -486,7 +495,22 @@ class RoomRuntime:
             return False
         if lc.is_terminal(self.status):
             return True
+        if getattr(self.engine, 'timed_sealed', False):
+            observed = self.store.get_setting(f'clock:{self.round_id}') or {'at': (self.store.get_round(self.round_id) or {}).get('started_at', now)}
+            window = getattr(self.config.rules, 'choice_window_seconds', getattr(self.config.rules, 'selection_seconds', getattr(self.config.rules, 'turn_seconds', 20)))
+            if now - observed['at'] >= window:
+                self.store.set_setting(f'recovery:{self.round_id}', {'reason': 'UNSERVED_SELECTION_WINDOW', 'previousObservedAt': observed['at'], 'observedAt': now})
+                self._set_status(lc.RECOVERY_REQUIRED)
+                await self.hub.broadcast(self.room_id, {'v': PROTOCOL_VERSION, 'type': 'room.cancelled', 'payload': {'reason': 'UNSERVED_SELECTION_WINDOW'}})
+                return True
+            self.store.set_setting(f'clock:{self.round_id}', {'at': now})
         result = self.engine.tick(now)
+        if getattr(self.engine, 'integrity_error', None):
+            self.store.set_setting(f'recovery:{self.round_id}', {'reason': self.engine.integrity_error})
+            self._set_status(lc.RECOVERY_REQUIRED)
+            return True
+        if result is not None and getattr(self.engine, 'timed_sealed', False):
+            self.store.checkpoint_timed(self.room_id, self.round_id, self.engine.snapshot())
         if now - self._last_hint_tick >= 1:
             self.community.deliver_hints(self.room_id, getattr(self.engine, "started_at", 0), now)
             self._last_hint_tick = now
@@ -529,7 +553,7 @@ class RoomRuntime:
         self._set_status(lc.RESULT_PENDING)
 
         actions = [{"who": a["who"], "action": a["action"], "at": a["at"]} for a in self.actions_seen]
-        if getattr(self.engine, 'arena', False):
+        if self.round_id:
             start_seq = (self.store.get_round(self.round_id) or {}).get('action_start_seq', 0)
             actions=[{'who':a['who'],'action':json.loads(a['payload']),'at':a['at']} for a in self.store.actions_since(self.room_id,start_seq) if a['accepted']]
         transcript = st.transcript_hash(self.round_id or "", actions)

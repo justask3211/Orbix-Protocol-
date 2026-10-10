@@ -70,7 +70,7 @@ def test_live_result_metadata_does_not_expose_early_eligibility():
 
 
 def test_positive_round_wins_in_a_drawn_reaction_duel_pay_nobody():
-    cfg = RoomConfig(template_id='reaction-duel', name='Drawn duel', rules={'templateId': 'reaction-duel', 'rounds': 3}, admission={'player_cap': 2, 'min_ready_to_start': 2})
+    cfg = RoomConfig(template_id='reaction-duel', template_version=1, name='Drawn duel', rules={'templateId': 'reaction-duel', 'rounds': 3}, admission={'player_cap': 2, 'min_ready_to_start': 2})
     engine = DuelEngine(cfg, 'round', '12' * 32, ['alice', 'bob'])
     engine.start(0)
     for index, (left, right) in enumerate([('rock', 'scissors'), ('scissors', 'rock'), ('rock', 'rock')]):

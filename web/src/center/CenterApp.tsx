@@ -522,6 +522,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
     if (isSolo && MAX_PLAYERS_IN_RULES.has(draft.templateId)) rules.max_players = 1
     const nextConfig = {
       template_id: draft.templateId,
+      template_version: ['reaction-duel','rps-duel'].includes(draft.templateId) ? 2 : 1,
       name: draft.name,
       description: draft.description,
       visibility: draft.visibility,

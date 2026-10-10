@@ -15,7 +15,7 @@ from center.schema import Admission, DuelRules, RoomConfig, Rewards
 
 def _config(rounds: int = 3) -> RoomConfig:
     rules = DuelRules(rounds=rounds)  # type: ignore[arg-type]
-    return RoomConfig(name="Duel hint room", template_id="reaction-duel",
+    return RoomConfig(name="Duel hint room", template_id="reaction-duel", template_version=1,
                       rules=rules, rewards=Rewards(),
                       admission=Admission(player_cap=2, min_ready_to_start=2))
 

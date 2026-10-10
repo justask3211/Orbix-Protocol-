@@ -28,7 +28,7 @@ SEED, ROUND = "ab" * 32, "cd" * 32
 def configuration(template: str, rules: dict, *, cap: int) -> RoomConfig:
     teams = template == "boss-raid" and rules.get("team_mode") == "teams"
     return RoomConfig(**{
-        "name": "World Mechanics Test", "template_id": template,
+        "name": "World Mechanics Test", "template_id": template, "template_version": 1,  # Legacy phase behavior fixtures.
         "rules": {"templateId": template, **({"min_players": 6} if teams else {}), **rules},
         "admission": {"player_cap": cap, "min_ready_to_start": 6 if teams else 2},
         "access": {"vault_mode": "simulated", "required_amount": 100, "joiner_fee": 0},

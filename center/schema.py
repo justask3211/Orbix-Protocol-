@@ -277,7 +277,7 @@ TEMPLATE_META: dict[str, dict] = {
     "live-quiz": {"label": "Live Quiz", "blurb": "Timed questions, live leaderboard.", "modes": "accuracy / +speed", "multiplayer": True},
     "memory-match": {"label": "Memory Match", "blurb": "Flip and match every pair.", "modes": "moves / time", "multiplayer": False},
     "token-catch": {"label": "Token Catch", "blurb": "Race to shared airdrops, loot coin piles and outplay rivals.", "modes": "character world / legacy lanes", "multiplayer": True},
-    "reaction-duel": {"label": "Rock Paper Scissors Duel", "blurb": "Seal your choice, then reveal. Best of 3/5/7.", "modes": "commits", "multiplayer": True},
+    "reaction-duel": {"label": "Rock Paper Scissors Duel", "blurb": "Choose once. Automatic reveal. Best of 3/5/7.", "modes": "commits", "multiplayer": True},
     "combat-duel": {"label": "Arena Duel", "blurb": "Move, block and battle with fists, swords and spears.", "modes": "1 vs 1 arena", "multiplayer": True},
     "puzzle-sprint": {"label": "Puzzle Sprint", "blurb": "Solve the sliding puzzle against the clock.", "modes": "3x3 / 4x4", "multiplayer": False},
     "hash-hunt": {"label": "Hash Hunt", "blurb": "Proof-of-work race. Bots and agents welcome.", "modes": "first-valid / best-effort", "multiplayer": True},
@@ -496,12 +496,22 @@ class RoomConfig(Strict):
     branding: Branding = Field(default_factory=Branding)
     community_settings: CommunityOptions = Field(default_factory=CommunityOptions)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _default_version(cls, value):
+        if isinstance(value, dict) and 'template_version' not in value and value.get('template_id') in {'reaction-duel', 'rps-duel'}:
+            value = {**value, 'template_version': 2}
+        return value
+
     @model_validator(mode="after")
     def _cross_checks(self) -> "RoomConfig":
         if self.template_id not in TEMPLATE_RULES:
             raise ValueError(f"unknown template_id {self.template_id!r}")
         if not isinstance(self.rules, TEMPLATE_RULES[self.template_id]):
             raise ValueError(f"rules object does not match template {self.template_id!r}")
+        allowed_versions = {1, 2} if self.template_id in {'reaction-duel', 'rps-duel'} else {1}
+        if self.template_version not in allowed_versions:
+            raise ValueError('UNSUPPORTED_TEMPLATE_VERSION')
         if self.mode == "preview" and self.access.vault_mode != "simulated":
             raise ValueError("preview rooms must use the simulated vault")
         # entry.kind == 'erc20' is allowed in preview: the joiner's token payment

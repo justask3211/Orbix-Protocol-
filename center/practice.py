@@ -6,7 +6,7 @@ import secrets
 import time
 
 from fastapi import HTTPException, Request, Header
-from center.games import engine_for
+from center.games import engine_for, StreamRNG
 from center.schema import RoomConfig
 
 PLAYER = '0x'+'11'*20
@@ -39,13 +39,10 @@ def mount_practice(app,prefix):
             if engine.template_id=='reaction-duel':
                 state=engine.public_state()
                 if state['phase']=='commit' and not state['committed'].get(BOTS[0]) and now-record['lastBot']>=.8:
-                    choice=secrets.choice(['rock','paper','scissors']);salt=secrets.token_hex(16)
-                    record['botChoice']=(choice,salt)
-                    engine.act(BOTS[0],{'kind':'commit','choice':choice,'salt':salt},now)
+                    rng=StreamRNG(engine.seed, ('practice-bot/reaction-duel/v2/'+str(engine.round_index)).encode())
+                    choice=rng.choice(engine.choices);salt=rng.draw(16).hex()
+                    engine.act(BOTS[0],{'kind':'commit','roundId':engine.round_id,'subroundIndex':engine.round_index,'choice':choice,'salt':salt},now)
                     record['lastBot']=now
-                if state['phase']=='reveal' and not state['revealed'].get(BOTS[0]) and record.get('botChoice'):
-                    choice,salt=record['botChoice']
-                    engine.act(BOTS[0],{'kind':'reveal','choice':choice,'salt':salt},now)
             return
         if now-record['startedAt']<8 or now-record['lastBot']<.15:return
         record['lastBot']=now
@@ -83,7 +80,7 @@ def mount_practice(app,prefix):
             scores=engine.scores();eligible=engine.eligible()
             state['finalPlacements']=[{'who':who,'score':scores[who],'rank':rank} for rank,who in enumerate(engine.ranking(),1) if who in eligible]
         if hasattr(engine,'private_state'):state.update(engine.private_state(PLAYER))
-        return {'state':state,'me':PLAYER,'players':engine.participants,'deadline':record['startedAt']+RULES[engine.template_id].get('duration_seconds',45),
+        return {'state':state,'me':PLAYER,'players':engine.participants,'deadline':record['startedAt']+getattr(engine.rules,'duration_seconds', engine.rules.rounds*(engine.rules.choice_window_seconds+engine.rules.reveal_window_seconds) if engine.template_id in {'reaction-duel','rps-duel'} else 120),
             'serverTimeMs':int(time.time()*1000),'practice':True,'rewards':'none'}
 
     @app.post(prefix+'/practice')

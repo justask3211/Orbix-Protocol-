@@ -1,9 +1,6 @@
-"""G05 — Reaction Duel.
-
-Two players, best-of-3/5/7, with a **committed** choice: each player first submits
-keccak(choice, salt) and only reveals the preimage afterwards. Both players must have
-committed before either reveal is accepted, so nobody can read a cleartext choice and
-then adapt. A missing reveal forfeits the subround.
+"""Versioned trusted-server duel. V1 retains manual SHA-256 commit/reveal;
+V2 seals the received choice privately and resolves at the fixed server deadline.
+The server receives cleartext choices in both versions.
 """
 
 from __future__ import annotations
@@ -29,7 +26,7 @@ def _commit(choice: str, salt: str) -> str:
     return hashlib.sha256(f"orbix-center/duel/v1|{choice}|{salt}".encode()).hexdigest()
 
 
-class DuelEngine(Engine):
+class LegacyDuelEngine(Engine):
     template_id = "reaction-duel"
     version = 1
 
@@ -213,3 +210,14 @@ class DuelEngine(Engine):
         self.phase = str(snapshot.get("phase", "commit"))
         self.history = list(snapshot.get("history", []))
         self.finished = bool(snapshot.get("finished", False))
+
+
+from center.games.sealed_duel import SealedDuelEngine
+
+class DuelEngine(SealedDuelEngine):
+    template_id = "reaction-duel"
+
+    def __new__(cls, config, *args, **kwargs):
+        if config.template_version == 1:
+            return LegacyDuelEngine(config, *args, **kwargs)
+        return super().__new__(cls)

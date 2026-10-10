@@ -9,7 +9,7 @@ from __future__ import annotations
 from center.games.base import ActionResult, Engine, Entitlement, StreamRNG, commit_hash, verify_commit
 from center.games.boss import BossEngine
 from center.games.catch import CatchEngine
-from center.games.duel import DuelEngine
+from center.games.duel import DuelEngine, LegacyDuelEngine
 from center.games.grid_bingo import LogoBingoEngine, RewardGridEngine
 from center.games.hash_hunt import HashHuntEngine
 from center.games.memory import MemoryEngine
@@ -24,7 +24,7 @@ from center.games.runner_detective_mev import (
     LevelRunnerEngine,
     MevRushEngine,
 )
-from center.games.rps_duel import RpsDuelEngine
+from center.games.rps_duel import RpsDuelEngine, LegacyRpsDuelEngine
 from center.games.arena import BossArenaEngine, CatchArenaEngine, CombatDuelEngine
 from center.games.field_arena import FieldCatchEngine, FieldBossEngine, FieldCombatEngine
 
@@ -54,6 +54,8 @@ ENGINES: dict[str, type[Engine]] = {
 
 
 def engine_for(config):
+    if config.template_version == 1 and config.template_id in {'reaction-duel', 'rps-duel'}:
+        return {'reaction-duel': LegacyDuelEngine, 'rps-duel': LegacyRpsDuelEngine}[config.template_id]
     if getattr(config.rules, 'world_version', 2) == 4:
         from center.games.terrain_arena import TerrainCatchEngine,TerrainBossEngine,TerrainCombatEngine
         return {'token-catch':TerrainCatchEngine,'boss-raid':TerrainBossEngine,'combat-duel':TerrainCombatEngine}[config.template_id]
