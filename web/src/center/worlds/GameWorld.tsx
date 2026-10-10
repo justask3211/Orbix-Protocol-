@@ -43,10 +43,10 @@ class WorldBoundary extends Component<{ children: ReactNode; fallback: ReactNode
 
 /** The renderer loads only when a featured game is opened. DOM controls remain usable without WebGL. */
 export default function GameWorld(props: GameWorldProps) {
-  // The legacy route stays available during the adoption gates. Phase W records
-  // route promotion; no legacy scene or other game's renderer is deleted.
+  // Product-owner adoption: Token Catch defaults to Babylon. The explicit
+  // legacy route and every other game's renderer remain available.
   const engine = new URLSearchParams(window.location.search).get('engine')
-  if (props.game === 'token-catch' && (engine === 'babylon' || props.state._renderer === 'babylon')) return <Suspense fallback={<div className="ow-loading" role="status">Opening Sunnydrop…</div>}><BabylonWorld {...props}/></Suspense>
+  if (props.game === 'token-catch' && engine !== 'three' && (engine === 'babylon' || props.state._renderer !== 'three')) return <WorldBoundary onFailure={()=>{}} fallback={<div className="ow-fallback" role="alert"><strong>Sunnydrop could not load</strong><p>Reload to retry the game view. The controls below remain available.</p></div>}><Suspense fallback={<div className="ow-loading" role="status">Opening Sunnydrop…</div>}><BabylonWorld {...props}/></Suspense></WorldBoundary>
   return <LegacyGameWorld {...props}/>
 }
 

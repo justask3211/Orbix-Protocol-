@@ -10,7 +10,7 @@ import {FirstPersonFeedback} from './feedback'
 import {number,type BabylonProps,type LoadStage,type FrameStats,type Body} from './types'
 
 type ActorSlot={identity:string;generation:number;track:MotionTrack;pose:MotionPose;actor?:BabylonActor;pending?:Promise<void>}
-type Callbacks={stage:(stage:LoadStage)=>void;error:(error:unknown)=>void;metrics:(stats:FrameStats)=>void}
+type Callbacks={stage:(stage:LoadStage)=>void;error:(error:unknown)=>void;metrics:(stats:FrameStats)=>void;autoScale?:boolean}
 export class BabylonRuntime {
   readonly engine: Engine
   readonly scene: Scene
@@ -41,7 +41,9 @@ export class BabylonRuntime {
   constructor(canvas:HTMLCanvasElement,props:BabylonProps,private callbacks:Callbacks) {
     this.props=props
     this.dpr=Math.min(window.devicePixelRatio||1,props.quality==='fast'?1:props.quality==='sharp'?2:1.5)
-    this.engine=new Engine(canvas,true,{preserveDrawingBuffer:false,stencil:true,powerPreference:'high-performance',adaptToDeviceRatio:false})
+    // Evidence captures retain the buffer so software WebGL screenshots cannot
+    // catch a discarded canvas between frames. Normal play keeps the fast path.
+    this.engine=new Engine(canvas,true,{preserveDrawingBuffer:new URLSearchParams(location.search).has('evidence'),stencil:true,powerPreference:'high-performance',adaptToDeviceRatio:false})
     this.engine.setHardwareScalingLevel(1/this.dpr)
     this.scene=new Scene(this.engine);this.scene.useRightHandedSystem=true
     this.assets=new CharacterAssets(this.scene)
@@ -59,6 +61,16 @@ export class BabylonRuntime {
   private stage(stage: LoadStage){this.callbacks.stage(stage);if(this.debug)this.debug.stage=stage}
   async start() {
     this.stage('physics');await enableCapsulePhysics(this.scene)
+    if(this.disposed)return
+    // A late first snapshot must supply terrain before the Havok mesh is built.
+    // Never warm a flat placeholder and then leave its collider under field-v1.
+    if(this.props.state.arena&&!Object.keys(this.props.state.bodies??{}).length){
+      this.stage('snapshot');const deadline=performance.now()+20000
+      while(!this.disposed&&!Object.keys(this.props.state.bodies??{}).length){
+        if(performance.now()>deadline)throw new Error('World sync timed out. Retry to request the current snapshot.')
+        await new Promise(resolve=>window.setTimeout(resolve,50))
+      }
+    }
     if(this.disposed)return
     this.environment=new SunnydropEnvironment(this.scene,this.props.state,this.props.quality??'balanced')
     this.objects=new WorldObjects(this.scene,this.environment)
@@ -171,7 +183,7 @@ export class BabylonRuntime {
         const stats:FrameStats={samples:sorted.length,p50,p95,fps:Math.round(1000/Math.max(1,p50)),calls:this.instrumentation.drawCallsCounter.current,triangles:this.scene.getActiveIndices()/3,meshes:this.scene.meshes.length,dpr:this.dpr,renderMs:this.instrumentation.renderTimeCounter.current,physicsMs:this.instrumentation.physicsTimeCounter.current}
         this.callbacks.metrics(stats);if(this.debug)this.debug.stats=stats
         // Resolution hysteresis includes slow frames; never drops telemetry outliers.
-        if(this.scaleSamples.length>=20&&p95>55&&this.dpr>.65){this.dpr=Math.max(.65,this.dpr-.15);this.engine.setHardwareScalingLevel(1/this.dpr);this.engine.resize();this.scaleSamples=[]}
+        if(this.callbacks.autoScale!==false&&this.scaleSamples.length>=20&&p95>55&&this.dpr>.65){this.dpr=Math.max(.65,this.dpr-.15);this.engine.setHardwareScalingLevel(1/this.dpr);this.engine.resize();this.scaleSamples=[]}
         this.lastReport=now
       }
     }

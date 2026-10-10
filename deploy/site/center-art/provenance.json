@@ -1,0 +1,50 @@
+[
+  {
+    "game": "number-hunt",
+    "file": "center-art/number-hunt.webp",
+    "bytes": 109372,
+    "sha256": "aff75d0ddf137bbecad8508b2a54a352005ce95c4482138e7f90355724ca75f4",
+    "generatedWith": "Built-in image_gen",
+    "prompt": "An orange fox explorer with teal backpack standing on a whimsical coral and mint floating puzzle island, oversized tactile cube tiles bearing clear numerals 3, 7, 9, a large luminous question-mark mystery cube, small golden coins and lush chunky stylized plants. Sunlit coral peach atmosphere, turquoise shadows and creamy highlights, clear composition with strongest subjects toward right and no text labels.",
+    "use": "Illustrated world preview; not a gameplay screenshot."
+  },
+  {
+    "game": "reaction-duel",
+    "file": "center-art/reaction-duel.webp",
+    "bytes": 74428,
+    "sha256": "3e9a530e7380bb664ae8d3c718e1a9d08cb27af8d553670b04a05fe451ef7136",
+    "generatedWith": "Built-in image_gen",
+    "prompt": "Two charming stylized adventurers facing each other across a split coral and periwinkle floating reaction arena, expressive competitive poses, a chunky golden lightning symbol floating between them, dramatic playful energetic composition, peach-coral left world and blue-lilac right world, tactile rounded game props, no text.",
+    "use": "Illustrated world preview; not a gameplay screenshot."
+  },
+  {
+    "game": "combat-duel",
+    "file": "center-art/combat-duel.webp",
+    "bytes": 106020,
+    "sha256": "0b0a9ae5d7c05da606be0dc7c7069adc151dd0f329bc22f46aebf8e2c29ed7dd",
+    "generatedWith": "Built-in image_gen; ffmpeg size/format conversion only",
+    "prompt": "Original fox and cat sparring in warm limestone courtyard, moss-green terrain and distant fogged mountains.",
+    "date": "2026-10-09",
+    "use": "Illustrated V4 world preview; not a gameplay screenshot."
+  },
+  {
+    "game": "boss-raid",
+    "file": "center-art/boss-raid.webp",
+    "bytes": 165986,
+    "sha256": "00c61a7f9a307fd4caf15b977e128ae6c8eb8556cf1794524dd8f4d883972490",
+    "generatedWith": "Built-in image_gen; ffmpeg size/format conversion only",
+    "prompt": "Original mossy guardian with mint crystal heart in ancient sanctuary with coral and teal adventurers.",
+    "date": "2026-10-09",
+    "use": "Illustrated V4 world preview; not a gameplay screenshot."
+  },
+  {
+    "game": "token-catch",
+    "file": "center-art/token-catch.webp",
+    "bytes": 137546,
+    "sha256": "117fcdfdc0b9f53d25cb443ae67df0f552e7fb40c1d2415c2d2d13e06d11690e",
+    "generatedWith": "Built-in image_gen; ffmpeg size/format conversion only",
+    "prompt": "Original fox and frog collecting game coins from parachute crate at grassy seaside radio outpost.",
+    "date": "2026-10-09",
+    "use": "Illustrated V4 world preview; not a gameplay screenshot."
+  }
+]

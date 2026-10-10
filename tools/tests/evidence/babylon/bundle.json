@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-10",
+  "method": "Vite production manifest dependency graphs; renderer additions exclude shared Center/GameWorld static imports and CSS. Gzip level 9 per file, not observed HTTP compression. Three graph includes R3F and current scene/GLTF code; GLBs excluded from both.",
+  "lazyLanding": true,
+  "engine": {
+    "file": "assets/babylon-engine-CI3wIcq5.js",
+    "bytes": 3864044,
+    "gzipBytes": 888247
+  },
+  "havok": {
+    "file": "assets/HavokPhysics-BqNY-4N9.wasm",
+    "bytes": 2094563,
+    "gzipBytes": 662067
+  },
+  "babylon": {
+    "files": [
+      {
+        "file": "assets/BabylonWorld-Da3zaS_X.js",
+        "bytes": 4708,
+        "gzipBytes": 1892
+      },
+      {
+        "file": "assets/BabylonWorld-DX0yLkPk.css",
+        "bytes": 730,
+        "gzipBytes": 397
+      },
+      {
+        "file": "assets/types-D2Fo3MGr.js",
+        "bytes": 320,
+        "gzipBytes": 237
+      },
+      {
+        "file": "assets/runtime-BRjIJO5d.js",
+        "bytes": 42361,
+        "gzipBytes": 15429
+      },
+      {
+        "file": "assets/babylon-engine-CI3wIcq5.js",
+        "bytes": 3864044,
+        "gzipBytes": 888247
+      },
+      {
+        "file": "assets/HavokPhysics-BqNY-4N9.wasm",
+        "bytes": 2094563,
+        "gzipBytes": 662067
+      },
+      {
+        "file": "assets/health-Dm556Y6S.js",
+        "bytes": 3203,
+        "gzipBytes": 1464
+      }
+    ],
+    "bytes": 6009929,
+    "gzipBytes": 1569733
+  },
+  "three": {
+    "files": [
+      {
+        "file": "assets/WorldScene-vU1Y5X3I.js",
+        "bytes": 196526,
+        "gzipBytes": 58285
+      },
+      {
+        "file": "assets/three.module-B2R18cCg.js",
+        "bytes": 746832,
+        "gzipBytes": 188024
+      },
+      {
+        "file": "assets/react-three-fiber.esm-CD5NjR3d.js",
+        "bytes": 177049,
+        "gzipBytes": 55557
+      },
+      {
+        "file": "assets/GLTFLoader-BlbACvEK.js",
+        "bytes": 49387,
+        "gzipBytes": 14278
+      },
+      {
+        "file": "assets/SkeletonUtils-CHxfGqZJ.js",
+        "bytes": 449,
+        "gzipBytes": 255
+      },
+      {
+        "file": "assets/CuteCharacter-CIseUNYC.js",
+        "bytes": 14225,
+        "gzipBytes": 5512
+      },
+      {
+        "file": "assets/cartoonStyle-BsYcvIoG.js",
+        "bytes": 845,
+        "gzipBytes": 516
+      },
+      {
+        "file": "assets/health-Dm556Y6S.js",
+        "bytes": 3203,
+        "gzipBytes": 1464
+      }
+    ],
+    "bytes": 1188516,
+    "gzipBytes": 323891
+  }
+}

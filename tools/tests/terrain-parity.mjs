@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import {execFileSync} from 'node:child_process'
 import {transformSync} from '../../web/node_modules/rolldown/dist/utils-index.mjs'
-const source=fs.readFileSync('web/src/center/worlds/terrain.ts','utf8')
+const source=fs.readFileSync(process.env.ORBIX_TERRAIN_SOURCE||'web/src/center/worlds/terrain.ts','utf8')
 const result=transformSync('terrain.ts',source,{target:'es2022'})
 assert.equal(result.errors.length,0)
 const {terrainHeight}=await import('data:text/javascript;base64,'+Buffer.from(result.code).toString('base64'))
