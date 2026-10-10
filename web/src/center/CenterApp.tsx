@@ -37,7 +37,7 @@ import { AdminPanel } from './AdminPanel'
 import { bindRoomOnChain, payJoinToken as payJoinTokenGated, GATE_ADDRESS, LEGACY_GATE, BURN_ADDRESS } from './gate'
 import { TxPreview } from './funds'
 import { SharePanel } from './SharePanel'
-import { RoundImmersion } from './RoundImmersion'
+import { RoundImmersion, type ImmersionHandle } from './RoundImmersion'
 import { CharacterBadge } from './CharacterBadge'
 import { ProfileAvatar, ProfileModal } from './ProfilePanel'
 import { CreatorTokenFees, RoomRewardsGuide } from './CreatorEconomy'
@@ -950,14 +950,12 @@ function RoomRoute({ roomId, session }: { roomId: string; session: ReturnType<ty
 
 function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof useSession> }) {
   const adminObserver = new URLSearchParams(window.location.search).get('observe') === '1'
-  const [expanded, setExpanded] = useState(false)
-  const expandedRound = useRef<string | null>(null)
+  const immersion = useRef<ImmersionHandle>(null)
   const reconnectAttempt=useRef<string|null>(null)
   const resultElement = useRef<HTMLElement>(null)
   const [presentedRound, setPresentedRound] = useState<string | null>(null)
   const scrolledResult = useRef<string | null>(null)
   const roomElement = useRef<HTMLDivElement>(null)
-  const minimizeButton = useRef<HTMLButtonElement>(null)
   const expandButton = useRef<HTMLButtonElement>(null)
   const [joinStep, setJoinStepRaw] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -981,7 +979,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
     refreshPending.current = true
     try {
       const data = await center.room(roomId, session.token ?? undefined)
-      if (latestRound.current && data.roundId !== latestRound.current) { setSettlement(null); setReject(null); resetChannel.current(); expandedRound.current = null }
+      if (latestRound.current && data.roundId !== latestRound.current) { setSettlement(null); setReject(null); resetChannel.current() }
       latestRound.current = data.roundId
       setRoom(data)
       if (data.settlement) setSettlement(data.settlement)
@@ -999,7 +997,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   const channel = useRoomChannel(roomId, {
     onSettlement: (payload) => setSettlement(payload as unknown as Settlement),
     onRoundStarted: () => { setSettlement(null); setReject(null); void refresh() },
-    onRematch: () => { setSettlement(null); setReject(null); expandedRound.current = null; void refresh() },
+    onRematch: () => { setSettlement(null); setReject(null); void refresh() },
     onRejected: (code) => setReject(code),
     onReconnectTicket: async () => {
       if (!session.token) throw new Error('Sign in to reconnect.')
@@ -1013,7 +1011,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
     setBusy(true); setError(null)
     try {
       await center.rematch(roomId, session.token, config)
-      channel.reset(); setSettlement(null); setReject(null); expandedRound.current = null
+      channel.reset(); setSettlement(null); setReject(null)
       setEditingRematch(false); setRematchNotice('Next match is open. Everyone must reconnect if needed and press Ready before the creator starts.')
       await refresh()
     } catch (failure) { setError(explainError(failure)); if (config) throw failure }
@@ -1055,11 +1053,13 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
 
   const start = async () => {
     if (!session.token) return
+    immersion.current?.enter()
     setBusy(true)
     try {
       await center.start(roomId, session.token)
       await refresh()
     } catch (err) {
+      immersion.current?.minimize()
       setError(explainError(err))
     } finally {
       setBusy(false)
@@ -1133,8 +1133,8 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   const placement = settlement ? localPlacement(settlement.results, me, state.teams, state.teamRankings) : undefined
   useEffect(() => {
     if (!finished) { scrolledResult.current = null; return }
-    if (expanded || settlement && podium.length > 0 && presentedRound !== currentRound || scrolledResult.current === currentRound) return
-    // Wait for the expanded view's overflow cleanup and the result anchor layout.
+    if (settlement && podium.length > 0 && presentedRound !== currentRound || scrolledResult.current === currentRound) return
+    // Wait for shell restoration and the result anchor layout.
     const frame = requestAnimationFrame(() => {
       const element = resultElement.current
       if (!element) return
@@ -1143,7 +1143,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       element.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
     })
     return () => cancelAnimationFrame(frame)
-  }, [finished, expanded, currentRound, Boolean(settlement), podium.length, presentedRound])
+  }, [finished, currentRound, Boolean(settlement), podium.length, presentedRound])
   useEffect(()=>{
     const key=`${roomId}:${me}:${session.token}`
     if(adminObserver || !amPlayer || room?.status!=='running' || !session.token || channel.status!=='idle' || reconnectAttempt.current===key)return
@@ -1152,33 +1152,13 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       .then(joined=>{setTicket(joined.ticket);channel.connect(joined.ticket)})
       .catch(err=>setError(explainError(err)))
   },[roomId,me,session.token,room?.status,amPlayer,adminObserver,channel.status,channel.connect])
-  useEffect(() => {
-    if (room?.status === 'running' && !finished && (channel.status==='open' || !amPlayer || adminObserver) && expandedRound.current !== currentRound) {
-      expandedRound.current = currentRound
-      setExpanded(true)
-    }
-    if (finished) setExpanded(false)
-  }, [currentRound, room?.status, finished,channel.status,amPlayer,adminObserver])
-  useEffect(() => {
-    if (!expanded) {
-      if (expandedRound.current) expandButton.current?.focus({preventScroll:true})
-      return
-    }
-    roomElement.current?.scrollTo({top:0,behavior:'instant'})
-    minimizeButton.current?.focus({preventScroll:true})
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !document.querySelector('[aria-modal="true"]')) setExpanded(false) }
-    window.addEventListener('keydown', escape)
-    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener('keydown', escape) }
-  }, [expanded])
 
   return (
-    <div ref={roomElement} className={`ct-page ct-game-room${expanded ? ' ct-play-expanded' : ''}`}>
-      {expanded && <div className="ct-immersive-toolbar"><div><Gamepad2 size={19} /><strong>{String(room?.config?.name ?? 'Live game')}</strong><span className={`sock s-${channel.status}`}>{adminObserver ? 'Admin observer' : channel.status}</span></div><button ref={minimizeButton} className="btn-ghost" onClick={() => setExpanded(false)}>Minimize game <span aria-hidden="true">↙</span></button></div>}
-      {!expanded && <Banner />}
-      {!expanded && room?.gameStatus && room.gameStatus !== 'live' && <p className="ct-observer-note" role="status">{room.gameStatus === 'maintenance' ? 'Under maintenance' : 'Game offline'} · {room.maintenanceMessage || 'New rooms and admissions are paused. Existing live matches can finish.'}</p>}
-      {adminObserver && !expanded && <p className="ct-observer-note" role="status">Admin observation · your visit does not add a participant or announce a join to the room.</p>}
+    <div ref={roomElement} className="ct-page ct-game-room">
+
+      {<Banner />}
+      {room?.gameStatus && room.gameStatus !== 'live' && <p className="ct-observer-note" role="status">{room.gameStatus === 'maintenance' ? 'Under maintenance' : 'Game offline'} · {room.maintenanceMessage || 'New rooms and admissions are paused. Existing live matches can finish.'}</p>}
+      {adminObserver && <p className="ct-observer-note" role="status">Admin observation · your visit does not add a participant or announce a join to the room.</p>}
       <header className="ct-head">
         <div>
           <h1>{String(room?.config?.name ?? 'Room')}</h1>
@@ -1215,7 +1195,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
           onCancel={() => setPreviewOpen(false)}
         />
 
-      <section className="ct-panel ct-room-meta" hidden={expanded || adminObserver}>
+      <section className="ct-panel ct-room-meta" hidden={adminObserver}>
         <h2>Players</h2>
         <div className="ct-players">
           {(room?.participants ?? []).map((p) => (
@@ -1301,10 +1281,11 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
           {ticket && !finished && (
             <button className="btn-ghost" aria-pressed={Boolean(room?.participants.find(p => p.who.toLowerCase() === me)?.ready)} disabled={!amPlayer || busy || channel.status !== 'open' || !session.token} onClick={async () => {
               if (!session.token) return
+              if (!room?.participants.find(p => p.who.toLowerCase() === me)?.ready) immersion.current?.enter()
               setBusy(true)
-              try { await center.ready(roomId,session.token,!room?.participants.find(p => p.who.toLowerCase() === me)?.ready); await refresh() } catch (failure) {setError(explainError(failure))} finally {setBusy(false)}
+              try { await center.ready(roomId,session.token,!room?.participants.find(p => p.who.toLowerCase() === me)?.ready); await refresh() } catch (failure) {immersion.current?.minimize();setError(explainError(failure))} finally {setBusy(false)}
             }}>
-              {room?.participants.find(p => p.who.toLowerCase() === me)?.ready ? 'Ready ✓ · click to pause' : 'Ready for this match'}
+              {room?.participants.find(p => p.who.toLowerCase() === me)?.ready ? 'Ready ✓ · click to pause' : 'Ready & enter'}
             </button>
           )}
           {isHost && room?.status !== 'running' && !finished && (
@@ -1343,12 +1324,13 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       </section>
 
       <section className="ct-panel ct-room-play">
-        {!expanded && <div className="ct-play-panel-heading"><h2>Play</h2>{hasRoundState && <button ref={expandButton} className="btn-ghost" onClick={() => setExpanded(true)}>Expand game <span aria-hidden="true">↗</span></button>}</div>}
+        {<div className="ct-play-panel-heading"><h2>Play</h2>{hasRoundState && <button ref={expandButton} className="btn-ghost" onClick={() => immersion.current?.enter()}>Resume game <span aria-hidden="true">↗</span></button>}</div>}
+        <RoundImmersion ref={immersion} active={!finished && room?.status==='running'} roundId={currentRound} movement={['token-catch','boss-raid','combat-duel'].includes(templateId)}>{() => <>
         {!Stage && <p className="muted">Waiting for the room configuration…</p>}
         {Stage && !hasRoundState && <><RoundPending status={room?.status} />{['token-catch','boss-raid','combat-duel'].includes(templateId) ? <Suspense fallback={<p role="status">Preparing your characters…</p>}><CharacterLobby players={players} appearances={room?.appearances??{}} me={me}/></Suspense> : isFeaturedGame(templateId) && <Suspense fallback={<p className="muted">Preparing your world…</p>}><LobbyWorld game={templateId as 'number-hunt' | 'boss-raid' | 'token-catch' | 'reaction-duel'} state={room?.config?.rules ?? {}} me={me} players={players} /></Suspense>}</>}
         {Stage && hasRoundState && (
-          <RoundImmersion active={!finished && room?.status==='running'} roundId={currentRound}>{blocked => <Stage
-            state={{ ...state, _roomId: roomId, _roundId: state.roundId, _spectating: !amPlayer, _adminObserver: adminObserver, _hidePlayers: room?.communitySettings?.hidePlayers, _hideGuesses: room?.communitySettings?.hideGuesses, _canAct: !blocked && amPlayer && channel.status === 'open' && room?.status === 'running', _connection: channel.status, _actionError: reject }}
+          <Stage
+            state={{ ...state, _roomId: roomId, _roundId: state.roundId, _spectating: !amPlayer, _adminObserver: adminObserver, _hidePlayers: room?.communitySettings?.hidePlayers, _hideGuesses: room?.communitySettings?.hideGuesses, _canAct: amPlayer && channel.status === 'open' && room?.status === 'running', _connection: channel.status, _actionError: reject }}
             me={me}
             players={players}
             finished={finished}
@@ -1356,10 +1338,11 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
               setReject(null)
               channel.act(payload)
             }}
-          />}</RoundImmersion>
+          />
         )}
         {reject && <p className="st-note err">Server refused that action: {reject}</p>}
         {channel.lastError && <p className="st-note ok">{channel.lastError}</p>}
+        </>}</RoundImmersion>
       </section>
 
       {adminObserver && session.token && <AdminRoomTools roomId={roomId} session={session} roomStatus={room?.status} onChanged={() => void refresh()} />}
@@ -1371,8 +1354,8 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       {editingRematch && room && <Suspense fallback={<p role="status">Opening next-match settings…</p>}><RematchSettings room={room} onClose={() => setEditingRematch(false)} onSave={playAgain} /></Suspense>}
       {isHost && session.token && Boolean((room?.config.waitlist as WaitlistOptions | undefined)?.enabled) && <CreatorWaitlist roomId={roomId} token={session.token}/>}
       {isHost && session.token && ((room?.config.rewards as {forms?:FormReward[]})?.forms??[]).map(form=><CreatorFormResponses key={form.kind} roomId={roomId} token={session.token!} kind={form.kind}/>)}
-      {finished && !expanded && amPlayer && session.token && Boolean((room?.config.rewards as {forms?:FormReward[]})?.forms?.length) && <ResultForms key={`${roomId}:${currentRound}:${me}`} roomId={roomId} roundId={currentRound} session={session} ready={rewardKind!=='funded-assets'||formsReady}/>}
-      {finished && !expanded && amPlayer && session.token && Boolean((room?.config.waitlist as WaitlistOptions | undefined)?.enabled) && <ResultWaitlist key={`${roomId}:${me}`} roomId={roomId} roundId={currentRound} options={room!.config.waitlist as WaitlistOptions} session={session}/>}
+      {finished && amPlayer && session.token && Boolean((room?.config.rewards as {forms?:FormReward[]})?.forms?.length) && <ResultForms key={`${roomId}:${currentRound}:${me}`} roomId={roomId} roundId={currentRound} session={session} ready={rewardKind!=='funded-assets'||formsReady}/>}
+      {finished && amPlayer && session.token && Boolean((room?.config.waitlist as WaitlistOptions | undefined)?.enabled) && <ResultWaitlist key={`${roomId}:${me}`} roomId={roomId} roundId={currentRound} options={room!.config.waitlist as WaitlistOptions} session={session}/>}
       {finished && <section ref={resultElement} className="ct-round-results" tabIndex={-1} aria-label="Round results">
       {!settlement && <div role="status"><h2>Round complete</h2><p>{room?.settlementAccess === 'session-required' ? 'Sign in with the wallet you used for this round to view your results and rewards. Your session may have expired.' : room?.settlementAccess === 'admission-required' ? 'Results and rewards are available to admitted players. This wallet did not join this round.' : 'The server is finalizing placements. You can retry while settlement completes.'}</p><button className="btn-ghost" onClick={() => void refresh()}>Retry results</button></div>}
       {settlement && podium.length > 0 && <Suspense fallback={<p role="status">Raising the winners’ podium…</p>}><WinnerCelebration winners={podium} me={me} localPlacement={placement} onPresented={onPodiumPresented} teamMode={templateId === 'boss-raid'} /></Suspense>}

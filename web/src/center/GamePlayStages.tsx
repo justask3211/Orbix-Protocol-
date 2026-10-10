@@ -1,4 +1,5 @@
 import { Component, Suspense, lazy, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useGamePortal } from './RoundImmersion'
 import { createPortal } from 'react-dom'
 import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, CircleHelp, Clock3, Flag, Gem, LockKeyhole, Shield, Sparkles, Swords, Target, Trophy, X, Zap } from 'lucide-react'
 import type { StageProps } from './stages'
@@ -84,10 +85,12 @@ function GameFrame({ game, title, eyebrow, icon, children, help, state, me, play
       </Suspense></SceneBoundary>
       <span className="gp-world-label"><span aria-hidden />{finished ? 'Round complete' : state._connection === 'reconnecting' || state._connection === 'connecting' ? 'Reconnecting…' : 'Live game world'}</span>
     </div>
+    <div className="gp-input-layer">
     {state._canAct === false && !finished && <p className="gp-status" role="status">{state._spectating ? 'You are watching this round. Join as a player to take part.' : state._connection && state._connection !== 'open' ? 'Waiting for your connection. Controls resume after the room synchronizes.' : 'You are watching this round. Join as a player to take part.'}</p>}
     {children}
     {state._actionError && <p className="gp-status gp-status-error" role="alert">{actionError(String(state._actionError))}</p>}
     {finished && <p className="gp-result-note"><Flag size={16} aria-hidden />Round complete. The room results below show verified placements and reward status.</p>}
+    </div>
   </section>
 }
 
@@ -114,6 +117,7 @@ function HintDesk({ open, onClose, enabled, hint, visibility }: { open: boolean;
   const dialog = useModalFocus(onClose, open)
   const titleId = useId()
   if (!open) return null
+  const portalTarget = useGamePortal()
   return createPortal(<div className="gp gp-number-hunt gp-hint-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <div className="gp-hint-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={dialog} tabIndex={-1}>
       <header><span className="gp-hint-dialog-icon" aria-hidden><CircleHelp size={24} /></span><h4 id={titleId}>Hint desk</h4><button type="button" className="gp-hint-close" aria-label="Close hint desk" onClick={onClose}><X size={19} aria-hidden /></button></header>
@@ -122,7 +126,7 @@ function HintDesk({ open, onClose, enabled, hint, visibility }: { open: boolean;
       {enabled && <p>Use the direction to narrow your next guess. In a multi-target round, each hint points toward the nearest target; that target can change between guesses.</p>}
       <button type="button" className="gp-action" onClick={onClose}>Back to the hunt</button>
     </div>
-  </div>, document.body)
+  </div>, portalTarget)
 }
 
 function Scoreboard({ title, scores, me, state, unit = 'points' }: { title: string; scores: Record<string, number>; me: string; state: StageProps['state']; unit?: string }) {

@@ -1,3 +1,4 @@
+import { lockBodyScroll } from './scrollLock'
 import { useEffect, useRef } from 'react'
 
 /** Keep keyboard focus in an open dialog and restore its trigger on close. */
@@ -8,8 +9,7 @@ export function useModalFocus(onClose: () => void, enabled = true) {
   useEffect(() => {
     if (!enabled) return
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const unlock = lockBodyScroll()
     const focusables = () => Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') ?? []).filter(element => element.getClientRects().length > 0)
     const frame = requestAnimationFrame(() => focusables()[0]?.focus())
     const onKey = (event: KeyboardEvent) => {
@@ -22,7 +22,7 @@ export function useModalFocus(onClose: () => void, enabled = true) {
       else if (!event.shiftKey && (document.activeElement === last || !dialog.current?.contains(document.activeElement))) { event.preventDefault(); first.focus() }
     }
     document.addEventListener('keydown', onKey)
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; previous?.focus() }
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('keydown', onKey); unlock(); previous?.focus() }
   }, [enabled])
   return dialog
 }

@@ -9,3 +9,9 @@ Validation: 164 focused legacy/duel/practice/result tests passed; 61 version-2 v
 Deliberate fixture changes: test_engines, test_late_engines, test_full_rounds, test_duel_hints, test_game_world_mechanics and the drawn-duel case in test_result_placements now explicitly pin template_version=1 for historical manual reveal semantics. New version-2 behavior is covered in test_sealed_duel. Financial allocation code is unchanged.
 
 Device/browser support and performance targets remain measurement requirements, not claims based on headless/source checks. No Railway deployment.
+
+## Phase 2
+
+RoundImmersion is the sole viewport/scroll owner. Its persistent shell contains lobby, loading, stage, notices, modal portals and Minimize. Host Start and guest Ready request native fullscreen synchronously before network work; practice now requires Start practice. Remote starts use labelled CSS immersion, with a Fullscreen gesture available. Portrait controls stay live. Scene constraints are removed inside the shell; safe insets apply to toolbar/control panes and visualViewport tracks the visible input area. Shared modal/body lock ownership prevents nested restoration races.
+
+Validation: TypeScript passed. Chromium fixture verified refusal, real user activation at request, viewport fill, portrait controls, all existing registered stages under WebGL failure and 20 Minimize/Resume cycles at 320×568, 390×844, 844×390 and 1280×800. Additional native Chromium and in-shell hint portal checks run in the same test. Existing framework mobile test was deliberately updated from universal portrait inert gating to Start practice and playable portrait. Physical Android/iOS/in-app browser and keyboard/notch measurements remain unverified here.
