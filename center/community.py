@@ -70,7 +70,7 @@ class CommunityService:
 
     @staticmethod
     def _room(cx, room_id: str):
-        room = cx.execute("SELECT owner, status FROM rooms WHERE id=?", (room_id,)).fetchone()
+        room = cx.execute("SELECT owner, status, template_id FROM rooms WHERE id=?", (room_id,)).fetchone()
         if not room:
             raise CommunityError("NOT_FOUND", "No such room.", 404)
         return room
@@ -156,6 +156,9 @@ class CommunityService:
             raise CommunityError("INVALID_MESSAGE", "Control characters are not allowed.")
         with self.store.tx() as cx:
             room = self._member(cx, room_id, who)
+            from center.schema import PORTFOLIO_TEMPLATES
+            if kind == 'hint' and room['template_id'] in PORTFOLIO_TEMPLATES:
+                raise CommunityError('HOST_HINTS_DISABLED', 'Use this game’s bounded private hints.', 409)
             is_owner = room["owner"].lower() == who
             if kind == "hint" and not is_owner:
                 raise CommunityError("FORBIDDEN", "Only the creator can publish a host hint.", 403)

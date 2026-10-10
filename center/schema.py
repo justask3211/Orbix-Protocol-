@@ -260,13 +260,18 @@ TEMPLATE_RULES.update({
     "airdrop-quest": AirdropQuestRules,
 })
 
+from center.rules_portfolio import (ClosestCallRules, WordForgeRules, PrismLinesRules, RelicAuctionRules, AtlasQuestRules)
+PORTFOLIO_TEMPLATES = frozenset({'closest-call', 'word-forge', 'prism-lines', 'relic-auction', 'atlas-quest'})
+TEMPLATE_RULES.update({model.model_fields['template_id'].default: model for model in
+    (ClosestCallRules, WordForgeRules, PrismLinesRules, RelicAuctionRules, AtlasQuestRules)})
+
 RulesUnion = Annotated[
     Union[
         NumberHuntRules, QuizRules, MemoryRules, CatchRules, DuelRules, PuzzleRules,
         HashHuntRules, BossRules, CombatRules,
         RpsDuelRules, RewardGridRules, LogoBingoRules, PatternRecallRules, TypingSprintRules,
         MazeRaceRules, LevelRunnerRules, ContractDetectiveRules, MevRushRules, IdleRigRules,
-        AirdropQuestRules,
+        AirdropQuestRules, ClosestCallRules, WordForgeRules, PrismLinesRules, RelicAuctionRules, AtlasQuestRules,
     ],
     Field(discriminator="template_id"),
 ]
@@ -295,6 +300,14 @@ TEMPLATE_META: dict[str, dict] = {
     "idle-rig": {"label": "Idle Rig", "blurb": "Server-clock progression with a hard inventory cap. Solo.", "modes": "3-10 tiers", "multiplayer": False},
     "airdrop-quest": {"label": "Airdrop Quest", "blurb": "Wallet-bound achievements from accepted actions, budget-capped.", "modes": "campaigns", "multiplayer": True},
 }
+
+TEMPLATE_META.update({
+    'closest-call': dict(label='Closest Call', blurb='Seal an estimate, then discover how close you came.', modes='Estimation', multiplayer=True),
+    'word-forge': dict(label='Word Forge', blurb='Build one strong English word from glowing letter tiles.', modes='Word puzzle', multiplayer=True),
+    'prism-lines': dict(label='Prism Lines', blurb='Drop crystals and connect four in a thoughtful duel.', modes='Board strategy', multiplayer=True),
+    'relic-auction': dict(label='Relic Auction', blurb='Bid game credits for relics and complete colour sets.', modes='Auction strategy', multiplayer=True),
+    'atlas-quest': dict(label='Atlas Quest', blurb='Place a map pin and learn from the revealed location.', modes='Geography', multiplayer=True),
+})
 
 
 def parse_rules(template_id: str, data: dict):
@@ -525,6 +538,16 @@ class RoomConfig(Strict):
         if getattr(self.rules, 'world_version', 2) >= 3 and self.template_id in {'token-catch', 'boss-raid'} and self.rewards.kind == 'funded-assets' and self.rewards.distribution == 'match':
             if any(s.asset_kind != 'erc20' for s in self.rewards.slots) or len({(s.asset_contract or '').lower() for s in self.rewards.slots}) != 1:
                 raise ValueError('shared loot and team pools require one ERC-20 reward asset')
+        if self.template_id in PORTFOLIO_TEMPLATES:
+            if self.community_settings.timed_hints:
+                raise ValueError('HOST_HINTS_DISABLED')
+            minimum = getattr(self.rules, 'min_players', 1)
+            if self.admission.min_ready_to_start < minimum or self.admission.player_cap < minimum:
+                raise ValueError('Too few ready players for this game')
+            if self.template_id == 'prism-lines' and (self.admission.player_cap != 2 or self.admission.min_ready_to_start != 2):
+                raise ValueError('Prism Lines requires exactly two ready players')
+            if self.rewards.distribution == 'match' and any(slot.rank > (1 if self.template_id == 'prism-lines' else self.admission.player_cap) for slot in self.rewards.slots):
+                raise ValueError('Reward rank exceeds the game player cap')
         ranks = [s.rank for s in self.rewards.slots]
         if len(ranks) != len(set(ranks)):
             raise ValueError("reward slot ranks must be unique")

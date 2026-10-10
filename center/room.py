@@ -132,6 +132,8 @@ class RoomRuntime:
     @classmethod
     def create(cls, store: Store, vault: VaultService, hub: Hub, *, owner: str, config: RoomConfig,
                room_id: str | None = None, status: str = lc.REGISTRATION) -> "RoomRuntime":
+        from center.content_packs import validate_config_pack
+        validate_config_pack(config)
         room_id = room_id or secrets.token_hex(8)
         room = {
             "id": room_id,
@@ -313,6 +315,8 @@ class RoomRuntime:
             raise ValueError("REMATCH_TEMPLATE_CHANGED")
         if cfg.timing.close_at and now >= cfg.timing.close_at:
             raise ValueError("ROOM_SCHEDULE_ENDED")
+        from center.content_packs import validate_config_pack
+        validate_config_pack(cfg)
         previous = self.round_id
         round_id, seed = secrets.token_hex(16), secrets.token_hex(32)
         config_hash = "0x" + hashlib.sha256(cfg.config_hash_input().encode()).hexdigest()
@@ -640,6 +644,8 @@ class RoomRuntime:
 
     def fairness(self) -> dict:
         rnd = (self.store.get_round(self.round_id) if self.round_id else None) or {}
+        start_seq = rnd.get('action_start_seq', 0)
+        actions = self.store.actions_since(self.room_id, start_seq) if self.round_id else []
         return {
             "roundId": self.round_id,
             "commitHash": rnd.get("commit_hash"),
@@ -651,7 +657,7 @@ class RoomRuntime:
             "settlementDeadline": rnd.get("settlement_deadline"),
             "chainId": DEFAULT_CHAIN_ID,
             "escrow": PLACEHOLDER_ESCROW if self.config.mode == "preview" else os.environ.get("CENTER_ESCROW", PLACEHOLDER_ESCROW),
-            "actions": [{"who": a["who"], "at": a["at"], "kind": a["action"].get("kind")} for a in self.actions_seen],
+            "actions": [{"who": a["who"], "at": a["at"], "kind": json.loads(a["payload"]).get("kind")} for a in actions if a["accepted"]],
             "publicState": self.engine.public_state() if self.engine else None,
         }
 
@@ -705,6 +711,12 @@ class RoomRuntime:
             return []
         scores = self.engine.scores()
         eligible = self.engine.eligible() if self.engine.finished else set()
+        from center.schema import PORTFOLIO_TEMPLATES
+        if self.config.template_id in PORTFOLIO_TEMPLATES:
+            ranking = self.engine.ranking()
+            qualified_ranks = {who: rank for rank, who in enumerate((p for p in ranking if p in eligible), 1)}
+            return [{'who': who, 'score': scores.get(who, 0), 'rank': qualified_ranks.get(who),
+                     'displayRank': rank, 'eligible': who in eligible} for rank, who in enumerate(ranking, 1)]
         return [{"who": who, "score": scores.get(who, 0), "rank": rank, "eligible": who in eligible}
                 for rank, who in enumerate(self.engine.ranking(), 1)]
 

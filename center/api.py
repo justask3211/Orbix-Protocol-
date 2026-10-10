@@ -333,7 +333,10 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
     def validate_config(raw: dict) -> RoomConfig:
         try:
-            return RoomConfig(**normalise_keys(raw))
+            config = RoomConfig(**normalise_keys(raw))
+            from center.content_packs import validate_config_pack
+            validate_config_pack(config)
+            return config
         except ValidationError as exc:
             raise HTTPException(422, detail={
                 "code": "INVALID_CONFIG",
@@ -342,6 +345,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
                     for e in exc.errors(include_url=False)[:6]
                 ],
             })
+        except (ValueError, OSError) as exc:
+            raise HTTPException(422, detail={'code': 'INVALID_CONTENT_PACK', 'message': str(exc)}) from exc
 
     # ------------------------------------------------------------------ health
 
@@ -388,8 +393,10 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
         out = []
         for tid, cls in ENGINES.items():
+            from center.portfolio import catalog_metadata
             meta = TEMPLATE_META[tid]
             out.append({
+                **catalog_metadata(tid, game_availability(store,tid)["status"]),
                 "templateId": tid,
                 "version": cls.version,
                 "label": meta["label"],

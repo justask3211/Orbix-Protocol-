@@ -59,7 +59,7 @@ def test_patch_keys_never_change_snapshot_types(template_id: str) -> None:
         visibility="unlisted",
         mode="preview",
         rules=rules,
-        admission=Admission(player_cap=cap, min_ready_to_start=1),
+        admission=Admission(player_cap=cap, min_ready_to_start=2 if template_id in {"prism-lines", "relic-auction"} else 1),
         access=Access(vault_mode="simulated", required_amount=0),
         rewards=Rewards(kind="preview-points", slots=[RewardSlot(rank=1, points=10)]),
     )

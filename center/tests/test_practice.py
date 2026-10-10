@@ -5,7 +5,7 @@ from center.tests.test_flow import make_app
 from center.tests.test_arena_games import arena,ALICE
 
 
-@pytest.mark.parametrize('template',['number-hunt','token-catch','boss-raid','combat-duel','reaction-duel'])
+@pytest.mark.parametrize('template',['number-hunt','token-catch','boss-raid','combat-duel','reaction-duel','closest-call','word-forge','prism-lines','relic-auction','atlas-quest'])
 def test_practice_needs_no_wallet_or_room_and_creates_no_financial_records(tmp_path,template):
     app=make_app(tmp_path)
     with TestClient(app) as client:
