@@ -111,9 +111,10 @@ def mount_practice(app,prefix):
             raise HTTPException(429,detail={'code':'PRACTICE_BUSY','message':'Practice is busy. Try again shortly.'})
         template=body.get('templateId')
         if template not in RULES:raise HTTPException(422,detail={'code':'UNKNOWN_PRACTICE_GAME'})
-        from center.admin_games import game_availability
+        from center.admin_games import game_availability, require_game_mode
         if game_availability(app.state.store,template)['status']!='live':
             raise HTTPException(409,detail={'code':'GAME_UNAVAILABLE','message':'This game is currently paused.'})
+        require_game_mode(app.state.store, template, 'practice')
         rates[client].append(now)
         bots=BOTS[:3] if template=='boss-raid' else BOTS[:2] if template=='token-catch' else BOTS[:1] if template in {'combat-duel','reaction-duel','prism-lines','relic-auction'} else []
         players=[PLAYER,*bots]

@@ -51,7 +51,7 @@ def test_publish_packs_and_outward_routes_are_secret_free(tmp_path,tid):
   encoded=json.dumps(public)
   for key in ['answer_col','answer_row','dictionary','deck','packRaw','submissions']:assert f'"{key}"' not in encoded
   template=next(t for t in client.get(API_PREFIX+'/templates').json()['templates'] if t['templateId']==tid)
-  assert template['placement']=='featured' and template['latencySensitivity']=='tolerant' and template['practiceAvailable']
+  assert template['placement']=='catalog' and template['latencySensitivity']=='tolerant' and template['practiceAvailable']
   assert client.get(API_PREFIX+f'/templates/{tid}/rules').status_code==200
   # Community's direct service also rejects clues independently of route shape.
   from center.community import CommunityService,CommunityError
