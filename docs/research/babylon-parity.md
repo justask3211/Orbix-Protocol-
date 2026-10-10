@@ -1,5 +1,7 @@
 # Babylon Token Catch parity — 2026-10-10
 
+> Historical adoption/evidence record. Later feedback on the same date rejected the visual result and returned the source default to Three.js. Babylon is experimental and remains available with `?engine=babylon`. The current decision is [renderer-verdict-2026-10-10.md](renderer-verdict-2026-10-10.md); measurements below are preserved, not rerun.
+
 The product owner rejected the keep-Three.js verdict and mandated Babylon.js.
 Apache-2.0 is accepted for code dependencies; art remains original/CC0.
 Token Catch now defaults to Babylon. `?engine=babylon` is explicit selection;

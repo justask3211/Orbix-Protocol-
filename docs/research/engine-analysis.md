@@ -1,5 +1,7 @@
 # Orbix engine analysis — R0, 2026-10-09
 
+> Current decision, later on 2026-10-10: product-owner feedback supersedes the Babylon adoption/default addendum in this historical analysis. Three.js is the Token Catch default; Babylon remains an explicit experimental route. See [renderer-verdict-2026-10-10.md](renderer-verdict-2026-10-10.md) for the visual-quality correction and deferred parity requirements.
+
 Decision made before runtime edits: retain Three.js/R3F and Python authority;
 adopt MIT cannon-es for presentation surface/camera collision queries. No second
 renderer, WebGPU requirement, backend migration, or changes to money flows.
