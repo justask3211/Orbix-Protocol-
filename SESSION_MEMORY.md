@@ -409,3 +409,36 @@ Honest: SwiftShader frame-time target failed (software renderer); real-phone per
 unverified; Babylon visual alternatives for Three fur shaders (PBR palette style);
 no funded tx exercised. Deployed: both Railway services SUCCESS 10:49 +08
 (live index-BKP7pPKZ.js, babylon chunks 200).
+
+## 2026-10-10 — Portfolio pivot: 5 new latency-tolerant games + auto-reveal + fullscreen (user feedback round)
+
+User's honest feedback: Babylon open-world games unplayable over no-CDN single-region hosting
+(RTT); old Three.js Token Catch looked better (structure/texture/colour) than the Babylon one;
+RPS "Reveal" button caused forfeits; wants 5 MORE games like Number Hunt/RPS (latency-tolerant),
+true fullscreen everywhere + minimize, richer character art. Open-world games stay but will be
+hidden manually.
+
+Plan round (xhigh, 1cde97e0): docs/specs/{reaction-duel-auto-reveal, fullscreen-immersion,
+five-new-games, game-portfolio-strategy, character-art-upgrade}.md + renderer verdict correction
+(Token Catch default back to Three.js; ?engine=babylon stays).
+
+Build round (high, commits 46f6a346, 5d086732, d1e53dd0, 9f33cfe1, d594d23b, 88e65ecd):
+- RPS/Reaction Duel v2: NO Reveal button — commit locks, server tick auto-reveals at window
+  close (works if tab closed); no-choice = forfeit (never auto-pick); CHOICE_LOCKED;
+  preimage retained privately server-side; template_version=2.
+- Persistent fullscreen shell for ALL games + minimize; portrait no longer blocks turn-based
+  games; viewport-fit=cover; portals inside fullscreen subtree.
+- Character wardrobes: textured outfits/dresses, frozen round appearances
+  (center/cosmetics_catalog.json).
+- FIVE NEW GAMES (all latency-tolerant, selection-window → sealed → auto-result):
+  closest-call (estimation museum), word-forge (word building, pack_sha256 dictionary),
+  prism-lines (4-in-a-row strategy), relic-auction (sealed bids, virtual credits only),
+  atlas-quest (map placement). Each: engine + rules + hint policy + stage + banner art
+  (original generated) + practice + wizard/catalog wiring.
+- Portfolio: latency-tolerant games surfaced; real-time worlds hideable via admin toggle.
+- Cabbage cron removed (script retired).
+
+Tests: 799 pytest (778 center + 21 community), 162 forge, 41 frontend, tsc, builds green.
+Deployed: both Railway services SUCCESS 19:58 +08 (live index-Fl9LeYyT.js; all 5 new game
+IDs in served bundle). Limits: latency figures are estimates; no real-phone measurement;
+content packs need curation before treating answer-leak resistance as meaningful.
