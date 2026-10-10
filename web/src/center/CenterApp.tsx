@@ -1,3 +1,4 @@
+import { PORTFOLIO_DEFAULTS, isPortfolio, portfolioDuration } from './gamePortfolio'
 import {FormRewardSetup, ResultForms, CreatorFormResponses, newForm, type FormReward} from './FormRewards'
 import { ResultWaitlist, CreatorWaitlist, type WaitlistOptions } from "./Waitlist"
 import { FundedRewardsSetup, MyRewards, CreatorRewardAllocation, initialRewardSettings, rewardConfig, type RewardSettings } from './FundedRewards'
@@ -47,7 +48,7 @@ import { copyText } from './share'
 import { useRoomChannel } from './ws'
 import { GameCenterHome } from './GameCenterHome'
 import { CenterVault } from './CenterVault'
-import { FEATURED_GAMES, isFeaturedGame } from './featuredGames'
+import { FEATURED_GAMES, isReleasedGame } from './featuredGames'
 import { Gamepad2, Plus, Wallet as WalletIcon, ArrowUpRight, LogOut } from 'lucide-react'
 import './center.css'
 import './centerShell.css'
@@ -221,6 +222,7 @@ const HINT_POLICIES: Record<string, string> = {
 }
 
 const DEFAULT_RULES: Record<string, Record<string, unknown>> = {
+  ...PORTFOLIO_DEFAULTS,
   'number-hunt': { digits: 4, min: 1111, max: 9999, guess_budget: 10, hints: 'on', hint_visibility: 'public', target_count: 1, win_mode: 'first-hit', guess_cooldown_ms: 500 },
   'live-quiz': {
     question_seconds: 15,
@@ -270,7 +272,7 @@ const DURATION_IN_RULES = new Set([
 
 /** Does this template accept a `duration_seconds` field at all? */
 function hasDuration(templateId: string): boolean {
-  return !DURATION_IN_RULES.has(templateId) && !NO_DURATION.has(templateId)
+  return !isPortfolio(templateId) && !DURATION_IN_RULES.has(templateId) && !NO_DURATION.has(templateId)
 }
 
 /** Templates whose rules object declares max_players. */
@@ -297,7 +299,7 @@ function initialDraft(templateId = 'number-hunt'): DraftState {
     entryAmount: 0,
     hintVisibility: 'private',
     durationSeconds: defaultDuration(templateId),
-    playerCap: templateId === 'boss-raid' ? 12 : ['reaction-duel', 'combat-duel'].includes(templateId) ? 2 : SOLO.has(templateId) ? 1 : 8,
+    playerCap: templateId === 'boss-raid' ? 12 : ['reaction-duel', 'rps-duel', 'combat-duel', 'prism-lines'].includes(templateId) ? 2 : SOLO.has(templateId) ? 1 : 8,
     minReady: SOLO.has(templateId) ? 1 : 2,
     rewardPoints: 100,
   }
@@ -407,7 +409,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
   const changeStep = (step: number) => {
     if (fundingLocked) { setError('Finish your saved funded publication before editing its settings.'); return }
     if (step > 1 && !templates.data?.templates.some(template => template.templateId === draft.templateId)) { setError('Wait for game availability to load, or retry the connection.'); return }
-    if (step > 1 && !isFeaturedGame(draft.templateId)) return
+    if (step > 1 && !isReleasedGame(draft.templateId)) return
     if (step > 2 && (draft.name.trim().length < 3 || draft.name.trim().length > 60)) { setError('Give your room a name between 3 and 60 characters.'); return }
     if (step > wizardStep && (currentStepErrors.length || step > 2 && Object.values(basicErrors).some(Boolean) || step > 3 && [...Object.values(ruleErrors),...hintErrors].some(Boolean))) { setError('Correct the highlighted settings before continuing.'); return }
     if (step > 1 && !gameAvailable) { setError('This game is currently unavailable. Pick a live game.'); return }
@@ -425,8 +427,8 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
     setEdited(true)
     setWizardStep(2)
   }
-  const capMax = draft.templateId === 'boss-raid' ? 50 : ['reaction-duel', 'combat-duel'].includes(draft.templateId) ? 2 : caps.max ?? (SOLO.has(draft.templateId) ? 1 : 50)
-  const capMin = draft.templateId === 'boss-raid' || ['reaction-duel', 'combat-duel'].includes(draft.templateId) ? 2 : caps.min ?? 1
+  const capMax = draft.templateId === 'boss-raid' ? 50 : ['reaction-duel', 'rps-duel', 'combat-duel', 'prism-lines'].includes(draft.templateId) ? 2 : caps.max ?? (SOLO.has(draft.templateId) ? 1 : 50)
+  const capMin = draft.templateId === 'boss-raid' || ['reaction-duel', 'rps-duel', 'combat-duel', 'prism-lines'].includes(draft.templateId) ? 2 : caps.min ?? 1
   const isSolo = SOLO.has(draft.templateId)
   const roundBounds: NumericBounds = ruleSchemas.duration_seconds ?? {minimum: draft.templateId === 'boss-raid' ? 60 : 15, maximum:600}
   const ruleFields = (TEMPLATE_FORMS[draft.templateId]?.fields ?? []).filter(field => {
@@ -516,6 +518,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       rules.hint_eliminations = Number(rules.hint_eliminations) || 1
     }
     if (hasDuration(draft.templateId)) rules[DURATION_KEY] = draft.durationSeconds
+    else if (isPortfolio(draft.templateId)) rules[DURATION_KEY] = portfolioDuration(draft.templateId,rules)
     else delete rules[DURATION_KEY]
     // Only inject max_players for templates whose rules object declares it —
     // extra fields are forbidden by the schema and would fail the publish.
@@ -549,10 +552,10 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       entry: draft.entryToken && draft.entryAmount > 0
         ? { kind: 'erc20' as const, token: draft.entryToken.trim(), amount: draft.entryAmount }
         : { kind: 'free' as const },
-      rewards: { kind: 'preview-points', slots: Number(draft.rules.world_version)>=3 && ['token-catch','boss-raid'].includes(draft.templateId) ? [{rank:1,points:draft.templateId==='token-catch'?Number(draft.rules.loot_budget):draft.rewardPoints}] : [{ rank: 1, points: draft.rewardPoints }, { rank: 2, points: Math.round(draft.rewardPoints / 2) }] },
+      rewards: { kind: 'preview-points', slots: Number(draft.rules.world_version)>=3 && ['token-catch','boss-raid'].includes(draft.templateId) ? [{rank:1,points:draft.templateId==='token-catch'?Number(draft.rules.loot_budget):draft.rewardPoints}] : [{ rank: 1, points: draft.rewardPoints }, ...(draft.playerCap>1 && draft.templateId!=='prism-lines' && !isSolo ? [{ rank: 2, points: Math.round(draft.rewardPoints / 2) }] : [])] },
       waitlist,
       branding: { preset: 'solar' },
-      community_settings: {...communityOptions, timed_hints: timedHints.filter(h => h.text.trim()).map(h => ({...h, text: h.text.trim()}))},
+      community_settings: {...communityOptions, timed_hints: (isPortfolio(draft.templateId) ? [] : timedHints).filter(h => h.text.trim()).map(h => ({...h, text: h.text.trim()}))},
     }
     if (rewardSettings.enabled) return {...nextConfig,mode:'testnet',rewards:{...rewardConfig(rewardSettings),forms}}
     if (forms.length) return {...nextConfig,rewards:{kind:forms[0].kind,slots:[],forms}}
@@ -653,7 +656,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
         <h2>1 · Pick a game</h2>
         {picking ? (
           <div className="ct-grid ct-grid-formats">
-            {(templates.data?.templates ?? []).filter((t) => isFeaturedGame(t.templateId)).map((t: TemplateMeta) => (
+            {(templates.data?.templates ?? []).filter((t) => isReleasedGame(t.templateId) && t.playStatus !== 'offline' && t.placement !== 'hidden').map((t: TemplateMeta) => (
               <button
                 key={t.templateId}
                 className={`ct-format${draft.templateId === t.templateId ? ' on' : ''}`}
@@ -703,6 +706,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
             <span>Description</span>
             <textarea rows={2} maxLength={1000} value={draft.description} onChange={(e) => set('description', e.target.value)} />
           </label>
+          {isPortfolio(draft.templateId)&&<p>Total match budget: {portfolioDuration(draft.templateId,draft.rules)} seconds, computed from the game windows.</p>}
           {hasDuration(draft.templateId) && (
             <ArcadeNumber label="Round length (seconds)" value={draft.durationSeconds} onChange={value => set('durationSeconds', value)} minimum={roundBounds.minimum} maximum={roundBounds.maximum} error={basicErrors.duration} help={`${roundBounds.minimum}–${roundBounds.maximum} seconds · up to 10 minutes. The objective may end a round earlier.`} />
           )}
@@ -720,13 +724,14 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
             <ArcadeToggle label="Hide the guess log" kind="shield" description="Keep each player's attempts off the public feed." checked={communityOptions.hide_guesses} onChange={checked => {setCommunityOptions(prev => ({...prev,hide_guesses:checked}));setEdited(true)}} />
           </div>
           <p className="muted">Your creator roster keeps verified names and wallets available to you. Reward receipts retain their contract identities.</p>
-          <h3>Timed host hints</h3><p className="muted">Hints appear after the match starts. They stay private until their scheduled time.</p>
+          {!isPortfolio(draft.templateId) && <><h3>Timed host hints</h3><p className="muted">Hints appear after the match starts. They stay private until their scheduled time.</p>
           {timedHints.map((hint,index) => <div key={index} className="ct-timed-hint">
             <ArcadeNumber label="Seconds after start" value={hint.delay_seconds} minimum={0} maximum={3600} error={numericError(hint.delay_seconds,{minimum:0,maximum:3600},'Hint delay')} onChange={value => {setTimedHints(prev => prev.map((h,i) => i === index ? {...h,delay_seconds:value} : h));setEdited(true)}} />
             <label><span>Hint message</span><input maxLength={500} value={hint.text} onChange={event => {setTimedHints(prev => prev.map((h,i) => i === index ? {...h,text:event.target.value} : h));setEdited(true)}} /></label>
             <button className="btn-ghost" onClick={() => {setTimedHints(prev => prev.filter((_,i) => i !== index));setEdited(true)}}>Remove hint</button>
           </div>)}
-          <button className="btn-ghost" disabled={timedHints.length >= 20} onClick={() => {setTimedHints(prev => [...prev,{delay_seconds:30,text:''}]);setEdited(true)}}>Add timed hint</button>
+          <button className="btn-ghost" disabled={timedHints.length >= 20} onClick={() => {setTimedHints(prev => [...prev,{delay_seconds:30,text:''}]);setEdited(true)}}>Add timed hint</button></>}
+          {isPortfolio(draft.templateId)&&<p>Use bounded private game hints. Equal scores use the seeded tie order; Prism Lines draws pay nobody. Content packs are frozen by digest.</p>}
         </fieldset>
         <h2>3 · {TEMPLATE_FORMS[draft.templateId]?.label ?? draft.templateId} rules & hints</h2>
         <p className="muted">Every field below only affects THIS game format. Anything you skip runs on its default.</p>
@@ -1327,7 +1332,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
         {<div className="ct-play-panel-heading"><h2>Play</h2>{hasRoundState && <button ref={expandButton} className="btn-ghost" onClick={() => immersion.current?.enter()}>Resume game <span aria-hidden="true">↗</span></button>}</div>}
         <RoundImmersion ref={immersion} active={!finished && room?.status==='running'} roundId={currentRound} movement={['token-catch','boss-raid','combat-duel'].includes(templateId)}>{() => <>
         {!Stage && <p className="muted">Waiting for the room configuration…</p>}
-        {Stage && !hasRoundState && <><RoundPending status={room?.status} />{['token-catch','boss-raid','combat-duel'].includes(templateId) ? <Suspense fallback={<p role="status">Preparing your characters…</p>}><CharacterLobby players={players} appearances={room?.appearances??{}} me={me}/></Suspense> : isFeaturedGame(templateId) && <Suspense fallback={<p className="muted">Preparing your world…</p>}><LobbyWorld game={templateId as 'number-hunt' | 'boss-raid' | 'token-catch' | 'reaction-duel'} state={room?.config?.rules ?? {}} me={me} players={players} /></Suspense>}</>}
+        {Stage && !hasRoundState && <><RoundPending status={room?.status} />{['token-catch','boss-raid','combat-duel'].includes(templateId) ? <Suspense fallback={<p role="status">Preparing your characters…</p>}><CharacterLobby players={players} appearances={room?.appearances??{}} me={me}/></Suspense> : ['number-hunt','reaction-duel'].includes(templateId) && <Suspense fallback={<p className="muted">Preparing your world…</p>}><LobbyWorld game={templateId as 'number-hunt' | 'boss-raid' | 'token-catch' | 'reaction-duel'} state={room?.config?.rules ?? {}} me={me} players={players} /></Suspense>}</>}
         {Stage && hasRoundState && (
           <Stage
             state={{ ...state, _roomId: roomId, _roundId: state.roundId, _appearances: state.appearances ?? room?.appearances, _spectating: !amPlayer, _adminObserver: adminObserver, _hidePlayers: room?.communitySettings?.hidePlayers, _hideGuesses: room?.communitySettings?.hideGuesses, _canAct: amPlayer && channel.status === 'open' && room?.status === 'running', _connection: channel.status, _actionError: reject }}
@@ -1346,7 +1351,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
       </section>
 
       {adminObserver && session.token && <AdminRoomTools roomId={roomId} session={session} roomStatus={room?.status} onChanged={() => void refresh()} />}
-      {(amPlayer || isHost) && <RoomCommunity roomId={roomId} session={session} isHost={isHost} roomStatus={room?.status} onSettingsChange={settings => setRoom(prev => prev ? {...prev, communitySettings: settings} : prev)} onRosterChange={() => void refresh()} />}
+      {(amPlayer || isHost) && <RoomCommunity roomId={roomId} templateId={templateId} session={session} isHost={isHost} roomStatus={room?.status} onSettingsChange={settings => setRoom(prev => prev ? {...prev, communitySettings: settings} : prev)} onRosterChange={() => void refresh()} />}
       {rematchNotice && <p className="ct-observer-note" role="status">{rematchNotice}</p>}
       {rewardKind === 'funded-assets' && finished && session.token && <MyRewards session={session} roomId={roomId} onContinue={Boolean((room?.config.rewards as {forms?:FormReward[]})?.forms?.length)?()=>setFormsReady(true):undefined}/>}
       {rewardKind === 'funded-assets' && isHost && finished && <CreatorRewardAllocation session={session} roomId={roomId}/>}
@@ -1485,7 +1490,7 @@ export function CenterApp() {
   const body = useMemo(() => {
     switch (route.name) {
       case 'create':
-        return route.templateId && !isFeaturedGame(route.templateId) ? <div className="ct-page ct-unavailable"><Gamepad2 size={48} /><h1>More worlds are on the way.</h1><p>This game is coming soon. Pick a featured game for your next room.</p><button className="btn-primary" onClick={() => go('/center')}>Explore games</button></div> : <Wizard key={`${route.templateId ?? 'choose'}:${route.fromRoom ?? ''}`} session={session} initialTemplateId={route.templateId} fromRoom={route.fromRoom} onConnect={() => setWalletOpen(true)} />
+        return route.templateId && !isReleasedGame(route.templateId) ? <div className="ct-page ct-unavailable"><Gamepad2 size={48} /><h1>More worlds are on the way.</h1><p>This game is coming soon. Pick a featured game for your next room.</p><button className="btn-primary" onClick={() => go('/center')}>Explore games</button></div> : <Wizard key={`${route.templateId ?? 'choose'}:${route.fromRoom ?? ''}`} session={session} initialTemplateId={route.templateId} fromRoom={route.fromRoom} onConnect={() => setWalletOpen(true)} />
       case 'practice':
         return <PracticeArena templateId={route.templateId} navigate={go} />
       case 'room':

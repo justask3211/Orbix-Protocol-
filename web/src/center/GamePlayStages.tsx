@@ -1,3 +1,4 @@
+import { ClosestCallStage, WordForgeStage, PrismLinesStage, RelicAuctionStage, AtlasQuestStage } from './PortfolioStages'
 import { Component, Suspense, lazy, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useGamePortal } from './RoundImmersion'
 import { createPortal } from 'react-dom'
@@ -409,10 +410,12 @@ export function BossRaidPlay(props: StageProps) {
 }
 
 export const FOUR_STAGE_VIEWS: Partial<Record<string, (props: StageProps) => ReactNode>> = {
+  'closest-call': ClosestCallStage, 'word-forge': WordForgeStage, 'prism-lines': PrismLinesStage,
+  'relic-auction': RelicAuctionStage, 'atlas-quest': AtlasQuestStage,
   'number-hunt': NumberHuntPlay,
   'token-catch': props => props.state.arena ? <ArenaPlay {...props} /> : <TokenCatchPlay {...props} />,
   'reaction-duel': DuelPlay,
   'rps-duel': DuelPlay,
   'boss-raid': props => props.state.arena ? <ArenaPlay {...props} /> : <BossRaidPlay {...props} />,
   'combat-duel': ArenaPlay,
-} satisfies Record<GameId | 'rps-duel', (props: StageProps) => ReactNode>
+} satisfies Record<GameId | 'rps-duel' | 'closest-call' | 'word-forge' | 'prism-lines' | 'relic-auction' | 'atlas-quest', (props: StageProps) => ReactNode>

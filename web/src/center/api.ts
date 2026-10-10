@@ -8,6 +8,9 @@ import type { Appearance, Cosmetics } from './characters'
 export const API_BASE: string = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_CENTER_API ?? '/api/center/v1'
 
 export type TemplateMeta = {
+  placement?: 'featured'|'more'|'coming-soon'|'hidden'
+  latencySensitivity?: 'tolerant'|'sensitive'
+  practiceAvailable?: boolean
   templateId: string
   version: number
   label: string

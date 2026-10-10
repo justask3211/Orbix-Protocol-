@@ -1,9 +1,12 @@
+import { PORTFOLIO_BANNERS } from './PortfolioBanners'
+import { PORTFOLIO_GAMES } from './gamePortfolio'
 // Per-game SVG artwork, one scene per template, drawn from each game's description.
 // Pure inline SVG: no network fetches, crisp at any size, themeable via currentColor.
 
 import type { ReactElement } from 'react'
 
 export const TEMPLATE_META: Record<string, { blurb: string; hue: string }> = {
+  ...Object.fromEntries(PORTFOLIO_GAMES.map(game=>[game.id,{blurb:game.description,hue:game.color}])),
   'number-hunt': { blurb: 'Crack the hidden number before your guesses run out.', hue: '#ff6b22' },
   'live-quiz': { blurb: 'Answer fast, answer right — the server holds the key.', hue: '#69d9c8' },
   'memory-match': { blurb: 'Flip, remember, match. Fewest moves wins.', hue: '#a4d46d' },
@@ -340,6 +343,7 @@ function AirdropQuest() {
 }
 
 const ART: Record<string, () => ReactElement> = {
+  ...PORTFOLIO_BANNERS,
   'number-hunt': NumberHunt,
   'live-quiz': LiveQuiz,
   'memory-match': MemoryMatch,

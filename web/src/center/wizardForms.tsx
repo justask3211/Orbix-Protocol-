@@ -1,3 +1,4 @@
+import { PORTFOLIO_GAMES } from './gamePortfolio'
 // Declarative per-template rule forms for the creator wizard.
 // Each game declares its own settings with human labels, option lists and help text,
 // so the wizard shows exactly one game's controls instead of a raw key dump.
@@ -15,7 +16,19 @@ export type TemplateForm = {
   quiz?: boolean // template owns the questions editor
 }
 
+const numberField=(key:string,label:string,min:number,max:number):RuleField=>({kind:'number',key,label,min,max,half:true})
+const portfolioForms:Record<string,TemplateForm>=Object.fromEntries(PORTFOLIO_GAMES.map(game=>[game.id,{label:game.name,fields:[
+ ...(game.id==='prism-lines'?[numberField('rows','Board rows',5,6),numberField('columns','Board columns',5,7),numberField('turn_seconds','Seconds per turn',10,20)]:[numberField('rounds','Challenges',3,game.id==='word-forge'?6:game.id==='relic-auction'?8:10),numberField('selection_seconds','Selection window (seconds)',game.id==='word-forge'?30:15,game.id==='word-forge'?60:game.id==='relic-auction'?30:40)]),
+ numberField('result_seconds','Result display (seconds)',3,6),
+ ...(game.id==='word-forge'?[numberField('rack_size','Letters per English rack',7,9)]:[]),
+ ...(game.id==='relic-auction'?[numberField('starting_credits','Starting game credits',50,200),numberField('set_bonus','Colour set bonus',10,40)]:[]),
+ {kind:'select',key:'hints',label:'Private hints',options:[{value:'on',label:'On',description:game.instructions},{value:'off',label:'Off'}],help:'Hints have a per-player budget for the entire match. Host hints are disabled.'} as RuleField,
+ ...(game.id==='word-forge'?[]:[numberField('hint_budget','Hints per player per match',1,2)]),
+ ...(game.id==='closest-call'?[{kind:'select',key:'pack_id',label:'Original exhibit pack',options:[{value:'closest-museum-v1',label:'Curiosity museum · v1'}]} as RuleField]:game.id==='word-forge'?[{kind:'select',key:'pack_id',label:'English pack',options:[{value:'word-workshop-en-v1',label:'English workshop · v1'}]} as RuleField]:game.id==='atlas-quest'?[{kind:'select',key:'pack_id',label:'Place pack',options:[{value:'atlas-world-v1',label:'World explorer · v1'}]} as RuleField]:[]),
+]}]))
+
 export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
+  ...portfolioForms,
   'number-hunt': {
     label: 'Number Hunt',
     fields: [

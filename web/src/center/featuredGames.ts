@@ -1,5 +1,7 @@
+import { PORTFOLIO_GAMES } from './gamePortfolio'
 /** The current player-facing lineup. Engine availability still comes from the API. */
 export const FEATURED_GAMES = [
+  ...PORTFOLIO_GAMES,
   {
     id: 'number-hunt', name: 'Number Hunt', category: 'Brain game', mode: 'Guess & discover',
     color: '#e0f77c', ink: '#25391d',
@@ -37,3 +39,8 @@ export const FEATURED_GAME_IDS: readonly string[] = FEATURED_GAMES.map((game) =>
 export function isFeaturedGame(id: string): id is FeaturedGameId {
   return FEATURED_GAME_IDS.includes(id)
 }
+
+export const REALTIME_GAMES = new Set(['token-catch','boss-raid','combat-duel'])
+export function gamePlacement(id:string): 'featured'|'more' {return REALTIME_GAMES.has(id)?'more':'featured'}
+export const RELEASED_GAME_IDS:readonly string[]=[...FEATURED_GAME_IDS,'rps-duel','hash-hunt','reward-grid','logo-bingo','maze-race','contract-detective','mev-rush','airdrop-quest']
+export const isReleasedGame=(id:string)=>RELEASED_GAME_IDS.includes(id)

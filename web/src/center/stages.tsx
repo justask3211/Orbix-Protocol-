@@ -1,3 +1,4 @@
+import { ClosestCallStage, WordForgeStage, PrismLinesStage, RelicAuctionStage, AtlasQuestStage } from './PortfolioStages'
 // The eight release-one game stages.
 //
 // Every stage is a pure view over the server's public state: it may never invent a
@@ -961,6 +962,8 @@ export function AirdropStage({ state, act, me, finished }: StageProps) {
 }
 
 export const STAGES: Record<string, ((props: StageProps) => ReactElement) | undefined> = {
+  'closest-call': ClosestCallStage, 'word-forge': WordForgeStage, 'prism-lines': PrismLinesStage,
+  'relic-auction': RelicAuctionStage, 'atlas-quest': AtlasQuestStage,
   'number-hunt': NumberHuntStage,
   'live-quiz': QuizStage,
   'memory-match': MemoryStage,
