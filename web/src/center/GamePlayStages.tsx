@@ -249,7 +249,7 @@ type SealedChoice = { choice: string; salt: string; round: number }
 const moveSymbols: Record<string, string> = { rock: '●', paper: '▱', scissors: '✂', lizard: '⌁', spock: 'Ⅴ' }
 const moveRules: Record<string, string> = { rock: 'Beats scissors & lizard', paper: 'Beats rock & Spock', scissors: 'Beats paper & lizard', lizard: 'Beats paper & Spock', spock: 'Beats rock & scissors' }
 
-export function DuelPlay(props: StageProps) {
+function LegacyDuelPlay(props: StageProps) {
   const { state, act, me, players, finished } = props
   const round = numeric(state.roundIndex)
   const roundId = String(state.roundId ?? state._roundId ?? '')
@@ -329,6 +329,41 @@ export function DuelPlay(props: StageProps) {
   </GameFrame>
 }
 
+export function DuelPlay(props: StageProps) {
+  if (Number(props.state.version ?? 1) === 1) return <LegacyDuelPlay {...props} />
+  return <AutomaticDuelPlay {...props} />
+}
+
+function AutomaticDuelPlay(props: StageProps) {
+  const { state, act, me, players, finished } = props
+  const round = numeric(state.roundIndex)
+  const choices: string[] = state.moves ?? ['rock', 'paper', 'scissors']
+  const receipt = state.ownSelection?.subroundIndex === round ? state.ownSelection : null
+  const locked = Boolean(receipt?.locked || state.committed?.[me])
+  const [pending, setPending] = useState<{choice: string; salt: string} | null>(null)
+  const clock = useServerClock(state, finished)
+  useEffect(() => setPending(null), [state.roundId, round])
+  const choose = (choice: string) => {
+    if (locked || finished || state.phase !== 'commit' || !allowed(state, finished)) return
+    if (pending && pending.choice !== choice) return
+    const submission = pending ?? { choice, salt: Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2,'0')).join('') }
+    setPending(submission)
+    act({kind:'commit', roundId:state.roundId, subroundIndex:round, ...submission})
+  }
+  const last = state.history?.at(-1)
+  return <GameFrame {...props} game="reaction-duel" title="Rock Paper Scissors Duel" eyebrow="Choose once · automatic reveal" icon={<Swords />} help={<><p>Choose before the countdown closes. The server locks your move and reveals both hands automatically, even if you disconnect.</p><p>No choice forfeits this subround. Draws consume a subround. Only a unique positive match winner qualifies for rewards.</p><p>Rock beats scissors; paper beats rock; scissors beats paper. In extended play: rock beats lizard, paper beats Spock, scissors beats lizard, lizard beats paper and Spock, Spock beats rock and scissors.</p></>}>
+    <div className="gp-stats"><Stat label="Subround" value={`${round+1} / ${state.rounds}`} /><Stat label="Phase" value={finished?'Complete':state.phase==='commit'?'Choose':'Automatic reveal'} /><Stat label="Your wins" value={state.wins?.[me] ?? 0} /></div>
+    <div className="gp-duel-versus">{(state.players ?? players).map((p:string,i:number)=><div key={p} className={`gp-duelist duelist-${i}`}><strong>{name(p,me,state)}</strong><span>{state.committed?.[p]?'Locked by server':'Choosing…'}</span><b>{state.wins?.[p] ?? 0} wins</b></div>)}</div>
+    <div className="gp-control-panel">
+      <h4>{state.phase==='commit'?`${clock.seconds ?? '—'} seconds to choose`:'Automatic reveal'}</h4>
+      <div className="gp-move-grid">{choices.map(choice=><button type="button" key={choice} className={`gp-move${(receipt?.choice ?? pending?.choice)===choice?' selected':''}`} disabled={locked || finished || state.phase!=='commit' || Boolean(pending && pending.choice!==choice)} onClick={()=>choose(choice)}><span aria-hidden>{moveSymbols[choice]}</span><strong>{choice}</strong><small>{moveRules[choice]}</small></button>)}</div>
+      <p role="status">{locked?`Locked by server${receipt ? ': '+receipt.choice : ''}. Reveals automatically at close.`:pending?'Sent. Awaiting server lock; tap the same move to retry.':'Tap one move to lock it. No choice forfeits this subround.'}</p>
+      {state.phase!=='commit' && last && <p className="gp-outcome" role="status">{last.a ?? 'No choice — round forfeited'} vs {last.b ?? 'No choice — round forfeited'} · {last.winner ? `${name(last.winner,me,state)} wins` : 'Draw'} · {last.reason}</p>}
+    </div>
+    <details className="gp-live-log"><summary>Resolved subrounds</summary>{state.history?.map((row:any)=><p key={row.round}>Round {row.round+1}: {row.a ?? 'No choice'} / {row.b ?? 'No choice'} — {row.reason}</p>)}</details>
+  </GameFrame>
+}
+
 export function BossRaidPlay(props: StageProps) {
   const { state, act, me, finished } = props
   const health = numeric(state.bossHealth, numeric(state.health))
@@ -373,6 +408,7 @@ export const FOUR_STAGE_VIEWS: Partial<Record<string, (props: StageProps) => Rea
   'number-hunt': NumberHuntPlay,
   'token-catch': props => props.state.arena ? <ArenaPlay {...props} /> : <TokenCatchPlay {...props} />,
   'reaction-duel': DuelPlay,
+  'rps-duel': DuelPlay,
   'boss-raid': props => props.state.arena ? <ArenaPlay {...props} /> : <BossRaidPlay {...props} />,
   'combat-duel': ArenaPlay,
-} satisfies Record<GameId, (props: StageProps) => ReactNode>
+} satisfies Record<GameId | 'rps-duel', (props: StageProps) => ReactNode>

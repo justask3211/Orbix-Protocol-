@@ -86,6 +86,7 @@ def build(tmp_path, template_id: str, rules: dict, *, player_cap: int = 8, min_r
     vault.deposit(HOST, 10_000)
     cfg = RoomConfig(
         template_id=template_id,
+        template_version=1,  # Preserve historical manual-reveal contract coverage.
         name=name or f"{template_id} test room",
         visibility="public",
         mode="preview",

@@ -391,7 +391,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             meta = TEMPLATE_META[tid]
             out.append({
                 "templateId": tid,
-                "version": 1,
+                "version": cls.version,
                 "label": meta["label"],
                 "blurb": meta["blurb"],
                 "modes": meta["modes"],

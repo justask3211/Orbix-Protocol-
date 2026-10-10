@@ -35,6 +35,7 @@ def build(template_id: str, payload: dict, participants: list[str]):
     cap = 1 if template_id in SOLO_TEMPLATES else len(participants)
     config = RoomConfig(
         template_id=template_id,
+        template_version=1,  # Preserve historical manual-reveal contract coverage.
         name="Test room for " + template_id,
         rules=rules,
         admission=Admission(player_cap=cap, min_ready_to_start=cap),

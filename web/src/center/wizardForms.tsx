@@ -74,7 +74,7 @@ export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
       { kind: 'select', key: 'rounds', label: 'Best of', half: true, options: [{ value: '3', label: '3 rounds', description: 'Quick showdown.' }, { value: '5', label: '5 rounds', description: 'Room for a comeback.' }, { value: '7', label: '7 rounds', description: 'A longer mind game.' }], help: 'Sets the number of committed-choice rounds played by both opponents.' },
       { kind: 'select', key: 'choice_set', label: 'Move set', half: true, options: [{ value: 'classic', label: 'Rock / paper / scissors', description: 'The familiar three-way matchup.' }, { value: 'extended', label: 'Extended (5 moves)', description: 'Add lizard and Spock.' }], help: 'Both players use the same choice set. Moves remain secret until the reveal phase.' },
       { kind: 'number', key: 'choice_window_seconds', label: 'Commit window (s)', min: 5, max: 20, half: true },
-      { kind: 'number', key: 'reveal_window_seconds', label: 'Reveal window (s)', min: 3, max: 10, half: true },
+      { kind: 'number', key: 'reveal_window_seconds', label: 'Result display time (s)', min: 3, max: 10, half: true },
     ],
   },
   'combat-duel': {
@@ -128,7 +128,7 @@ export const TEMPLATE_FORMS: Record<string, TemplateForm> = {
       { kind: 'select', key: 'rounds', label: 'Best of', half: true, options: [{ value: '3', label: '3 subrounds' }, { value: '5', label: '5 subrounds' }, { value: '7', label: '7 subrounds' }, { value: '9', label: '9 subrounds' }] },
       { kind: 'select', key: 'choice_set', label: 'Move set', half: true, options: [{ value: 'classic', label: 'Rock / paper / scissors' }, { value: 'extended', label: 'Extended (5 moves)' }] },
       { kind: 'number', key: 'choice_window_seconds', label: 'Commit window (s)', min: 5, max: 20, half: true, help: 'Time to lock in your move hash.' },
-      { kind: 'number', key: 'reveal_window_seconds', label: 'Reveal window (s)', min: 3, max: 10, half: true, help: 'A missed reveal forfeits that subround.' },
+      { kind: 'number', key: 'reveal_window_seconds', label: 'Result display time (s)', min: 3, max: 10, half: true, help: 'The server reveals automatically. No choice forfeits the subround.' },
     ],
   },
   'reward-grid': {

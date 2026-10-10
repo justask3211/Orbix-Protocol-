@@ -38,6 +38,7 @@ def cfg(template_id: str, rules: dict, **kw) -> RoomConfig:
     base = {
         "name": "Test Room",
         "template_id": template_id,
+        "template_version": 1,  # Historical reducer fixtures.
         "rules": {"templateId": template_id, **rules},
         "admission": adm,
     }

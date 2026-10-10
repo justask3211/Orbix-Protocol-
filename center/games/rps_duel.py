@@ -1,13 +1,6 @@
-"""G09 — Rock-Paper-Scissors Duel.
-
-Extended commit-reveal duel: the release-one Reaction Duel skeleton with a 5-move
-dominance matrix, a configurable odd best-of, and an explicit forfeit when a
-player commits but never reveals before the reveal deadline.
-
-Integrity rules enforced here:
-  * a cleartext choice is never accepted during the commit phase
-  * a reveal must hash to that player's own commit for the same subround
-  * a late or missing reveal forfeits the subround, it does not silently tie
+"""Versioned trusted-server duel. V1 retains manual SHA-256 commit/reveal;
+V2 seals the received choice privately and resolves at the fixed server deadline.
+The server receives cleartext choices in both versions.
 """
 
 from __future__ import annotations
@@ -36,7 +29,7 @@ def move_commit(choice: str, salt: str) -> str:
     return hashlib.sha256(f"{DOMAIN}|{choice}|{salt}".encode()).hexdigest()
 
 
-class RpsDuelEngine(Engine):
+class LegacyRpsDuelEngine(Engine):
     template_id = "rps-duel"
     version = 1
 
@@ -209,3 +202,14 @@ class RpsDuelEngine(Engine):
         self.phase_started = float(snapshot.get("phaseStarted", 0.0))
         self.history = list(snapshot.get("history", []))
         self.finished = bool(snapshot.get("finished", False))
+
+
+from center.games.sealed_duel import SealedDuelEngine
+
+class RpsDuelEngine(SealedDuelEngine):
+    template_id = "rps-duel"
+
+    def __new__(cls, config, *args, **kwargs):
+        if config.template_version == 1:
+            return LegacyRpsDuelEngine(config, *args, **kwargs)
+        return super().__new__(cls)

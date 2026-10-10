@@ -134,9 +134,12 @@ BINGO = HintPolicy(
     ),
 )
 
+LEGACY_RPS_DUEL = HintPolicy('rps-duel', 1, (HintKind('commit-phase', 'public', 'Legacy commit/reveal progress only.'),))
+LEGACY_REACTION_DUEL = HintPolicy('reaction-duel', 1, (HintKind('round-progress', 'public', 'Legacy commit/reveal progress only.'),))
+
 RPS_DUEL = HintPolicy(
     template_id="rps-duel",
-    version=1,
+    version=2,
     implemented=True,
     kinds=(
         HintKind(
@@ -144,7 +147,7 @@ RPS_DUEL = HintPolicy(
             audience="public",
             description=(
                 "Only commit/reveal phase progress is shared. An opponent's move stays "
-                "hashed until the reveal phase the engine opens."
+                "sealed until the fixed selection deadline; automatic results need no second action."
             ),
         ),
     ),
@@ -152,7 +155,7 @@ RPS_DUEL = HintPolicy(
 
 REACTION_DUEL = HintPolicy(
     template_id="reaction-duel",
-    version=1,
+    version=2,
     implemented=True,
     kinds=(
         HintKind(
@@ -280,7 +283,8 @@ LIVE_QUIZ = HintPolicy(
 )
 
 
-#: All policies, by template id. Room publish hashes MUST include the policy
+#: All policies, by template id. Template versions pin policy semantics; config hashes include rules, not the registry.
+#: Historical note: room publish hashes do not include the policy
 #: object for the chosen template (config-hash domain covers it via rules + this
 #: registry lookup at publish time).
 PATTERN_RECALL = HintPolicy(
@@ -473,7 +477,9 @@ HINT_POLICIES: dict[str, HintPolicy] = {
 }
 
 
-def policy_for(template_id: str) -> HintPolicy:
+def policy_for(template_id: str, template_version: int | None = None) -> HintPolicy:
+    if template_version == 1 and template_id in {'reaction-duel', 'rps-duel'}:
+        return LEGACY_REACTION_DUEL if template_id == 'reaction-duel' else LEGACY_RPS_DUEL
     """Fallback: an unimplemented, empty policy. Never raise for unknown ids so the
     catalog can grow before its policy lands."""
     return HINT_POLICIES.get(

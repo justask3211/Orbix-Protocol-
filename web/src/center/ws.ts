@@ -208,6 +208,9 @@ export function useRoomChannel(
       case 'action.ack': {
         const payload = frame.payload ?? {}
         if (payload.patch) setState(prev => { const next = applyWorldPatch(prev, payload.patch as Record<string,unknown>); if (!next) socketRef.current?.sync(seqRef.current); return next ?? prev })
+        if ('ownSelection' in payload) setState(prev => ({...(prev ?? {}), ownSelection: payload.ownSelection}))
+        if ('ownSubmission' in payload) setState(prev => ({...(prev ?? {}), ownSubmission: payload.ownSubmission}))
+        if ('hintReceipt' in payload) setState(prev => ({...(prev ?? {}), hintReceipt: payload.hintReceipt, hintsRemaining: payload.hintsRemaining}))
         if (typeof payload.hint === 'string') setState(prev => ({...(prev ?? {}), privateHint: payload.hint}))
         if ((payload.patch as Record<string, unknown> | undefined)?.targets) setState(prev => ({...(prev ?? {}), privateHint: undefined}))
         setLastError(null)

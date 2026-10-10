@@ -315,12 +315,23 @@ function CatchWorld({ state, me, reducedMotion, onLane, onCatch }: WorldProps) {
   </>
 }
 
-function ChoiceTotem({ choice, position, sealed, moving }: { choice?: string; position: Vec3; sealed: boolean; moving: boolean }) {
-  const group = useRef<Group>(null)
-  useFrame(({ clock }) => { if (group.current && moving) group.current.position.y = position[1] + Math.sin(clock.elapsedTime * 1.6 + position[0]) * .08 })
-  return <group ref={group} position={position}>
-    <mesh rotation={[0, .4, 0]}><dodecahedronGeometry args={[.59, 0]} /><meshStandardMaterial color={sealed ? '#d1c0ed' : '#ffe1a3'} metalness={.12} roughness={.45} /></mesh>
-    {sealed || !choice ? <FaceLabel value="?" position={[0, 0, .59]} size={.5} /> : choice === 'rock' ? <mesh position={[0, 0, .53]} scale={[.4, .3, .15]}><icosahedronGeometry args={[1, 0]} /><meshStandardMaterial color="#8c86a4" /></mesh> : choice === 'paper' ? <Block position={[0, 0, .56]} scale={[.44, .5, .07]} color="#fff7e4" rotation={[0, 0, -.15]} /> : choice === 'scissors' ? <group position={[0, 0, .55]}><Block scale={[.06, .58, .06]} color="#6b8799" rotation={[0, 0, .5]} /><Block scale={[.06, .58, .06]} color="#6b8799" rotation={[0, 0, -.5]} /></group> : <FaceLabel value={choice === 'lizard' ? 'L' : 'S'} position={[0, 0, .59]} size={.5} />}
+/** Original rounded hand geometry, with a stitched wrist cuff and opaque seal. */
+function ChoiceTotem({ choice, position, sealed }: { choice?: string | null; position: Vec3; sealed: boolean; moving: boolean }) {
+  const skin = '#FFF4D9'
+  const open = !sealed && Boolean(choice)
+  return <group position={position} rotation={[-.2,0,0]}>
+    <Sphere position={[0,0,0]} scale={[.52,.46,.28]} color={skin} />
+    {[0,1,2,3].map(i => {
+      const extended = open && (choice==='paper' || choice==='spock' || choice==='scissors' && i<2 || choice==='lizard' && i>1)
+      return <group key={i} position={[(i-1.5)*.25,.27,.02]} rotation={[0,0,choice==='spock'?(i<2?.12:-.12):choice==='scissors'?(i===0?.22:-.22):0]}>
+        <Sphere position={[0,extended?.35:0,0]} scale={[.13,extended?.43:.17,.14]} color={skin} />
+      </group>
+    })}
+    <Sphere position={[-.5,-.05,.02]} scale={[.19,.3,.16]} color={skin} />
+    <mesh position={[0,-.48,0]}><cylinderGeometry args={[.36,.36,.26,20]} /><meshStandardMaterial color="#37CFC2" roughness={.9} /></mesh>
+    {[-1,1].map(side=><mesh key={side} position={[side*.23,-.48,.28]}><boxGeometry args={[.04,.17,.03]} /><meshStandardMaterial color="#FFF4D9" /></mesh>)}
+    {sealed && <mesh position={[0,.17,.08]}><sphereGeometry args={[.76,16,10]} /><meshStandardMaterial color="#7959E8" roughness={.85} /></mesh>}
+    {!sealed && !choice && <FaceLabel value="No choice" position={[0,.9,0]} size={.22} />}
   </group>
 }
 
@@ -332,9 +343,9 @@ function DuelWorld({ state, players, me, reducedMotion }: WorldProps) {
   const showOutcome = Boolean(last) && (state.phase === 'done' || Number(last.round) === Number(state.roundIndex))
   const winner = last?.outcome?.split(':')[0]
   return <>
-    <Island radius={5.2} grass="#bdadc9" rock="#bb9bb8" />
-    <mesh position={[-2.3, .02, .05]}><cylinderGeometry args={[2.2, 2.15, .12, 24]} /><meshStandardMaterial color="#efb39b" roughness={.85} /></mesh>
-    <mesh position={[2.3, .02, .05]}><cylinderGeometry args={[2.2, 2.15, .12, 24]} /><meshStandardMaterial color="#b9a2e0" roughness={.85} /></mesh>
+    <Island radius={5.2} grass="#FFF4D9" rock="#27213F" />
+    <mesh position={[-2.3, .02, .05]}><cylinderGeometry args={[2.2, 2.15, .12, 24]} /><meshStandardMaterial color="#FF765E" roughness={.85} /></mesh>
+    <mesh position={[2.3, .02, .05]}><cylinderGeometry args={[2.2, 2.15, .12, 24]} /><meshStandardMaterial color="#7959E8" roughness={.85} /></mesh>
     <Ring radius={4.8} color="#f8d58e" /><Ring position={[-2.3, .1, .05]} radius={1.9} color="#ffe6c0" /><Ring position={[2.3, .1, .05]} radius={1.9} color="#dfcffa" />
     <Block position={[0, .05, 0]} scale={[.13, .15, 8]} color="#f6d48f" />
     <Crystal position={[0, .1, -3.3]} color="#ffe498" scale={1.35} />

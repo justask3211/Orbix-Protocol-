@@ -5,6 +5,7 @@
 // and the server decides what happened.
 
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { DuelPlay } from './GamePlayStages'
 import { encodeAbiParameters, keccak256, pad, type Hex } from 'viem'
 
 export function RoundPending({ status }: { status?: string }) {
@@ -315,7 +316,7 @@ export function CatchStage({ state, act, me, finished }: StageProps) {
 const CLASSIC = ['rock', 'paper', 'scissors']
 const EXTENDED = [...CLASSIC, 'lizard', 'spock']
 
-export function DuelStage({ state, act, me, players, finished }: StageProps) {
+function LegacyDuelStage({ state, act, me, players, finished }: StageProps) {
   const choices: string[] = state.choiceSet === 'extended' ? EXTENDED : CLASSIC
   const phase: string = state.phase ?? 'commit'
   const roundIndex: number = state.roundIndex ?? 0
@@ -573,7 +574,7 @@ export function BossStage({ state, act, me, finished }: StageProps) {
 
 // ------------------------------------------------------------------ G09 RPS Duel
 
-export function RpsStage({ state, act, me, players, finished }: StageProps) {
+function LegacyRpsStage({ state, act, me, players, finished }: StageProps) {
   const moves: string[] = state.moves ?? ['rock', 'paper', 'scissors']
   const phase: string = state.phase ?? 'commit'
   const wins: Record<string, number> = state.wins ?? {}
@@ -980,3 +981,6 @@ export const STAGES: Record<string, ((props: StageProps) => ReactElement) | unde
   'idle-rig': IdleStage,
   'airdrop-quest': AirdropStage,
 }
+
+export function DuelStage(props: StageProps) { return Number(props.state.version ?? 1) === 2 ? <DuelPlay {...props} /> : <LegacyDuelStage {...props} /> }
+export function RpsStage(props: StageProps) { return Number(props.state.version ?? 1) === 2 ? <DuelPlay {...props} /> : <LegacyRpsStage {...props} /> }
