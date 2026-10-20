@@ -11,12 +11,12 @@ export function CreatorTokenFees({token,amount,payoutMode,payoutAddress,creatorA
   const holding = payoutMode === 'hold'
   const destination = holding ? 'Tokens stay in the joiner’s wallet' : payoutMode==='burn'?'Burn address · 0x…dEaD':payoutMode==='custom'?short(payoutAddress):short(creatorAddress)
   return <section className="ec-section ec-entry" aria-labelledby="creator-token-fees-title">
-    <header className="ec-heading"><span className="ec-kicker"><Coins size={16}/> YOUR COMMUNITY, YOUR TOKEN</span><h3 id="creator-token-fees-title">Creator token fees</h3><p>Choose any ERC-20 on the room’s chain. Choose receive, burn or a holding requirement. Hold checks leave tokens in the joiner’s wallet.</p><span className="ec-current">{token?`${amount} tokens per joiner`:'Optional · leave the contract empty for free token entry'}</span></header>
+    <header className="ec-heading"><span className="ec-kicker"><Coins size={16}/> YOUR COMMUNITY, YOUR TOKEN</span><h3 id="creator-token-fees-title">Creator token fees</h3><p>Choose any ERC-20 on the room’s chain. Choose receive, burn or a holding requirement. Hold checks leave tokens in the joiner’s wallet.</p><span className="ec-current">{token?(holding?`Hold at least ${amount} tokens`:`${amount} tokens per joiner`):'Optional · leave the contract empty for free token entry'}</span></header>
     <Flow label="How creator token fees work" steps={[
-      {icon:Link,title:'Choose a token',detail:'Paste its contract address. You do not need to have created or held the token.'},
+      {icon:Link,title:'Choose a token',detail:holding?'Paste a token you hold. The server verifies your balance at publish.':'Paste its contract address. You do not need to have created or held the token.'},
       {icon:Coins,title:'Set the entry amount',detail:'Choose whole token units per joiner. The gate reads the token’s decimals.'},
       {icon:Wallet,title:holding?'Balance check':'Joiners approve + pay',detail:holding?'Creator and joiners hold the configured amount. No transfer.':'Their wallet authorizes the gate, then confirms the join payment.'},
-      {icon:payoutMode==='burn'?Flame:Receipt,title:'Your chosen payout',detail:token?destination:'Creator wallet, another address, or the burn address.'},
+      {icon:payoutMode==='burn'?Flame:Receipt,title:holding?'Keep your tokens':'Your chosen payout',detail:token?destination:'Creator wallet, another address, or the burn address.'},
     ]}/>
     <div className="ec-fields">{children}</div>
     {!holding && <><div className="ec-transfer" aria-label="Entry payment flow"><span><Wallet size={20}/><b>Joiner’s wallet</b><small>{token?`${amount} chosen tokens`:'Chosen ERC-20 + amount'}</small></span><ArrowRight aria-hidden="true"/><span><ShieldCheck size={20}/><b>Creator token gate</b><small>Checks the room’s entry rules</small></span><ArrowRight aria-hidden="true"/><span>{payoutMode==='burn'?<Flame size={20}/>:<Wallet size={20}/>}<b>{destination}</b><small>{payoutMode==='burn'?'Irreversible transfer':'Receives the entry payment'}</small></span></div>

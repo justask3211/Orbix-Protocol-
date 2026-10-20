@@ -216,3 +216,26 @@ def test_random_auto_full_starts_and_closed_registration_refunds(service):
     service.clock=lambda:2001
     asyncio.run(service.tick({}))
     assert service.get(t2['id'])['state']=='cancelled'
+
+
+def test_tournament_api_strips_quiz_keys_future_hints_and_other_claims(tmp_path):
+    app=create_app(db_path=str(tmp_path/'private-quiz.db'))
+    app.state.tournaments.clock=lambda:1000
+    owner=Account.create()
+    room=RoomConfig(template_id='live-quiz',name='Quiz tournament',rules={'templateId':'live-quiz','question_seconds':10,'scoring':'accuracy','questions':[{'prompt':f'Question {i}','choices':['A','B'],'correct_index':1} for i in range(5)]},admission={'player_cap':4,'min_ready_to_start':2},community_settings={'timed_hints':[{'delay_seconds':10,'text':'Private future hint'}]})
+    config=cfg(room=room,bracket_type='heats',room_size=4,advancers=1).model_dump(mode='json')
+    with TestClient(app) as c:
+        h=sign_in(c,owner)
+        created=c.post('/api/center/v1/tournaments',json={'config':config,'intentNonce':'quiz-private'},headers=h)
+        assert created.status_code==200,created.text
+        tid=created.json()['id']
+        assert app.state.tournaments.get(tid)['config']['room']['rules']['questions'][0]['correct_index']==1
+        for response in [created.json(),c.get(f'/api/center/v1/tournaments/{tid}').json(),c.get('/api/center/v1/tournaments').json()['tournaments'][0]]:
+            assert 'correct_index' not in str(response)
+            assert 'Private future hint' not in str(response)
+        with app.state.store.tx() as cx:
+            t=app.state.tournaments.get(tid,cx)
+            t['allocations']=[{'winner':owner.address.lower(),'points':3,'code':'private-code'}]
+            app.state.tournaments.save(t,cx)
+        assert c.get(f'/api/center/v1/tournaments/{tid}').json()['allocations']==[]
+        assert len(c.get(f'/api/center/v1/tournaments/{tid}',headers=h).json()['allocations'])==1

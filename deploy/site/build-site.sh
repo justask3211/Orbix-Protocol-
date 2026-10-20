@@ -17,19 +17,8 @@ WEB="$ROOT/web"
 echo "==> cockpit build (base=/)"
 (cd "$WEB" && npx vite build --base=/ >/dev/null)
 
-echo "==> center build (base=/center/)"
-(cd "$WEB" && npx vite build >/dev/null)
-
-# --- center SPA -> deploy/site/center-dist ---------------------------------
-rm -rf "$OUT/center-dist"
-mkdir -p "$OUT/center-dist"
-# the second build above left dist/ with /center/ refs, copy as-is
-cp -r "$WEB/dist/." "$OUT/center-dist/"
-
 # --- cockpit -> deploy/site/assets + deploy/site/index.html ----------------
 echo "==> assembling cockpit"
-rm -rf "$WEB/dist"
-(cd "$WEB" && npx vite build --base=/ >/dev/null)
 rm -rf "$OUT/assets"
 mkdir -p "$OUT/assets"
 cp -r "$WEB/dist/assets/." "$OUT/assets/"
@@ -56,5 +45,13 @@ if "<!--ASSET_REFS-->" not in tpl:
 open(dest, "w").write(tpl.replace("<!--ASSET_REFS-->", "\n  ".join(tags)))
 print(f"injected {len(tags)} asset refs")
 PY
+
+# Build Center last: its service image copies web/dist directly, so that directory
+# must retain /center/ asset URLs after assembling both sites.
+echo "==> center build (base=/center/)"
+(cd "$WEB" && npx vite build >/dev/null)
+rm -rf "$OUT/center-dist"
+mkdir -p "$OUT/center-dist"
+cp -r "$WEB/dist/." "$OUT/center-dist/"
 
 echo "==> done: $OUT"

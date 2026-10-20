@@ -484,6 +484,16 @@ def mount_tournaments(app, prefix, store, vault, hub, require_wallet, require_ad
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=exc.status, content={'detail': {'code': exc.code, 'message': exc.message}})
 
+    def public(t, who=None):
+        # Room publication strips answer keys and future host hints; tournament
+        # discovery must preserve exactly that boundary as well.
+        room = RoomConfig(**t['config']['room']).public_dict()
+        allocations = t['allocations'] if who in {admin, t['owner']} else [a for a in t['allocations'] if a['winner'] == who]
+        return {**t, 'config': {**t['config'], 'room': room}, 'allocations': allocations}
+
+    def viewer(authorization: str | None = Header(None)):
+        return app.state.auth.check(authorization[7:].strip()) if authorization and authorization.lower().startswith('bearer ') else None
+
     @app.get(prefix + '/tournaments/caps')
     def caps():
         return service.caps().model_dump()
@@ -497,29 +507,29 @@ def mount_tournaments(app, prefix, store, vault, hub, require_wallet, require_ad
         return body.model_dump()
 
     @app.get(prefix + '/tournaments')
-    def listing(active: bool = True):
-        return {'tournaments': service.list(active=active)}
+    def listing(active: bool = True, who=Depends(viewer)):
+        return {'tournaments': [public(t, who) for t in service.list(active=active)]}
 
     @app.get(prefix + '/tournaments/mine')
     def mine(who: str = Depends(require_wallet)):
-        return {'tournaments': service.list(who)}
+        return {'tournaments': [public(t, who) for t in service.list(who)]}
 
     @app.post(prefix + '/tournaments')
     def create(body: dict, who: str = Depends(require_wallet)):
         from pydantic import ValidationError
         try:
-            return service.create(who, TournamentConfig(**body.get('config', {})), body.get('intentNonce'))
+            return public(service.create(who, TournamentConfig(**body.get('config', {})), body.get('intentNonce')), who)
         except (ValidationError, ValueError) as exc:
             raise HTTPException(422, detail={'code': 'INVALID_TOURNAMENT', 'message': str(exc)})
 
     @app.get(prefix + '/tournaments/{tid}')
-    def detail(tid: str):
-        return service.get(tid)
+    def detail(tid: str, who=Depends(viewer)):
+        return public(service.get(tid), who)
 
     @app.post(prefix + '/tournaments/{tid}/join')
     def join(tid: str, who: str = Depends(require_wallet)):
         try:
-            return service.join(tid, who)
+            return public(service.join(tid, who), who)
         except InsufficientBalance as exc:
             raise HTTPException(402, detail={'code': 'INSUFFICIENT_BALANCE', 'message': str(exc)})
 
@@ -527,14 +537,14 @@ def mount_tournaments(app, prefix, store, vault, hub, require_wallet, require_ad
     def start(tid: str, body: dict, who: str = Depends(require_wallet), authorization: str | None = Header(None), x_admin_proof: str | None = Header(None)):
         if who == admin:
             require_admin(authorization, x_admin_proof, need_proof=True)
-        return service.start(tid, who, body.get('seeds'))
+        return public(service.start(tid, who, body.get('seeds')), who)
 
     @app.patch(prefix + '/tournaments/{tid}')
     def edit(tid: str, body: dict, who: str = Depends(require_wallet), authorization: str | None = Header(None), x_admin_proof: str | None = Header(None)):
         if who == admin:
             require_admin(authorization, x_admin_proof, need_proof=True)
         try:
-            return service.edit(tid, who, body)
+            return public(service.edit(tid, who, body), who)
         except ValueError as exc:
             raise HTTPException(422, detail={'code': 'INVALID_TOURNAMENT', 'message': str(exc)})
 
@@ -542,16 +552,16 @@ def mount_tournaments(app, prefix, store, vault, hub, require_wallet, require_ad
     def cancel(tid: str, who: str = Depends(require_wallet), authorization: str | None = Header(None), x_admin_proof: str | None = Header(None)):
         if who == admin:
             require_admin(authorization, x_admin_proof, need_proof=True)
-        return service.cancel(tid, who)
+        return public(service.cancel(tid, who), who)
 
     @app.post(prefix + '/tournaments/{tid}/close')
     def close(tid: str, who: str = Depends(require_wallet)):
-        return service.close(tid, who)
+        return public(service.close(tid, who), who)
 
     @app.post(prefix + '/tournaments/{tid}/report-match-result')
     def report(tid: str, body: dict, who: str = Depends(require_wallet)):
         t = service.get(tid)
         if who not in t['participants'] and who not in {admin, t['owner']}:
             raise TournamentError('FORBIDDEN', status=403)
-        return service.report(tid, str(body.get('matchId', '')))
+        return public(service.report(tid, str(body.get('matchId', ''))), who)
     return service

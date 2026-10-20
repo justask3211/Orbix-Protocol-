@@ -490,3 +490,82 @@ regressions remain green. Intentional existing-test updates: portfolio placement
 
 No Railway deployment was requested or performed. Unrelated pre-existing Python
 cache and cockpit build changes were excluded from the commits.
+
+## 2026-10-20 — Tournaments, mandatory token holdings and Cloudflare split (BUILD)
+
+User intent: implement tournaments across every game, configurable elimination and
+multiplayer heats, fees/rewards/refunds, creator and admin controls; add fresh
+on-chain token holding requirements and an admin-controlled ORBIX promo; put only
+V4 real-time Token Catch/Arena Duel/Boss Raid on Cloudflare Workers/DO + a CF game
+shell. Keep REST, turn-based games, catalog, profiles, wallets and settlement on
+Railway. Preserve protocol and authority. Commit per phase, full tests/build, push
+master:main; NO Railway deployment. CF doc + scaffold is the permitted minimum for
+this round, with full engine ports allowed in follow-up.
+
+Committed phases: `03482905` tournaments, `27a9b94e` hold gates/promo,
+`52e49dd0` Cloudflare architecture/transport/host policy. Final integration also
+repairs the static assembly order so web/dist retains /center/ URLs for the Center
+service while deploy/site/assets retains cockpit / URLs.
+
+Shipped:
+- Durable tournament state/revisions, seeded elimination byes, balanced K/M heats,
+  individual trials for solo templates, match rooms, automatic ready/start and
+  settled-engine advancement. No client winner reports. Draw/no-eligible-winner
+  replays; seeds required before ordered automatic starts. Cancellation refunds
+  once and stops running match rooms; restart restores pending matches.
+- Preview-credit entry pools via existing vault intents/refunds and preview-point
+  entitlements, exact percentage allocation/rounding, existing podium. Creator
+  wizard, Join list/my tournaments, scrollable bracket, match links, disclosure,
+  creator edits and signed admin caps/banner/placement controls. Entry economics
+  freeze after admission. Public responses strip quiz keys/future hints and hide
+  other wallets' claim codes.
+- Hold-only entry and optional hold+paid entry. Server reads balanceOf/decimals at
+  one latest block, verifies chain, fails closed on RPC failure. Locked tokens
+  count; no transfer/allowance/graduation check is involved. Global ORBIX create,
+  join and tournament thresholds are admin-only and mandatory when positive.
+  Same-token requirements take max; different tokens both pass. TTL defaults 0;
+  only admin may set 0–300 seconds. ORBIX per-room hold settings are admin-only.
+- Explicit sponsor opt-in before selecting creator tokens, spinner/pass/fail modal
+  with exact balance and Buy ORBIX link, server recheck on actual publish/admission.
+  Signed ORBIX settings panel and shared left-to-right promo with CA copy, session
+  dismissal and reduced motion, embedded in Center/cockpit/hunt/arcade/Formies/dapp.
+  Offline previews retain their no-API/no-session guarantee and skip promo reads.
+- CF design doc first, then pinned per-room host metadata (legacy/default Railway),
+  signed per-game host selector restricted to the three V4 templates, optional
+  persistent CENTER_SESSION_SECRET, Python/Worker signed capability agreement,
+  signed provision + immutable bootstrap, SQLite DO nonce guards, hibernatable
+  transport sockets, protocol validation, bounded input/clock primitives and a
+  Workers static multiplayer shell with fixed Railway REST proxy.
+
+Explicit incomplete scope (do not describe this as all workstreams complete):
+- **ERC20 tournament entry pools are disabled.** The normal CreatorTokenGate sends
+  to a creator/payee/burn address and cannot refund. RewardEngine deposits are
+  creator-only. Legacy CenterGamePot has creator-only cancellation and the audited
+  permissionless room namespace, so it cannot meet admin cancellation/admission
+  binding unchanged. A reviewed tournament custody/deposit integration is still
+  required for ORBIX/creator-token prize pools. This is a workstream 1 limitation,
+  not a CF deployment dependency. No contracts or existing money paths were changed.
+- **CF is a transport scaffold, not playable V4 authority.** All three adapter slots
+  reject ENGINE_PORT_PENDING. Python↔TS engine parity, live 30Hz simulation,
+  checkpoint/recovery implementation, result outbox/replay verification, settlement
+  handoff and client host routing are follow-up work. New CF publications fail
+  CLOUDFLARE_RUNTIME_NOT_READY before charging; existing Railway rooms keep working.
+  No live CF latency/performance measurement is claimed. Nearest ingress does not
+  mean a room's DO is colocated with every player.
+
+Validation: full `pytest center/tests tests` **1129 passed**; **162 Forge tests**;
+**35 frontend unit tests**, **6 Worker unit tests**, web and Worker TypeScript,
+production builds and Wrangler dry-run passed. Local workerd + SQLite DO smoke
+verifies signed bootstrap, immutable commitments, tickets, replay, v1 frames,
+action rejection and frontend deep links. 390px reduced-motion browser checks cover
+joining/wizard/admin and holding states; the existing signed-admin browser check
+passes at 1200/390/320px. The full 25-stage offline/browser customization regression
+also passes, including zero API/WebSocket with a stored wallet. No existing pytest
+assertions were weakened or removed.
+Pre-existing Python 3.11 cache modifications remain outside commits.
+
+Docs: docs/specs/{tournaments,token-hold-gating,cloudflare-multiplayer-architecture,
+cloudflare-multiplayer-deployment}.md. Deployment guide provides exact Wrangler
+commands, SQLite DO binding/migration and separate ticket/provision secrets.
+The user deploys CF with their account; Hermes may not have CF credentials. No
+Railway or Cloudflare deployment was performed (only local dev and dry-run builds).

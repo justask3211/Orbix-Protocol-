@@ -933,7 +933,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
             <div><small>Visibility</small><b>{draft.visibility}</b></div>
             <div><small>Players</small><b>{isSolo ? 1 : draft.playerCap}</b></div>
             <div><small>Play fee</small><b>{draft.requiredAmount} {sourceOnchain ? "token base units" : "preview credits"}</b></div>
-            <div><small>Joiner fee</small><b>{draft.entryToken ? `${draft.entryAmount} (token)` : draft.joinerFee ? `${draft.joinerFee} preview credits` : 'Free'}</b></div>
+            <div><small>Joiner fee</small><b>{draft.entryToken ? (draft.payoutMode === 'hold' ? `Hold ${draft.entryAmount} tokens` : `${draft.entryAmount} (token)`) : draft.joinerFee ? `${draft.joinerFee} preview credits` : 'Free'}</b></div>
             <div><small>{['token-catch','boss-raid'].includes(draft.templateId)?'Total game reward pool':'Winner reward'}</small><b>{rewardSettings.enabled ? `${rewardSettings.count} × ${rewardSettings.amount} ${rewardSettings.kind} base units` : sourceFunding ? 'Funded inventory required' : forms.length ? forms.map(f=>f.kind==='qa-form'?'Q&A form · FREE':'Waitlist form · FREE').join(' + ') : `${draft.templateId==='token-catch'?Number(draft.rules.loot_budget):draft.rewardPoints} preview points`}</b></div>
           </div>
         </div>
