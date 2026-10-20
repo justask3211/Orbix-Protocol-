@@ -18,6 +18,7 @@ import { fundRewardPool, type Funding } from './rewardWallet'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RoundPending, STAGES } from './stages'
 import { FOUR_STAGE_VIEWS } from './GamePlayStages'
+import { TournamentDetail, TournamentParameters, tournaments, newTournamentSettings, DUEL_TEMPLATES } from './Tournaments'
 import { CenterJoin } from './CenterJoin'
 import { RoomCommunity } from './RoomCommunity'
 import { ArcadeChoices, ArcadeNumber, ArcadeShares, ArcadeToggle, numericError, type NumericBounds } from './ArcadeSettings'
@@ -64,6 +65,7 @@ type Route =
   | { name: 'room'; roomId: string }
   | { name: 'wallet' }
   | { name: 'join' }
+  | { name: 'tournament'; id: string }
   | { name: 'admin' }
   | { name: 'practice'; templateId: string }
 
@@ -71,6 +73,7 @@ function parseRoute(): Route {
   const path = window.location.pathname.replace(/\/+$/, '')
   const parts = path.split('/').filter(Boolean)
   if (parts[1] === 'create') return { name: 'create', templateId: parts[2] ?? new URLSearchParams(window.location.search).get('template') ?? undefined, fromRoom: new URLSearchParams(window.location.search).get('from') ?? undefined }
+  if (parts[1] === 'tournaments' && parts[2]) return { name: 'tournament', id: parts[2] }
   if (parts[1] === 'rooms' && parts[2]) return { name: 'room', roomId: parts[2] }
   if (parts[1] === 'wallet') return { name: 'wallet' }
   if (parts[1] === 'join') return { name: 'join' }
@@ -331,6 +334,8 @@ function WizardStepper({ current, onChange, disabled }: { current: number; onCha
 function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: ReturnType<typeof useSession>; initialTemplateId?: string; fromRoom?: string; onConnect: () => void }) {
   const [templateRetry, setTemplateRetry] = useState(0)
   const templates = useAsync(() => center.templates(), [templateRetry])
+  const [tournamentMode, setTournamentMode] = useState(new URLSearchParams(location.search).get('tournament') === '1')
+  const [tournamentSettings, setTournamentSettings] = useState(newTournamentSettings)
   const [draft, setDraft] = useState<DraftState>(() => initialDraft(initialTemplateId && initialTemplateId in DEFAULT_RULES ? initialTemplateId : 'number-hunt'))
   const [ruleSchemas, setRuleSchemas] = useState<Record<string, NumericBounds & {enum?: unknown[]}>>({})
   const [caps, setCaps] = useState<{ min: number | null; max: number | null }>({ min: null, max: null })
@@ -595,6 +600,12 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       const attempt = savedAttempt ? JSON.parse(savedAttempt) as {config:ReturnType<typeof buildConfig>;nonce:string;rewards:ReturnType<typeof rewardConfig>} : null
       const config = attempt?.config ?? buildConfig()
       const publishNonce = attempt?.nonce ?? intentNonce
+      if (tournamentMode) {
+        if (draft.entryToken || rewardSettings.enabled || forms.length) throw new Error('Tournament fees and preview prizes are configured in Tournament setup. Token prize pools require refundable escrow.')
+        const created = await tournaments.create({...tournamentSettings,room_size:isSolo?1:Math.min(tournamentSettings.room_size,draft.playerCap),room:config,bracket_type:DUEL_TEMPLATES.includes(draft.templateId)?'elimination':'heats'},publishNonce,session.token)
+        go(`/center/tournaments/${created.id}`)
+        return
+      }
       let funding: Funding | undefined
       if (rewardSettings.enabled || attempt) {
         if (!session.address) throw new Error('Connect the creator wallet first.')
@@ -904,7 +915,8 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
 
 
         {/* Room Capsule — compact summary before publish */}
-        <div className="ct-capsule" hidden={wizardStep !== 4} aria-label="Room summary before publish">
+        {wizardStep === 4 && <><ArcadeToggle label="Create a tournament" description="Run a bracket or heats across this game. Each match uses the rules above." checked={tournamentMode} onChange={setTournamentMode}/>{tournamentMode && <TournamentParameters value={tournamentSettings} onChange={setTournamentSettings} templateId={draft.templateId} solo={isSolo} roomCap={draft.playerCap}/>}</>}
+      <div className="ct-capsule" hidden={wizardStep !== 4} aria-label="Room summary before publish">
           <span className="ct-capsule-title">ROOM SUMMARY</span>
           <div className="ct-capsule-grid">
             <div><small>Game</small><b>{TEMPLATE_FORMS[draft.templateId]?.label ?? draft.templateId}</b></div>
@@ -1513,6 +1525,8 @@ function ConnectedCenterApp() {
         return <RoomRoute key={`${route.roomId}:${session.address ?? 'watch'}`} roomId={route.roomId} session={session} />
       case 'wallet':
         return <CenterVault session={session} onConnect={() => setWalletOpen(true)} navigate={go} />
+      case 'tournament':
+        return <TournamentDetail id={route.id} session={session} navigate={go} onConnect={() => setWalletOpen(true)} />
       case 'join':
         return <CenterJoin session={session} onConnect={() => setWalletOpen(true)} navigate={go} />
       case 'admin':

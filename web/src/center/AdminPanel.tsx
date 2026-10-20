@@ -1,3 +1,4 @@
+import { TournamentsSection } from './Tournaments'
 import { isPortfolio } from './gamePortfolio'
 import { activeWalletProvider } from './walletConnectors'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -15,7 +16,7 @@ type Observer = Awaited<ReturnType<typeof center.adminRoomObserve>>
 type Availability = Awaited<ReturnType<typeof center.adminGames>>['games'][number]
 
 /** Each destructive/control change obtains a distinct, single-use admin proof. */
-async function signedProof(session: SessionState): Promise<string> {
+export async function signedProof(session: SessionState): Promise<string> {
   if (!session.token || !session.address) throw new Error('Connect the administrator wallet first.')
   const { nonce, message } = await center.adminNonce(session.token, session.address)
   let signature: string
@@ -158,6 +159,8 @@ export function AdminPanel({ session }: { session: SessionState }) {
     {!session.token && <div className="ag-empty"><ShieldCheck size={32}/><h2>Connect the administrator wallet</h2><p>Use Connect Wallet in the header to open game operations.</p></div>}
     {loadError && <div className="ag-error" role="alert">{loadError}<button onClick={refreshAll} disabled={loading}>Retry</button></div>}
     {session.token && verified && <>
+      <TournamentsSection session={session} navigate={path => {window.location.href=path}} admin/>
+      <TournamentCapsPanel session={session}/>
       <div className="ag-section-head"><div><span className="ag-eyebrow">The arcade</span><h2>Game availability</h2></div><button className="ag-secondary" disabled={loading} onClick={refreshAll}><RefreshCw size={16}/>{loading ? 'Refreshing…' : 'Refresh'}</button></div>
       <div className="ag-game-grid">{games.map(availability => {
         const id = availability.templateId
@@ -182,4 +185,12 @@ export function AdminPanel({ session }: { session: SessionState }) {
     {action.error && <p className="ag-error" role="alert">{action.error}</p>}
     {action.message && <p className="ag-success" role="status">{action.message}</p>}
   </div>
+}
+
+function TournamentCapsPanel({session}:{session:SessionState}) {
+  const [caps,setCaps]=useState<Record<string,number>|null>(null),[error,setError]=useState('')
+  const action=useAdminAction(session)
+  useEffect(()=>{void import('./api').then(({request})=>request<Record<string,number>>('/tournaments/caps')).then(setCaps).catch(e=>setError(explainError(e)))},[])
+  if(!caps)return <p role="status">{error||'Loading tournament caps…'}</p>
+  return <section className="ag-fees"><h2>Tournament creator caps</h2><div className="ag-fee-grid">{Object.entries(caps).map(([key,value])=><label key={key}>{key.replaceAll('_',' ')}<input type="number" min={0} value={value} onChange={e=>setCaps({...caps,[key]:Number(e.target.value)})}/></label>)}</div><button disabled={action.busy} onClick={()=>void action.run(async proof=>{const {request}=await import('./api');await request('/admin/tournaments/caps',{method:'PATCH',headers:{'X-Admin-Proof':proof},body:JSON.stringify(caps)},session.token)},'Tournament caps saved.')}>Sign & save caps</button>{action.error&&<p role="alert">{action.error}</p>}{action.message&&<p role="status">{action.message}</p>}</section>
 }

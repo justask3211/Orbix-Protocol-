@@ -1,3 +1,4 @@
+import { TournamentsSection } from './Tournaments'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { ArrowDown, ArrowRight, ArrowUpRight, ChevronDown, Coins, Gamepad2, KeyRound, Search, ShieldCheck, Sparkles, Wallet } from 'lucide-react'
 import { center, explainError, type TemplateMeta } from './api'
@@ -69,6 +70,7 @@ export function GameCenterHome({ session, onConnect, navigate }: GameCenterHomeP
 
   return (
     <div className="arcade-home">
+      <TournamentsSection session={session} navigate={navigate} front/>
       <section className="arcade-intro" aria-labelledby="arcade-title">
         <div className="arcade-hero">
           <div className="arcade-hero-art" aria-hidden="true"><Artwork id={spotlight?.id ?? 'arcade'} color={spotlight?.color ?? '#95e7ef'} eager /></div>

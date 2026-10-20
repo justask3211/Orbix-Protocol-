@@ -315,6 +315,9 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             runtimes[room_id] = rt
         if rt.config.entry.kind == "erc20":
             rt.entry_verifier = lambda player: entry_gate_for(rt.room_id).require(rt.room_id, player, rt.owner, rt.config.entry.token, rt.config.entry.amount, payout_mode=rt.config.access.payout_mode, payout_address=rt.config.access.payout_address)
+        tournaments = getattr(app.state, 'tournaments', None)
+        if tournaments:
+            rt.admission_guard = lambda player: tournaments.assert_member(room_id, player)
         operations=getattr(app.state,'admin_games',None)
         if operations:
             rt.action_guard=lambda who:operations.assert_can_act(room_id,who,rt.round_id)
@@ -510,6 +513,9 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     # ------------------------------------------------------------------ drafts
 
     mount_admin_games(app,API_PREFIX,store,community,require_admin,runtime_for,hub,admin)
+    from center.tournaments import mount_tournaments
+    tournaments = mount_tournaments(app, API_PREFIX, store, vault, hub, require_wallet, require_admin, admin)
+    scheduler.tournament_tick = lambda: tournaments.tick(runtimes)
     mount_practice(app,API_PREFIX)
 
     @app.post(f"{API_PREFIX}/drafts")

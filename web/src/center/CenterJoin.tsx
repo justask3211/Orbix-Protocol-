@@ -6,6 +6,7 @@ import { GameArtwork } from './GameArtwork'
 import { FEATURED_GAMES } from './featuredGames'
 import { isDiscoverableRoom, OPEN_ROOM_STATES, roomPathFromInput, usePublicRooms } from './roomDiscovery'
 import type { SessionState } from './session'
+import { TournamentsSection } from './Tournaments'
 import './join.css'
 
 type CenterJoinProps = { session: SessionState; onConnect: () => void; navigate: (path: string) => void }
@@ -70,6 +71,7 @@ export function CenterJoin({ session, onConnect, navigate }: CenterJoinProps) {
       </div>
       <aside className="center-join-friends"><div className="center-join-friends-art" aria-hidden="true"><span><Gamepad2 size={38} /></span><span><Users size={38} /></span><span><KeyRound size={38} /></span></div><h2>Meet in the lobby.</h2><p>Public rooms are listed below. Invite-only rooms open through the link your host shares.</p>{!session.token && <button className="center-join-button light" onClick={onConnect} disabled={session.signingIn || session.autoSigningIn}>{session.signingIn || session.autoSigningIn ? 'Connecting…' : 'Connect to play'}<ArrowUpRight size={17} aria-hidden="true" /></button>}<small>Token entry and funded rewards are separate from preview points.</small></aside>
     </section>
+    <TournamentsSection session={session} navigate={navigate}/>
     <section className="center-join-discovery" aria-labelledby="center-join-active-title">
       <header className="center-join-section-heading"><div><span className="center-join-eyebrow"><Users size={16} aria-hidden="true" />Public room discovery</span><h2 id="center-join-active-title">Find your next lobby.</h2><p>Waiting, ready, and live rooms from the featured games.</p></div><button className="center-join-refresh" onClick={refresh} disabled={refreshing}><RefreshCw size={16} aria-hidden="true" />{refreshing ? 'Refreshing…' : 'Refresh rooms'}</button></header>
       <div className="center-join-filters">

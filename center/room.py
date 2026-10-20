@@ -121,6 +121,7 @@ class RoomRuntime:
         self.community = CommunityService(store)
         self._last_hint_tick = 0.0
         self.entry_verifier = None
+        self.admission_guard = None
         self.action_guard = None
         self._arena_actions = []
         self._arena_seq = None
@@ -228,6 +229,8 @@ class RoomRuntime:
         appear in discovery, and a leaked URL cannot bypass a private room."""
         now = now or time.time()
         who = who.lower()
+        if self.admission_guard:
+            self.admission_guard(who)
         if role not in {"player", "spectator"}:
             raise ValueError("BAD_ROLE")
         if self.status not in lc.JOINABLE:
@@ -755,6 +758,12 @@ class Scheduler:
                     # Deadline enforcement is independent of connected clients.
                     if rt.status == lc.RUNNING and rt.deadline() and now >= rt.deadline() and not rt.engine.finished:
                         await rt.finish(now)
+                if getattr(self, 'tournament_tick', None):
+                    try:
+                        await self.tournament_tick()
+                    except Exception:
+                        import logging
+                        logging.getLogger(__name__).exception('Tournament scheduling failed; will retry')
                 self._enforce_schedules(now)
                 self._reap_closed(now)
             arenas = any(getattr(rt.engine, 'arena', False) and rt.status == lc.RUNNING for rt in self.runtimes.values())

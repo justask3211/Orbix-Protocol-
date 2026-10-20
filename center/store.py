@@ -176,7 +176,6 @@ class Store:
         from center.avatars import avatar_path
         from PIL import Image
         with self.tx() as cx:
-            cx.execute("BEGIN IMMEDIATE")
             columns = {row[1] for row in cx.execute("PRAGMA table_info(profiles)")}
             if "has_avatar" not in columns:
                 cx.execute("ALTER TABLE profiles ADD COLUMN has_avatar INTEGER NOT NULL DEFAULT 0")
@@ -211,7 +210,6 @@ class Store:
     def _migrate_room_codes(self) -> None:
         """Allocate durable aliases for old rooms once, under the SQLite write lock."""
         with self.tx() as cx:
-            cx.execute("BEGIN IMMEDIATE")
             for row in cx.execute("SELECT id FROM rooms WHERE NOT EXISTS "
                                   "(SELECT 1 FROM room_codes WHERE room_codes.room_id=rooms.id) "
                                   "ORDER BY created_at,id").fetchall():
@@ -421,11 +419,22 @@ class Store:
     @contextmanager
     def tx(self) -> Iterator[sqlite3.Connection]:
         with self._lock:
+            # Nested service operations must not commit their caller's transaction.
+            nested = self._conn.in_transaction
+            savepoint = 'sp_' + secrets.token_hex(8)
+            self._conn.execute(f'SAVEPOINT {savepoint}' if nested else 'BEGIN IMMEDIATE')
             try:
                 yield self._conn
-                self._conn.commit()
+                if nested:
+                    self._conn.execute(f'RELEASE SAVEPOINT {savepoint}')
+                else:
+                    self._conn.commit()
             except Exception:
-                self._conn.rollback()
+                if nested:
+                    self._conn.execute(f'ROLLBACK TO SAVEPOINT {savepoint}')
+                    self._conn.execute(f'RELEASE SAVEPOINT {savepoint}')
+                else:
+                    self._conn.rollback()
                 raise
 
     def close(self) -> None:
