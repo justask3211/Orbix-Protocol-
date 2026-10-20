@@ -80,7 +80,7 @@ class TournamentConfig(Strict):
             raise ValueError('Invalid player limits or registration window')
         if self.fee_unit != 'preview-points':
             raise ValueError('ERC20 tournament pools require refundable escrow; direct-pay CreatorTokenGate cannot pool or refund entry fees')
-        if self.room.entry.kind != 'free' or self.room.mode != 'preview' or self.room.rewards.kind != 'preview-points' or self.room.access.vault_mode != 'simulated':
+        if self.room.entry.kind not in {'free', 'hold'} or self.room.mode != 'preview' or self.room.rewards.kind != 'preview-points' or self.room.access.vault_mode != 'simulated':
             raise ValueError('Tournament matches use preview points; configure fees once on the tournament')
         if self.bracket_type == 'heats':
             if self.room.template_id in SOLO_TEMPLATES:
@@ -275,6 +275,8 @@ class TournamentService:
             else:
                 raw = cfg.room.model_dump(mode='json')
                 raw.update(name=f'{cfg.room.name[:35]} · {label[:12]} {n + 1}', visibility='unlisted', timing={}, rewards={'kind': 'preview-points', 'slots': []}, access={})
+                if cfg.room.entry.kind == 'hold':
+                    raw['access'] = {'creator_absorbs_joiner_fee': True, 'payout_mode': 'hold'}
                 raw['admission'].update(player_cap=len(group), min_ready_to_start=len(group), spectators=False)
                 if raw['rules'].get('team_mode') == 'teams':
                     raw['rules']['team_mode'] = 'coop'

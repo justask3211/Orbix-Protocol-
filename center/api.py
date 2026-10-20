@@ -318,6 +318,9 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         tournaments = getattr(app.state, 'tournaments', None)
         if tournaments:
             rt.admission_guard = lambda player: tournaments.assert_member(room_id, player)
+        holds = getattr(app.state, 'hold_gate', None)
+        if holds:
+            rt.hold_verifier = lambda player: holds.require(player, 'join', rt.config)
         operations=getattr(app.state,'admin_games',None)
         if operations:
             rt.action_guard=lambda who:operations.assert_can_act(room_id,who,rt.round_id)
@@ -515,6 +518,9 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     mount_admin_games(app,API_PREFIX,store,community,require_admin,runtime_for,hub,admin)
     from center.tournaments import mount_tournaments
     tournaments = mount_tournaments(app, API_PREFIX, store, vault, hub, require_wallet, require_admin, admin)
+    from center.hold_gate import mount_hold_gate
+    holds = mount_hold_gate(app, API_PREFIX, store, require_wallet, require_admin, validate_config, runtime_for, admin)
+    tournaments.hold_check = lambda who, action, config: app.state.hold_gate.require(who, action, config)
     scheduler.tournament_tick = lambda: tournaments.tick(runtimes)
     mount_practice(app,API_PREFIX)
 
@@ -565,6 +571,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms/prepare-rewards")
     def prepare_rewards(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        app.state.hold_gate.require(who, "create", config)
         require_game_mode(store, config.template_id, "create")
         waitlists.validate_reward_source(config.rewards, who)
         require_game_live(config.template_id)
@@ -619,6 +626,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms")
     def publish_room(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        app.state.hold_gate.require(who, "create", config)
         require_game_mode(store, config.template_id, "create")
         waitlists.validate_reward_source(config.rewards, who)
         require_game_live(config.template_id)

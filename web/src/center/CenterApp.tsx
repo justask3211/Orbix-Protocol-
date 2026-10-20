@@ -18,6 +18,7 @@ import { fundRewardPool, type Funding } from './rewardWallet'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RoundPending, STAGES } from './stages'
 import { FOUR_STAGE_VIEWS } from './GamePlayStages'
+import { useHoldCheck } from './HoldGate'
 import { TournamentDetail, TournamentParameters, tournaments, newTournamentSettings, DUEL_TEMPLATES } from './Tournaments'
 import { CenterJoin } from './CenterJoin'
 import { RoomCommunity } from './RoomCommunity'
@@ -194,7 +195,8 @@ type DraftState = {
   absorbsJoinerFee: boolean
   entryToken: string
   entryAmount: number
-  payoutMode?: 'creator' | 'custom' | 'burn'
+  payoutMode?: 'creator' | 'custom' | 'burn' | 'hold'
+  holdThreshold?: number
   payoutAddress?: string
   openMode?: 'now' | 'schedule'
   openAtLocal?: string
@@ -332,6 +334,7 @@ function WizardStepper({ current, onChange, disabled }: { current: number; onCha
 }
 
 function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: ReturnType<typeof useSession>; initialTemplateId?: string; fromRoom?: string; onConnect: () => void }) {
+  const holdCheck = useHoldCheck(session.token)
   const [templateRetry, setTemplateRetry] = useState(0)
   const templates = useAsync(() => center.templates(), [templateRetry])
   const [tournamentMode, setTournamentMode] = useState(new URLSearchParams(location.search).get('tournament') === '1')
@@ -401,7 +404,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
         const slot = original.slots[0]
         if (slot) setRewardSettings({...initialRewardSettings(),enabled:true,kind:slot.asset_kind,token:slot.asset_contract,amount:String(slot.amount),tokenId:String(slot.token_id),count:original.slots.length,mode:original.claim_mode??'code',recipients:(original.merkle_winners??[]).join(', ')})
       }
-      setDraft({...initialDraft(templateId),templateId,name:String(config.name),description:String(config.description ?? ''),visibility:config.visibility as DraftState['visibility'],rules:{...rules,...(['token-catch','boss-raid','combat-duel'].includes(templateId)?{world_version:4}:{})},durationSeconds:Number(rules.duration_seconds ?? defaultDuration(templateId)),playerCap:Number(admission.player_cap),minReady:Number(admission.min_ready_to_start),requiredAmount:Number(access.required_amount ?? 0),joinerFee:Number(access.joiner_fee ?? 0),absorbsJoinerFee:Boolean(access.creator_absorbs_joiner_fee),entryToken:entry.kind==='erc20'?String(entry.token):'',entryAmount:Number(entry.amount ?? 0),payoutMode:access.payout_mode as DraftState['payoutMode'],payoutAddress:String(access.payout_address ?? ''),hintVisibility:rules.hint_visibility==='public'?'public':'private',rewardPoints:Number(rewards.slots?.[0]?.points ?? 100)})
+      setDraft({...initialDraft(templateId),templateId,name:String(config.name),description:String(config.description ?? ''),visibility:config.visibility as DraftState['visibility'],rules:{...rules,...(['token-catch','boss-raid','combat-duel'].includes(templateId)?{world_version:4}:{})},durationSeconds:Number(rules.duration_seconds ?? defaultDuration(templateId)),playerCap:Number(admission.player_cap),minReady:Number(admission.min_ready_to_start),requiredAmount:Number(access.required_amount ?? 0),joinerFee:Number(access.joiner_fee ?? 0),absorbsJoinerFee:Boolean(access.creator_absorbs_joiner_fee),entryToken:['erc20','hold'].includes(String(entry.kind))?String(entry.token):'',entryAmount:Number(entry.kind==='hold'?entry.hold_threshold:entry.amount ?? 0),holdThreshold:Number(entry.hold_threshold ?? 0),payoutMode:access.payout_mode as DraftState['payoutMode'],payoutAddress:String(access.payout_address ?? ''),hintVisibility:rules.hint_visibility==='public'?'public':'private',rewardPoints:Number(rewards.slots?.[0]?.points ?? 100)})
       const copiedCommunity = config.community_settings as Partial<typeof communityOptions> | undefined
       setCommunityOptions({mute_chat:Boolean(copiedCommunity?.mute_chat),hide_players:Boolean(copiedCommunity?.hide_players),hide_guesses:Boolean(copiedCommunity?.hide_guesses)})
       setPicking(false); setWizardStep(2)
@@ -480,6 +483,8 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
     joinerFee: draft.entryToken ? undefined : numericError(draft.joinerFee,{minimum:0},'Joiner fee'),
     rewardPoints:numericError(draft.rewardPoints,{minimum:0},'Winner points'),
     closeAfterHours:numericError(draft.closeAfterHours ?? 0,{minimum:0,maximum:168},'Auto-close hours'),
+    holdThreshold: draft.entryToken && draft.payoutMode !== 'hold' ? numericError(draft.holdThreshold ?? 0,{minimum:0},'Holding requirement') : undefined,
+    sponsorship: draft.entryToken && !draft.absorbsJoinerFee ? 'Tick I pay all ORBIX joiner fees before using your entry token.' : undefined,
     entryToken: draft.entryToken && !/^0x[a-fA-F0-9]{40}$/.test(draft.entryToken.trim()) ? 'Enter a complete ERC-20 contract address.' : undefined,
     entryAmount:draft.entryToken ? numericError(draft.entryAmount,{minimum:1},'Token entry amount') : undefined,
     payoutAddress:draft.entryToken && draft.payoutMode === 'custom' && !/^0x[a-fA-F0-9]{40}$/.test(draft.payoutAddress ?? '') ? 'Enter a complete payout wallet address.' : undefined,
@@ -543,7 +548,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
         vault_mode: 'simulated',
         required_amount: draft.requiredAmount,
         joiner_fee: draft.entryToken ? 0 : draft.joinerFee,
-        creator_absorbs_joiner_fee: draft.absorbsJoinerFee || Boolean(draft.entryToken),
+        creator_absorbs_joiner_fee: draft.absorbsJoinerFee,
       payout_mode: draft.entryToken ? (draft.payoutMode ?? 'creator') : undefined,
       payout_address: draft.payoutMode === 'custom' ? draft.payoutAddress : undefined,
       },
@@ -557,7 +562,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
         return { open_at: openAt > 0 ? openAt : 0, close_at: closeAt > 0 ? closeAt : 0 }
       })(),
       entry: draft.entryToken && draft.entryAmount > 0
-        ? { kind: 'erc20' as const, token: draft.entryToken.trim(), amount: draft.entryAmount }
+        ? { kind: draft.payoutMode === 'hold' ? 'hold' as const : 'erc20' as const, token: draft.entryToken.trim(), amount: draft.payoutMode === 'hold' ? 0 : draft.entryAmount, hold_threshold: draft.payoutMode === 'hold' ? draft.entryAmount : draft.holdThreshold ?? 0 }
         : { kind: 'free' as const },
       rewards: { kind: 'preview-points', slots: Number(draft.rules.world_version)>=3 && ['token-catch','boss-raid'].includes(draft.templateId) ? [{rank:1,points:draft.templateId==='token-catch'?Number(draft.rules.loot_budget):draft.rewardPoints}] : [{ rank: 1, points: draft.rewardPoints }, ...(draft.playerCap>1 && draft.templateId!=='prism-lines' && !isSolo ? [{ rank: 2, points: Math.round(draft.rewardPoints / 2) }] : [])] },
       waitlist,
@@ -599,9 +604,10 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       const savedAttempt = sessionStorage.getItem(fundingAttemptKey)
       const attempt = savedAttempt ? JSON.parse(savedAttempt) as {config:ReturnType<typeof buildConfig>;nonce:string;rewards:ReturnType<typeof rewardConfig>} : null
       const config = attempt?.config ?? buildConfig()
+      if (!await holdCheck.check({action:'create',config})) return
       const publishNonce = attempt?.nonce ?? intentNonce
       if (tournamentMode) {
-        if (draft.entryToken || rewardSettings.enabled || forms.length) throw new Error('Tournament fees and preview prizes are configured in Tournament setup. Token prize pools require refundable escrow.')
+        if (draft.entryToken && draft.payoutMode !== 'hold' || rewardSettings.enabled || forms.length) throw new Error('Tournament fees and preview prizes are configured in Tournament setup. Token prize pools require refundable escrow.')
         const created = await tournaments.create({...tournamentSettings,room_size:isSolo?1:Math.min(tournamentSettings.room_size,draft.playerCap),room:config,bracket_type:DUEL_TEMPLATES.includes(draft.templateId)?'elimination':'heats'},publishNonce,session.token)
         go(`/center/tournaments/${created.id}`)
         return
@@ -618,7 +624,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
       }
       const published = await center.publish(config, publishNonce, session.token, funding)
       // 2) if a join token is configured, bind it on-chain from the creator's wallet
-      if (draft.entryToken && draft.entryAmount > 0 && session.address) {
+      if (draft.entryToken && draft.entryAmount > 0 && draft.payoutMode !== 'hold' && session.address) {
         setStatus('Confirm your join token binding in your wallet.')
         const authorization = await center.gateAuthorization(published.roomId, session.token)
         await bindRoomOnChain(
@@ -649,6 +655,7 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
 
   return (
     <div className="ct-page ct-create">
+      {holdCheck.modal}
       <header className="ct-head">
         <div>
           <span className="ct-create-kicker"><Plus size={16} /> Make room for fun</span>
@@ -847,12 +854,13 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
           <div className="wz-why">The play fee is charged to YOU once at publish — it is the cost of running the room, not something players pay.</div>
           <ArcadeNumber label={sourceOnchain ? 'Creator vault fee (token base units)' : 'Play fee (preview credits)'} value={draft.requiredAmount} minimum={0} error={feeErrors.requiredAmount} onChange={value => set('requiredAmount',value)} help={sourceOnchain ? 'Retains the original onchain vault token. Confirm independent funding before starting this new room.' : 'Deducted from your preview-credit ledger when you publish.'} />
           <ArcadeNumber label={sourceOnchain ? "Joiner vault fee (token base units)" : "Joiner fee per player (preview credits)"} value={draft.entryToken ? 0 : draft.joinerFee} minimum={0} error={feeErrors.joinerFee} onChange={value => set('joinerFee',draft.entryToken ? 0 : value)} help={draft.entryToken ? 'Token entry is enabled; no extra preview joiner fee is charged.' : 'Each player pays this unless you absorb it.'} />
-          <ArcadeToggle label={sourceOnchain ? "I cover joiner vault fees" : "I cover preview joiner fees"} description={sourceOnchain ? "The creator pays the applicable vault fees in the retained token." : "The creator pays the applicable preview-credit joiner fees."} checked={draft.absorbsJoinerFee} onChange={checked => set('absorbsJoinerFee',checked)} />
+          <ArcadeToggle label="I pay all ORBIX joiner fees" description={sourceOnchain ? "The creator pays the applicable vault fees in the retained token." : "The creator pays the applicable preview-credit joiner fees."} checked={draft.absorbsJoinerFee} onChange={checked => set('absorbsJoinerFee',checked)} />
           <CreatorTokenFees token={draft.entryToken} amount={draft.entryAmount} payoutMode={draft.payoutMode} payoutAddress={draft.payoutAddress} creatorAddress={session.address}>
           <label>
             <span>Join token contract (any ERC-20, optional)</span>
             <input
               value={draft.entryToken}
+              disabled={!draft.absorbsJoinerFee}
               spellCheck={false}
               autoComplete="off"
               placeholder="0x… paste any ERC-20 contract address"
@@ -862,8 +870,10 @@ function Wizard({ session, initialTemplateId, fromRoom, onConnect }: { session: 
           </label>
           {draft.entryToken && (
             <>
-              <ArcadeNumber label="Join amount (in the chosen token)" minimum={1} value={draft.entryAmount} error={feeErrors.entryAmount} onChange={value => set('entryAmount',value)} help="Whole token units. Each joiner pays this amount through the creator gate." />
-              <ArcadeChoices label="Where entry payments go" value={draft.payoutMode ?? 'creator'} onChange={value => set('payoutMode',value as 'creator' | 'custom' | 'burn')} options={[{value:'creator',label:'My wallet'},{value:'custom',label:'Another wallet'},{value:'burn',label:'Burn',description:'Irreversible transfer to the burn address.'}]} />
+              {!draft.absorbsJoinerFee && <p className="err">Tick “I pay all ORBIX joiner fees” before choosing token entry.</p>}
+              <ArcadeNumber label={draft.payoutMode === 'hold' ? "Required holding (whole tokens)" : "Join amount (in the chosen token)"} minimum={1} value={draft.entryAmount} error={feeErrors.entryAmount} onChange={value => set('entryAmount',value)} help={draft.payoutMode === 'hold' ? "Creator and joiners must hold this amount. No approval or transfer." : "Whole token units. Each joiner pays this amount through the creator gate."} />
+              <ArcadeChoices label="Receive, burn or hold" value={draft.payoutMode ?? 'creator'} onChange={value => set('payoutMode',value as 'creator' | 'custom' | 'burn' | 'hold')} options={[{value:'creator',label:'My wallet'},{value:'custom',label:'Another wallet'},{value:'burn',label:'Burn',description:'Irreversible transfer to the burn address.'},{value:'hold',label:'Hold',description:'Balance requirement only. No token transfer.'}]} />
+              {draft.payoutMode !== 'hold' && <ArcadeNumber label="Additional holding requirement (whole tokens)" minimum={0} value={draft.holdThreshold ?? 0} onChange={v => set('holdThreshold',v)} help="Optional balance check alongside token entry payment."/>}
               {draft.payoutMode === 'custom' && (
                 <label>
                   <span>Custom payout address</span>
@@ -968,6 +978,7 @@ function RoomRoute({ roomId, session }: { roomId: string; session: ReturnType<ty
 }
 
 function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof useSession> }) {
+  const holdCheck = useHoldCheck(session.token)
   const adminObserver = new URLSearchParams(window.location.search).get('observe') === '1'
   const immersion = useRef<ImmersionHandle>(null)
   const reconnectAttempt=useRef<string|null>(null)
@@ -1040,6 +1051,7 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   const join = async () => {
     if (adminObserver) return
     if (!session.token) return setError('Sign in first.')
+    if (!await holdCheck.check({action:'join',room_id:roomId})) return
     // A room with a join token shows a signing preview before anything is sent.
     if (entryToken && entryAmount > 0 && session.address) {
       setPreviewOpen(true)
@@ -1124,8 +1136,8 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   const joinerFee = Number(access.joiner_fee ?? 0)
   const absorbsFee = Boolean(access.creator_absorbs_joiner_fee)
   const rewardKind = String(rewardsCfg.kind ?? 'preview-points')
-  const entryCfg = (room?.config?.entry ?? {}) as { kind?: string; token?: string; amount?: number }
-  const entryToken = String(entryCfg.token ?? '')
+  const entryCfg = (room?.config?.entry ?? {}) as { kind?: string; token?: string; amount?: number; hold_threshold?: number }
+  const entryToken = entryCfg.kind === 'erc20' ? String(entryCfg.token ?? '') : ''
   const entryAmount = Number(entryCfg.amount ?? 0)
   const entrySymbol = entryToken ? `token ${shortAddress(entryToken, 4)}` : ''
   const timing = room?.timing ?? {}
@@ -1200,6 +1212,8 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
         </div>
       </header>
 
+      {holdCheck.modal}
+      {!!entryCfg.hold_threshold && <p className="ct-status">Hold at least {entryCfg.hold_threshold} of token {entryCfg.token} to join. The server reads your balance at admission.</p>}
       {error && <p className="err" role="alert">{error}</p>}
         {joinStep && <p className="muted" role="status" aria-live="polite">{joinStep}</p>}
         <TxPreview

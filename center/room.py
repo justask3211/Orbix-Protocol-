@@ -122,6 +122,7 @@ class RoomRuntime:
         self._last_hint_tick = 0.0
         self.entry_verifier = None
         self.admission_guard = None
+        self.hold_verifier = None
         self.action_guard = None
         self._arena_actions = []
         self._arena_seq = None
@@ -246,6 +247,8 @@ class RoomRuntime:
         if role == "player" and who not in {p["who"] for p in players}:
             if len(players) >= self.config.admission.player_cap:
                 raise ValueError("ROOM_FULL")
+        if self.hold_verifier:
+            self.hold_verifier(who)
         if role == "player" and self.config.entry.kind == "erc20":
             if self.entry_verifier is None:
                 raise ValueError("ENTRY_VERIFICATION_UNAVAILABLE")

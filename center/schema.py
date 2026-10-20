@@ -350,19 +350,25 @@ class Access(Strict):
     required_amount: int | None = Field(default=None, ge=0)
     joiner_fee: int = Field(default=0, ge=0)
     creator_absorbs_joiner_fee: bool = False
-    payout_mode: Literal["creator", "custom", "burn"] | None = None
+    payout_mode: Literal["creator", "custom", "burn", "hold"] | None = None
     payout_address: str | None = None
 
 
 class Entry(Strict):
-    kind: Literal["free", "erc20"] = "free"
+    kind: Literal["free", "erc20", "hold"] = "free"
     token: str | None = None
     amount: int = Field(default=0, ge=0)
+
+    hold_threshold: int = Field(default=0, ge=0, le=10**15, strict=True)
 
     @model_validator(mode="after")
     def _erc20_needs_token(self) -> "Entry":
         if self.kind == "erc20" and (not self.token or self.amount <= 0):
             raise ValueError("erc20 entry requires a token address and amount > 0")
+        if (self.kind in {'erc20', 'hold'} or self.hold_threshold) and not re.fullmatch(r'0x[0-9a-fA-F]{40}', self.token or ''):
+            raise ValueError('Token entry requires a complete ERC20 address')
+        if self.kind == 'hold' and (not self.hold_threshold or self.amount):
+            raise ValueError('Hold entry requires a positive threshold and zero transfer amount')
         return self
 
 
@@ -548,6 +554,10 @@ class RoomConfig(Strict):
                 raise ValueError('Prism Lines requires exactly two ready players')
             if self.rewards.distribution == 'match' and any(slot.rank > (1 if self.template_id == 'prism-lines' else self.admission.player_cap) for slot in self.rewards.slots):
                 raise ValueError('Reward rank exceeds the game player cap')
+        if self.entry.kind == 'hold' and (not self.access.creator_absorbs_joiner_fee or self.access.payout_mode != 'hold'):
+            raise ValueError("Hold entry requires 'I pay all ORBIX joiner fees' and hold payout mode")
+        if self.access.payout_mode == 'hold' and self.entry.kind != 'hold':
+            raise ValueError('Hold payout mode requires hold entry')
         ranks = [s.rank for s in self.rewards.slots]
         if len(ranks) != len(set(ranks)):
             raise ValueError("reward slot ranks must be unique")

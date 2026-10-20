@@ -1,3 +1,4 @@
+import { OrbixPolicyPanel } from './HoldGate'
 import { TournamentsSection } from './Tournaments'
 import { isPortfolio } from './gamePortfolio'
 import { activeWalletProvider } from './walletConnectors'
@@ -161,6 +162,7 @@ export function AdminPanel({ session }: { session: SessionState }) {
     {session.token && verified && <>
       <TournamentsSection session={session} navigate={path => {window.location.href=path}} admin/>
       <TournamentCapsPanel session={session}/>
+      <OrbixPolicyPanel session={session} sign={() => signedProof(session)}/>
       <div className="ag-section-head"><div><span className="ag-eyebrow">The arcade</span><h2>Game availability</h2></div><button className="ag-secondary" disabled={loading} onClick={refreshAll}><RefreshCw size={16}/>{loading ? 'Refreshing…' : 'Refresh'}</button></div>
       <div className="ag-game-grid">{games.map(availability => {
         const id = availability.templateId
