@@ -182,3 +182,37 @@ def test_api_cannot_submit_winner_or_cancel_other_creator(tmp_path):
         assert c.post(f'/api/center/v1/tournaments/{tid}/cancel',headers=bad).status_code==403
         assert c.post(f'/api/center/v1/tournaments/{tid}/report-match-result',json={'matchId':'1-1','winner':other.address},headers=bad).status_code==403
         assert c.get('/api/center/v1/tournaments/mine',headers=h).json()['tournaments'][0]['id']==tid
+
+
+@pytest.mark.asyncio
+async def test_cancel_stops_running_match_and_refunds_once(service):
+    t=join_all(service,2)
+    service.start(t['id'],t['owner'])
+    m=service.get(t['id'])['rounds'][0]['matches'][0]
+    rt=RoomRuntime.load(service.store,service.vault,service.hub,m['room_id'])
+    service.runtimes[rt.room_id]=rt
+    for p in m['players']:rt.set_ready(p)
+    await rt.start(now=1000)
+    cancelled=service.cancel(t['id'],service.admin)
+    assert cancelled['pool']==0 and cancelled['refunded']==14
+    assert rt.status=='closed'
+    assert not (await rt.act(wallet(1),{'kind':'commit'},now=1001))['ok']
+    service.cancel(t['id'],service.admin)
+    assert service.vault.balance_of(wallet(1))==100
+
+
+def test_auto_full_waits_for_creator_seeds_without_rolling_back_last_entry(service):
+    t=join_all(service,2,seeding='creator',start_condition='auto-when-full')
+    assert t['state']=='registering' and len(t['participants'])==2
+    t=service.edit(t['id'],t['owner'],{'seeds':[wallet(2),wallet(1)]})
+    assert t['state']=='final'
+
+
+def test_random_auto_full_starts_and_closed_registration_refunds(service):
+    t=join_all(service,2,start_condition='auto-when-full')
+    assert t['state']=='final'
+    t2=service.create(wallet(900),cfg(8,min_players=3,entry_fee=4),'expired-nonce')
+    service.join(t2['id'],wallet(1))
+    service.clock=lambda:2001
+    asyncio.run(service.tick({}))
+    assert service.get(t2['id'])['state']=='cancelled'

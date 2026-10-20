@@ -1,7 +1,7 @@
 import { OrbixPolicyPanel } from './HoldGate'
 import { TournamentsSection } from './Tournaments'
 import { isPortfolio } from './gamePortfolio'
-import { activeWalletProvider } from './walletConnectors'
+import { signedProof } from './adminProof'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Eye, Gamepad2, ShieldCheck, Sparkles, Users, Archive, RefreshCw, Radio, Search, MessageSquare } from 'lucide-react'
 import { center, explainError } from './api'
@@ -15,24 +15,6 @@ type Pricing = Awaited<ReturnType<typeof center.adminPricing>>
 type AdminRoom = Awaited<ReturnType<typeof center.adminRooms>>['rooms'][number]
 type Observer = Awaited<ReturnType<typeof center.adminRoomObserve>>
 type Availability = Awaited<ReturnType<typeof center.adminGames>>['games'][number]
-
-/** Each destructive/control change obtains a distinct, single-use admin proof. */
-export async function signedProof(session: SessionState): Promise<string> {
-  if (!session.token || !session.address) throw new Error('Connect the administrator wallet first.')
-  const { nonce, message } = await center.adminNonce(session.token, session.address)
-  let signature: string
-  if (session.kind === 'generated') {
-    const { loadGeneratedAccount } = await import('./session')
-    const account = loadGeneratedAccount()
-    if (!account || account.address.toLowerCase() !== session.address.toLowerCase()) throw new Error('Saved wallet does not match the connected administrator.')
-    signature = await account.signMessage({ message })
-  } else {
-    const eth = activeWalletProvider() ?? (window as any).ethereum
-    if (!eth) throw new Error('Open your wallet to sign this change.')
-    signature = await eth.request({ method: 'personal_sign', params: [message, session.address] })
-  }
-  return `${nonce}:${signature}`
-}
 
 function useAdminAction(session: SessionState) {
   const [busy, setBusy] = useState(false)

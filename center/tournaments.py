@@ -110,6 +110,7 @@ class TournamentService:
     def __init__(self, store, vault, hub, admin, clock=time.time):
         self.store, self.vault, self.hub, self.admin, self.clock = store, vault, hub, admin.lower(), clock
         self.hold_check = None
+        self.runtimes = {}
         with store.tx() as cx:
             cx.execute('CREATE TABLE IF NOT EXISTS tournaments(id TEXT PRIMARY KEY,owner TEXT NOT NULL,config_json TEXT NOT NULL,state TEXT NOT NULL,data_json TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 1,created_at REAL NOT NULL)')
             cx.execute('CREATE TABLE IF NOT EXISTS tournament_matches(room_id TEXT PRIMARY KEY,tournament_id TEXT NOT NULL,match_id TEXT NOT NULL)')
@@ -158,6 +159,8 @@ class TournamentService:
                     rounds += 1
                 if rounds > cfg.heats:
                     raise TournamentError('HEAT_BUDGET_TOO_SMALL')
+        from center.edge_host import require_publish_host
+        require_publish_host(self.store, cfg.room)
         require_game_mode(self.store, cfg.room.template_id, 'create')
         if game_availability(self.store, cfg.room.template_id)['status'] != 'live':
             raise TournamentError('GAME_UNAVAILABLE')
@@ -168,6 +171,8 @@ class TournamentService:
         self.validate_caps(cfg)
         if not isinstance(nonce, str) or not 8 <= len(nonce) <= 128:
             raise TournamentError('INTENT_REQUIRED', status=422)
+        if who != self.admin and cfg.seeding == 'admin' and cfg.seeds:
+            raise TournamentError('ADMIN_SEEDS_ONLY', status=403)
         if who != self.admin and cfg.banner != TournamentBanner():
             raise TournamentError('ADMIN_BANNER_ONLY', status=403)
         if self.hold_check:
@@ -201,7 +206,7 @@ class TournamentService:
             t['participants'].append(who)
             t['pool'] += cfg.entry_fee
             self.save(t, cx)
-            if cfg.start_condition == 'auto-when-full' and len(t['participants']) == cfg.max_players:
+            if cfg.start_condition == 'auto-when-full' and len(t['participants']) == cfg.max_players and self.seeds_ready(t, cfg):
                 self._start(t, cfg, cx)
             return t
 
@@ -218,6 +223,10 @@ class TournamentService:
                 t['config'] = cfg.model_dump(mode='json')
             self._start(t, cfg, cx)
             return t
+
+    @staticmethod
+    def seeds_ready(t, cfg):
+        return cfg.seeding == 'random' or (len(cfg.seeds) == len(t['participants']) and set(cfg.seeds) == set(t['participants']))
 
     def _start(self, t, cfg, cx):
         if t['state'] != 'registering' or self.clock() < cfg.registration_open:
@@ -281,6 +290,7 @@ class TournamentService:
                 if raw['rules'].get('team_mode') == 'teams':
                     raw['rules']['team_mode'] = 'coop'
                 rt = RoomRuntime.create(self.store, self.vault, self.hub, owner=t['owner'], config=RoomConfig(**raw))
+                self.store.set_setting(f'room-host:{rt.room_id}', {'host': 'railway'})
                 for player in group:
                     self.store.join(rt.room_id, player)
                 match['room_id'] = rt.room_id
@@ -363,7 +373,7 @@ class TournamentService:
         ranking.extend(p for p in t['seed_order'] if p not in ranking)
         t['podium'] = [{'wallet': p, 'rank': i + 1, 'score': 0} for i, p in enumerate(ranking)]
         amounts = [t['pool'] * pct // 100 for pct in cfg.distribution]
-        amounts[0] += t['pool'] - sum(amounts)
+        amounts[next(i for i, pct in enumerate(cfg.distribution) if pct)] += t['pool'] - sum(amounts)
         round_id = hashlib.sha256(('tournament-' + t['id']).encode()).hexdigest()
         for i, amount in enumerate(amounts):
             winner = ranking[i]
@@ -383,6 +393,8 @@ class TournamentService:
             if actor != self.admin and 'banner' in raw:
                 raise TournamentError('ADMIN_BANNER_ONLY', status=403)
             cfg = TournamentConfig(**{**t['config'], **raw})
+            if actor != self.admin and cfg.seeding == 'admin' and cfg.seeds != t['config']['seeds']:
+                raise TournamentError('ADMIN_SEEDS_ONLY', status=403)
             if set(raw) != {'banner'}:
                 self.validate_caps(cfg)
             if t['participants'] and any(t['config'][k] != cfg.model_dump(mode='json')[k] for k in ('room', 'entry_fee', 'distribution', 'min_players', 'fee_unit')):
@@ -391,23 +403,40 @@ class TournamentService:
                 raise TournamentError('TOURNAMENT_FULL')
             t['config'] = cfg.model_dump(mode='json')
             self.store.append_audit(actor, 'tournament.edit', {'id': tid}, raw, 46630)
-            return self.save(t, cx)
+            self.save(t, cx)
+            if t['state'] == 'registering' and cfg.start_condition == 'auto-when-full' and len(t['participants']) == cfg.max_players and self.seeds_ready(t, cfg):
+                self._start(t, cfg, cx)
+            return t
 
     def cancel(self, tid, actor):
         with self.store.tx() as cx:
             t = self.get(tid, cx)
             if actor not in {self.admin, t['owner']}:
                 raise TournamentError('FORBIDDEN', status=403)
-            if t['state'] == 'cancelled':
-                return t
-            if t['state'] in {'settled', 'closed'}:
-                raise TournamentError('ALREADY_SETTLED')
-            for player in t['participants']:
-                intent = '0x' + hashlib.sha256(f'tournament-entry|{tid}|{player}'.encode()).hexdigest()
-                self.vault.refund_deduction(player, intent)
-            self.transition(t, 'cancelled')
-            self.store.append_audit(actor, 'tournament.cancel', {'id': tid, 'pool': t['pool']}, {'refunded': t['pool']}, 46630)
-            return self.save(t, cx)
+            if t['state'] != 'cancelled':
+                if t['state'] in {'settled', 'closed'}:
+                    raise TournamentError('ALREADY_SETTLED')
+                for player in t['participants']:
+                    intent = '0x' + hashlib.sha256(f'tournament-entry|{tid}|{player}'.encode()).hexdigest()
+                    self.vault.refund_deduction(player, intent)
+                self.transition(t, 'cancelled')
+                self.store.append_audit(actor, 'tournament.cancel', {'id': tid, 'pool': t['pool']}, {'refunded': t['pool']}, 46630)
+                t['refunded'] = t['pool']
+                t['pool'] = 0
+                self.save(t, cx)
+        # Financial refunds are already durable. Stop in-memory scheduled rooms as well.
+        # A retry repairs any interrupted room closure without refunding twice.
+        from center.room import RoomRuntime
+        for rnd in t['rounds']:
+            for match in rnd['matches']:
+                if not match['room_id']:
+                    continue
+                rt = self.runtimes.get(match['room_id']) or RoomRuntime.load(self.store, self.vault, self.hub, match['room_id'])
+                if rt.status in {'registration', 'ready', 'running'}:
+                    rt._set_status('cancelled')
+                    rt._set_status('refundable')
+                    rt._set_status('closed')
+        return t
 
     def close(self, tid, actor):
         with self.store.tx() as cx:
@@ -424,7 +453,7 @@ class TournamentService:
                 if self.clock() >= t['config']['registration_close']:
                     if len(t['participants']) < t['config']['min_players']:
                         self.cancel(t['id'], self.admin)
-                    elif t['config']['start_condition'] == 'auto-when-full':
+                    elif t['config']['start_condition'] == 'auto-when-full' and self.seeds_ready(t, TournamentConfig(**t['config'])):
                         self.start(t['id'], self.admin)
                 continue
             if t['state'] == 'settled':

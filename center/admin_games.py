@@ -50,6 +50,7 @@ class GameModes(Strict):
 
 
 class GameConfig(Strict):
+    host: Literal["railway", "cloudflare"] = "railway"
     placement: Literal["catalog", "more", "upcoming", "hidden"] = "catalog"
     overlay: GameOverlay = Field(default_factory=GameOverlay)
     tag: GameTag = Field(default_factory=GameTag)
@@ -81,7 +82,7 @@ def public_game_config(store, template_id):
         modes["preview"] = False
     if status != "live":
         modes.update(practice=False, create=False, join=False)
-    return {"placement": placement, "overlay": cfg["overlay"], "tag": cfg["tag"],
+    return {"host": cfg["host"], "placement": placement, "overlay": cfg["overlay"], "tag": cfg["tag"],
             "available_modes": modes, "sort_order": cfg["sort_order"]}
 
 
@@ -128,6 +129,9 @@ class AdminGameService:
         if template_id not in GAME_IDS:
             raise CommunityError("NOT_FOUND", "No such game template.", 404)
         value = GameConfig.model_validate(config).model_dump()
+        from center.edge_host import REALTIME
+        if value['host'] == 'cloudflare' and template_id not in REALTIME:
+            raise CommunityError('CLOUDFLARE_V4_ONLY', 'Only Token Catch, Arena Duel and Boss Raid support Cloudflare hosting.', 422)
         value.update(updated_at=self.clock(), admin_proof={"actor": actor,
                      "signature_hash": hashlib.sha256(proof.encode()).hexdigest() if proof else None})
         self.store.set_setting_with_audit(f"game-config:{template_id}", value, actor,

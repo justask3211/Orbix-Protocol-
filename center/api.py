@@ -36,6 +36,7 @@ from center.store import ConflictError, Store
 from center.community import CommunityService, CommunityError
 from center.privacy import visible_state
 from center.waitlist import WaitlistService
+from center.edge_host import room_host
 from center.entry_gate import EntryGateVerifier, EntryGateError, DEPLOYED_GATE
 from center.admin_games import mount_admin_games, game_availability, room_archived, public_game_config, require_game_mode
 from center.practice import mount_practice
@@ -236,7 +237,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         )
     vault = VaultService(store, onchain=onchain)
     hub = Hub()
-    auth = authenticator or Auth()
+    auth = authenticator or Auth(os.environ.get("CENTER_SESSION_SECRET"))
     admin = (admin_address or ADMIN_ADDRESS).lower()
     used_admin_nonces: set[str] = set()
     runtimes: dict[str, RoomRuntime] = {}
@@ -513,6 +514,12 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         require_admin(authorization, need_proof=False)
         return store.verify_audit_chain()
 
+    @app.get(f"{API_PREFIX}/multiplayer/capabilities")
+    def multiplayer_capabilities():
+        from center.edge_host import REALTIME
+        return {"cloudflareReady": False, "templates": sorted(REALTIME), "defaultHost": "railway",
+                "reason": "V4 engine ports and settlement bridge pending; transport scaffold only"}
+
     # ------------------------------------------------------------------ drafts
 
     mount_admin_games(app,API_PREFIX,store,community,require_admin,runtime_for,hub,admin)
@@ -520,6 +527,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     tournaments = mount_tournaments(app, API_PREFIX, store, vault, hub, require_wallet, require_admin, admin)
     from center.hold_gate import mount_hold_gate
     holds = mount_hold_gate(app, API_PREFIX, store, require_wallet, require_admin, validate_config, runtime_for, admin)
+    tournaments.runtimes = runtimes
     tournaments.hold_check = lambda who, action, config: app.state.hold_gate.require(who, action, config)
     scheduler.tournament_tick = lambda: tournaments.tick(runtimes)
     mount_practice(app,API_PREFIX)
@@ -571,6 +579,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms/prepare-rewards")
     def prepare_rewards(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        from center.edge_host import require_publish_host
+        require_publish_host(store, config)
         app.state.hold_gate.require(who, "create", config)
         require_game_mode(store, config.template_id, "create")
         waitlists.validate_reward_source(config.rewards, who)
@@ -626,6 +636,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     @app.post(f"{API_PREFIX}/rooms")
     def publish_room(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
+        from center.edge_host import require_publish_host
+        require_publish_host(store, config)
         app.state.hold_gate.require(who, "create", config)
         require_game_mode(store, config.template_id, "create")
         waitlists.validate_reward_source(config.rewards, who)
@@ -686,6 +698,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(400, detail={"code": "VAULT_ERROR", "message": str(exc)})
 
         rt = RoomRuntime.create(store, vault, hub, owner=who, config=config, room_id=funded_room_id)
+        store.set_setting(f"room-host:{rt.room_id}", {"host": "railway"})
         if config.entry.kind == "erc20":
             store.set_setting(f"entry-gate:{rt.room_id}", {"address": getattr(app.state.entry_gate, "gate_address", DEPLOYED_GATE)})
         if funding_binding:
@@ -717,7 +730,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         return {
             "rooms": [
                 {
-                    "roomId": r["id"], "name": r["config"]["name"], "templateId": r["template_id"],
+                    "hostType": room_host(store, r["id"]), "roomId": r["id"], "name": r["config"]["name"], "templateId": r["template_id"],
                     "gameConfig": public_game_config(store, r["template_id"]),
                     "roomNumber": r["join_code"], "joinCode": r["join_code"],
                     "status": r["status"], "visibility": r["visibility"], "mode": r["mode"],
@@ -811,6 +824,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         if rt.round_id and rt.engine:
             appearances = store.get_setting(f'appearances:{rt.round_id}') or appearances
         return {
+            "hostType": room_host(store, room_id),
             "appearances": visible_state(appearances, settings, who, presentation_owner),
             "roomId": row["id"], "status": row["status"], "visibility": row["visibility"],
             "roomNumber": row["join_code"], "joinCode": row["join_code"],

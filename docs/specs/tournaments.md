@@ -19,7 +19,7 @@ between different rooms use the frozen tournament seed order; ties within a game
 use that engine's rules. No eligible winner triggers a new room with the same
 roster, without a second fee. The final room ranks the podium; earlier eliminated
 players follow in reverse-round order. Preview-credit integer rounding remainder
-goes to first place so allocated points exactly equal the entry pool.
+goes to the first rewarded place so allocated points exactly equal the entry pool.
 
 Registration -> running -> round-N -> final -> settled -> closed. Cancellation
 from any pre-settlement stage refunds every original entry intent once. Registration
@@ -47,8 +47,13 @@ aggregate joiner fees either. Calling those payments a refundable tournament poo
 would be false. `fee_unit=erc20` fails closed before payment. Existing room token
 entry, RewardEngine funding and claims remain intact.
 
-A follow-up needs a separately reviewed refundable tournament escrow/deposit
-adapter, receipt indexing, explicit custody/expiry rules and RewardEngine settlement
+The repo also contains `CenterGamePot`, with creator-only cancellation and a
+permissionless room namespace. The existing audit records those restrictions;
+it is not integrated with the REST room/reward wizard. Reusing it unchanged would
+not satisfy admin cancellation/refunds or tournament admission binding.
+
+A follow-up needs a reviewed tournament escrow/deposit adapter and, if based on
+CenterGamePot, explicit admin cancellation and namespace/admission authorization, receipt indexing, explicit custody/expiry rules and RewardEngine settlement
 binding before enabling ORBIX/creator-token entry pools. This is a spec limitation,
 not a Cloudflare credential dependency.
 

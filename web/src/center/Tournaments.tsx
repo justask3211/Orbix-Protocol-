@@ -39,15 +39,17 @@ export function TournamentParameters({value,onChange,templateId,solo,roomCap}:{v
     {number('entry_fee','Entry fee · preview credits',caps.max_entry_fee)}
     <label>Reward split<select value={value.distribution.join(',')==='100'?'winner':value.distribution.join(',')==='60,25,15'?'top3':'custom'} onChange={e=>{if(e.target.value==='winner')set('distribution',[100]);else if(e.target.value==='top3')onChange({...value,min_players:Math.max(3,value.min_players),distribution:[60,25,15]});else set('distribution',[70,30])}}><option value="winner">Winner takes all</option><option value="top3">Top 3 · 60 / 25 / 15</option><option value="custom">Custom percentages</option></select></label>
     <label>Percentages (total 100)<input value={value.distribution.join(',')} onChange={e=>set('distribution',e.target.value.split(',').map(Number))}/></label>
+    {value.seeding!=='random'&&<label>Ordered seed wallets (optional until registration fills)<textarea value={value.seeds.join('\n')} onChange={e=>set('seeds',e.target.value.split(/[\s,]+/).filter(Boolean).map(s=>s.toLowerCase()))}/><small>Every entrant must appear exactly once. Admin seeding can only be saved by the administrator. Automatic start waits for the complete seed order.</small></label>}
     <label>Custom round names (comma separated)<input value={value.round_names.join(',')} onChange={e=>set('round_names',e.target.value.split(',').filter(Boolean))}/></label>
   </div><p>Fees form a preview-point prize pool. Cancelled tournaments refund each entry once. Token pools need refundable escrow and are currently unavailable. Existing room token payments cannot be refunded into a tournament pool.</p></section>
 }
 
 export function TournamentsSection({session,navigate,front=false,admin=false}:{session:SessionState;navigate:(p:string)=>void;front?:boolean;admin?:boolean}) {
   const [rows,setRows]=useState<Tournament[]>([]),[mine,setMine]=useState(false),[error,setError]=useState('')
-  const refresh=useCallback(async()=>{try{setRows((await tournaments.list(mine?session.token??undefined:undefined)).tournaments);setError('')}catch(e){setError(explainError(e))}},[mine,session.token])
+  const refresh=useCallback(async()=>{try{const data=await tournaments.list(mine?session.token??undefined:undefined);if(!Array.isArray(data.tournaments))throw new Error('Tournament list unavailable.');setRows(data.tournaments);setError('')}catch(e){setError(explainError(e))}},[mine,session.token])
   useEffect(()=>{void refresh();const timer=setInterval(()=>{if(!document.hidden)void refresh()},15000);return()=>clearInterval(timer)},[refresh])
   const visible=front?rows.filter(t=>t.config.banner.placement==='front'):rows
+  if(front&&!visible.length&&!error)return null
   return <section className={`tn-section ${front?'tn-front':''}`} aria-label="Tournaments"><header><div><span className="center-join-eyebrow">TOURNAMENTS</span><h2>{front?'Championship spotlight':'Play for the podium.'}</h2></div><div className="ct-actions">{!front&&<><button onClick={()=>setMine(!mine)} disabled={!session.token}>{mine?'All tournaments':'My tournaments'}</button><button onClick={()=>navigate('/center/create?tournament=1')}>Create tournament</button></>}<button onClick={()=>void refresh()}>Refresh</button></div></header>
     {error&&<p role="alert">{error}</p>}{!visible.length&&!front&&<p>No active tournaments yet. Start one for your community.</p>}
     <div className="tn-list">{visible.map(t=><article className={`tn-card tn-${t.config.banner.style} tn-${t.config.banner.size}`} key={t.id}><span>{t.config.banner.text||t.config.room.template_id} · {t.state}</span><h3>{t.config.room.name}</h3><p>{t.participants.length}/{t.config.max_players} players · {t.config.bracket_type} · {t.pool} preview points in pool</p><p>Entry {t.config.entry_fee} preview credits · {t.config.distribution.join(' / ')}% prizes</p><button onClick={()=>navigate(`/center/tournaments/${t.id}${admin?'?admin=1':''}`)}>View bracket</button></article>)}</div>
@@ -63,7 +65,7 @@ export function TournamentDetail({id,session,navigate,onConnect}:{id:string;sess
   useEffect(()=>{void refresh();const timer=setInterval(()=>{if(!document.hidden)void refresh()},5000);return()=>clearInterval(timer)},[refresh])
   async function act(action:string,body:unknown={}) {if(!session.token)return onConnect();setBusy(true);setError('');try{
     if(action==='join'&&!await holds.check({action:'tournament',tournament_id:id}))return
-    const proof=admin?await (await import('./AdminPanel')).signedProof(session):undefined
+    const proof=admin?await (await import('./adminProof')).signedProof(session):undefined
     const value=await tournaments.action(id,action,session.token,body,proof);setT(value)
   }catch(e){setError(explainError(e))}finally{setBusy(false)}}
   if(!t)return <section className="ct-page"><p role="status">{error||'Loading tournament…'}</p></section>

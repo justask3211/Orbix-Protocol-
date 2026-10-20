@@ -1,0 +1,14 @@
+{
+  "secret": "test-edge-only-secret-32-characters-long",
+  "room": "aaaaaaaaaaaaaaaa",
+  "round": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "wallet": "0x1111111111111111111111111111111111111111",
+  "body": "{\"config\":{\"rules\":{\"world_version\":4},\"template_id\":\"token-catch\"},\"configHash\":\"0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"participants\":[\"0x1111111111111111111111111111111111111111\",\"0x2222222222222222222222222222222222222222\"],\"roomId\":\"aaaaaaaaaaaaaaaa\",\"roundId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"seed\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"}",
+  "path": "/internal/rooms/aaaaaaaaaaaaaaaa/provision",
+  "ticket": "eyJhdWQiOiJvcmJpeC1tdWx0aXBsYXllciIsImV4cCI6MTEyMCwiaWF0IjoxMDAwLCJpc3MiOiJvcmJpeC1jZW50ZXIiLCJub25jZSI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhIiwicm9sZSI6InBsYXllciIsInJvb20iOiJhYWFhYWFhYWFhYWFhYWFhIiwicm91bmQiOiJhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSIsInN1YiI6IjB4MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIsInYiOjF9.93cda355f4a1d31ce90ff1a6d31e6ab7f468f3b113572bdfdfcfe4613924b30d",
+  "headers": {
+    "X-Orbix-Time": "1000",
+    "X-Orbix-Nonce": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "X-Orbix-Signature": "097f1bdde86a640f6291acc9b49cc5878ff3077c090a6289be44ea38a7f05d07"
+  }
+}

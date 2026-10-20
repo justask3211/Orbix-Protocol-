@@ -30,6 +30,7 @@ export type TemplateMeta = {
 export type TemplateList = { templates: TemplateMeta[]; count: number }
 
 export type RoomSummary = {
+  hostType?: 'railway'|'cloudflare'
   gameConfig?: { placement: GameConfig['placement']; available_modes: GameModes; overlay: GameConfig['overlay']; tag: GameConfig['tag']; sort_order: number }
   roomId: string
   roomNumber?: string
@@ -49,6 +50,7 @@ export type RoomSummary = {
 export type Participant = { who: string; role: string; ready: boolean; connected?: boolean }
 
 export type RoomDetail = {
+  hostType?: 'railway'|'cloudflare'
   gameConfig?: { placement: GameConfig['placement']; available_modes: GameModes }
   entryGate?: `0x${string}`
   roomId: string
