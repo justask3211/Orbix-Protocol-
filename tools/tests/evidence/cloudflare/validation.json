@@ -1,0 +1,20 @@
+{
+  "python": "1132 passed, 1 warning in 110.99s (0:01:50)",
+  "pythonAfterCleanupRefactor": "15 passed, 1 warning in 5.69s; final HTTP bridge rollback/idempotency/rematch/cross-room and spectator checks",
+  "worker": "16 passed, 0 failed; Python full-snapshot parity for all three V4 templates, restore and protocol/security tests",
+  "workerTypes": "tsc --noEmit passed",
+  "frontend": "tsc --noEmit and Vite production build passed; existing large-chunk warning",
+  "staticHandoff": "deploy/site/build-site.sh passed; cockpit and Center assets assembled",
+  "localWorkerd": "PASS: actual workerd + SQLite DO immutable bootstrap, ticket replay, gameplay, input acknowledgements, stale inputs, simulation broadcasts and read-only spectator admission and suspension",
+  "clientRegressions": [
+    "Snapshot regressions passed: full replacement, baseline deltas, removal, stale frames and resync.",
+    "7 result presentation regressions passed.",
+    "13 wallet regression checks passed: verified completion, rejected signatures, failed verification, no account and modal retry."
+  ],
+  "deployedBundleSha256": "9e4c48263f227fbc2038287244bf954e79854e578daba06b115a11be7e9821c7",
+  "railwayDeployed": false,
+  "physicalPhoneOrLoadTest": false,
+  "timestamp": "2026-10-20T18:24:41.258253+00:00",
+  "liveGameplayBundleSha256": "c62937dec70ba0f4cb13c06a7bbf8dea76b7d2c54716690e625343cfa3100371",
+  "finalSpectatorAuthorization": "HTTP admission role test + local workerd read-only actions and suspension; added after live two-player run"
+}

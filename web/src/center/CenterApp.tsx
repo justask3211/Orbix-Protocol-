@@ -1025,6 +1025,10 @@ function Room({ roomId, session }: { roomId: string; session: ReturnType<typeof 
   }, [refresh, adminObserver])
 
   const channel = useRoomChannel(roomId, {
+    onEdgeTicket: async () => {
+      if (!session.token) throw new Error('Sign in to reconnect.')
+      return (await center.multiplayerTicket(roomId, session.token)).transport
+    },
     onSettlement: (payload) => setSettlement(payload as unknown as Settlement),
     onRoundStarted: () => { setSettlement(null); setReject(null); void refresh() },
     onRematch: () => { setSettlement(null); setReject(null); void refresh() },

@@ -1,0 +1,60 @@
+{
+  "script": "multiplayer",
+  "account": "0d91ccc5789d50ce43aa35c2ad8e38d8",
+  "url": "https://multiplayer.justask3211.workers.dev",
+  "deploymentId": "fa0a72a8b14c43b4bad296000a82697c",
+  "modifiedOn": "2026-10-20T18:21:56.43567Z",
+  "bindings": [
+    {
+      "name": "ALLOWED_ORIGINS",
+      "type": "plain_text"
+    },
+    {
+      "name": "EDGE_TICKET_SECRET",
+      "type": "secret_text"
+    },
+    {
+      "name": "PROVISION_SECRET",
+      "type": "secret_text"
+    },
+    {
+      "name": "RAILWAY_ORIGIN",
+      "type": "plain_text"
+    },
+    {
+      "name": "RESULT_SECRET",
+      "type": "secret_text"
+    },
+    {
+      "class_name": "MultiplayerRoom",
+      "name": "ROOMS",
+      "namespace_id": "070dc75792f349b79a83c819f47a86c3",
+      "type": "durable_object_namespace"
+    }
+  ],
+  "secretsSet": [
+    "EDGE_TICKET_SECRET",
+    "PROVISION_SECRET",
+    "RESULT_SECRET"
+  ],
+  "secretValues": "MASKED; local mode-0600 handoff file ~/.orbix_multiplayer.env",
+  "activeDeployment": {
+    "id": "1bbec30f-8afb-456f-9afd-4ddc4ec61c11",
+    "source": "api",
+    "strategy": "percentage",
+    "annotations": {
+      "workers/triggered_by": "secret"
+    },
+    "versions": [
+      {
+        "version_id": "4fac3c1f-6fb2-434c-be96-ce5330d59422",
+        "percentage": 100
+      }
+    ],
+    "created_on": "2026-10-20T18:22:00.287689Z"
+  },
+  "railwayOrigin": "https://orbix-center-production.up.railway.app",
+  "allowedOrigins": "https://orbixcore.fun,https://www.orbixcore.fun,https://multiplayer.justask3211.workers.dev",
+  "compatibilityDate": "2026-10-20",
+  "customDomain": null
+}

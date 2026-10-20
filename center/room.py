@@ -429,9 +429,17 @@ class RoomRuntime:
         )
         self.status = lc.RUNNING
 
+        from center.edge_host import room_host, provision_runtime
+        if room_host(self.store,self.room_id)=='cloudflare':
+            try:
+                await provision_runtime(self)
+            except Exception:
+                # Keep the committed initial state for idempotent scheduler retries.
+                import logging
+                logging.getLogger(__name__).exception('Cloudflare provision pending')
         await self.hub.broadcast(self.room_id, {
             "v": PROTOCOL_VERSION, "type": "round.started",
-            "roundId": self.round_id, "commitHash": self.commit,
+            "roundId": self.round_id, "commitHash": self.commit, "hostType":room_host(self.store,self.room_id),
             "deadline": self._deadline, "state": self.presentation_state(),
         })
         return {"roundId": self.round_id, "commitHash": self.commit, "deadline": self._deadline}
@@ -440,6 +448,9 @@ class RoomRuntime:
 
     async def act(self, who: str, action: dict, now: float | None = None) -> dict:
         now = now or time.time()
+        from center.edge_host import room_host
+        if room_host(self.store,self.room_id)=='cloudflare':
+            return {'ok':False,'error':'USE_CLOUDFLARE_TRANSPORT'}
         if self.engine is None or not self.is_playable():
             return {"ok": False, "error": "ROUND_NOT_OPEN"}
         if self.action_guard:
@@ -505,6 +516,18 @@ class RoomRuntime:
 
     async def tick(self, now: float) -> bool:
         """Advance time-driven state. Returns True when the round ended."""
+        from center.edge_host import room_host, provision_runtime
+        if room_host(self.store,self.room_id)=='cloudflare':
+            from center.edge_host import sync_controls
+            if self.engine and self.status==lc.RUNNING and now-self._last_hint_tick>=1:
+                self.community.deliver_hints(self.room_id,self.engine.started_at,now)
+                self._last_hint_tick=now
+            await sync_controls(self)
+            if self.status==lc.RUNNING and self.engine and not (self.store.get_setting(f'edge-active:{self.round_id}') or {}).get('active'):
+                if now-getattr(self,'_edge_retry_at',0)>5:
+                    self._edge_retry_at=now
+                    await provision_runtime(self)
+            return False
         if self.engine is None or self.engine.finished:
             return False
         if lc.is_terminal(self.status):
@@ -553,7 +576,7 @@ class RoomRuntime:
 
     # ------------------------------------------------------------------ settlement
 
-    async def finish(self, now: float | None = None) -> dict:
+    async def finish(self, now: float | None = None, *, broadcast: bool = True) -> dict:
         now = now or time.time()
         if self.engine is None:
             raise ValueError("NO_ROUND")
@@ -633,7 +656,8 @@ class RoomRuntime:
             },
         }
         self._last_settlement = settlement_frame
-        await self.hub.broadcast(self.room_id, settlement_frame)
+        if broadcast:
+            await self.hub.broadcast(self.room_id, settlement_frame)
         return {"roundId": self.round_id, "allocations": entries}
 
     async def cancel(self, reason: str = "host-cancelled") -> dict:
@@ -641,6 +665,12 @@ class RoomRuntime:
             return {"status": self.status}
         self._set_status(lc.CANCELLED)
         self._set_status(lc.REFUNDABLE)
+        from center.edge_host import room_host, sync_controls
+        if room_host(self.store,self.room_id)=='cloudflare':
+            try:await sync_controls(self)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception('Cloudflare cancellation pending retry')
         await self.hub.broadcast(self.room_id, {
             "v": PROTOCOL_VERSION, "type": "room.cancelled", "payload": {"reason": reason},
         })
@@ -748,6 +778,7 @@ class Scheduler:
         self._last_sweep = 0.0
 
     async def _loop(self) -> None:
+        from center.edge_host import room_host
         while True:
             now = time.time()
             for rt in list(self.runtimes.values()):
@@ -759,7 +790,7 @@ class Scheduler:
                 self._last_sweep = now
                 for rt in list(self.runtimes.values()):
                     # Deadline enforcement is independent of connected clients.
-                    if rt.status == lc.RUNNING and rt.deadline() and now >= rt.deadline() and not rt.engine.finished:
+                    if rt.status == lc.RUNNING and rt.deadline() and now >= rt.deadline() and not rt.engine.finished and room_host(rt.store,rt.room_id)!='cloudflare':
                         await rt.finish(now)
                 if getattr(self, 'tournament_tick', None):
                     try:

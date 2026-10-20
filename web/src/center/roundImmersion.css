@@ -22,3 +22,6 @@
 .ct-native-game .gp:not(.gp-arena){overflow:hidden}.ct-native-game .gp-input-layer{flex:0 1 auto;max-height:52%;min-height:80px;overflow:auto;padding-bottom:env(safe-area-inset-bottom);box-sizing:border-box;color:var(--gp-ink)}
 .ct-native-game .st :is(.mem-grid,.puzzle-grid){width:min(100%,calc(var(--game-height,100dvh) - 200px));max-height:calc(var(--game-height,100dvh) - 200px);margin:auto;min-height:0;flex:1}.ct-native-game .st :is(.mem-grid,.puzzle-grid)>button{min-height:44px}
 @media(orientation:landscape) and (max-height:500px){.ct-native-game .gp:not(.gp-arena){grid-template-rows:auto minmax(0,1fr)}.ct-native-game .gp-scene{grid-row:2;grid-column:1}.ct-native-game .gp-input-layer{grid-column:2;grid-row:2;max-height:none;min-height:0;overflow:auto}.ct-native-game .gp-input-layer :is(.gp-control-panel,.gp-play-columns,.gp-stats){display:block}.ct-native-game .gp-input-layer .gp-move-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Filled entrance animations create stacking contexts above the fixed game view. */
+.ct-page>.ct-room-play{animation:none}

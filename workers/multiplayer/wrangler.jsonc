@@ -1,16 +1,16 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "orbix-multiplayer",
+  "name": "multiplayer",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-20",
   "workers_dev": true,
+  "compatibility_flags": ["nodejs_compat"],
   "observability": {"enabled": true},
   "durable_objects": {"bindings": [{"name": "ROOMS", "class_name": "MultiplayerRoom"}]},
   "migrations": [{"tag": "v1", "new_sqlite_classes": ["MultiplayerRoom"]}],
   "assets": {"directory": "../../deploy/site/center-dist", "binding": "ASSETS", "run_worker_first": true, "html_handling": "none"},
   "vars": {
     "RAILWAY_ORIGIN": "https://orbix-center-production.up.railway.app",
-    "ALLOWED_ORIGINS": "https://orbixcore.fun",
-    "TRANSPORT_SMOKE": "false"
+    "ALLOWED_ORIGINS": "https://orbixcore.fun"
   }
 }

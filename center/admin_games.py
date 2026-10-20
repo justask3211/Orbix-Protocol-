@@ -67,6 +67,8 @@ def game_config(store, template_id):
     from center.portfolio import FEATURED_TEMPLATES, PRACTICE_TEMPLATES
     defaults = GameConfig(placement="catalog" if template_id in FEATURED_TEMPLATES else "more",
                           modes=GameModes(practice=template_id in PRACTICE_TEMPLATES)).model_dump()
+    from center.edge_host import preferred_host
+    defaults['host']=preferred_host(store,template_id)
     return {**defaults, "updated_at": None, **(store.get_setting(f"game-config:{template_id}") or {})}
 
 
@@ -363,6 +365,10 @@ def mount_admin_games(app, prefix, store, community, require_admin, runtime_for,
                 for conn in list(hub._conns.values()):
                     if conn["room"] == room_id and conn["who"] == wallet:
                         await conn["ws"].close(code=4403)
+            from center.edge_host import room_host, sync_controls
+            rt=runtime_for(room_id)
+            if room_host(store,room_id)=='cloudflare':
+                await sync_controls(rt)
             return result
         raise HTTPException(422, detail={"code": "INVALID_OPERATION", "message": "Choose a supported administrative room action."})
     return service

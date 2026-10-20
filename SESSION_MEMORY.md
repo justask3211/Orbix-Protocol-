@@ -1,10 +1,11 @@
-# SESSION MEMORY — Orbix Protocol (updated 2026-10-10, Babylon build round)
+# SESSION MEMORY — Orbix Protocol (updated 2026-10-21, Cloudflare multiplayer)
 
 Handoff document. Read this first in a new session, then the technical ledgers:
 ORBIX_PROTOCOL_V6_DELIVERY.md, ORBIX_CENTER_V5_EXECUTION.md,
 ORBIX_CENTER_A_TO_Z_PLAN.md, USER_DEVELOPMENT_INTENT.md.
 
-Repo of record: **github.com/justask3211/Orbix-Protocol-** (branch `main`, CI green).
+Repo of record: **github.com/justask3211/Orbix-Protocol-** (branch `main`).
+Latest round: 2026-10-21 Cloudflare multiplayer section below; CF deployed, Railway API/site deployment pending Hermes.
 
 ## Latest renderer handoff — mandated Babylon adoption, 2026-10-10
 
@@ -569,3 +570,63 @@ cloudflare-multiplayer-deployment}.md. Deployment guide provides exact Wrangler
 commands, SQLite DO binding/migration and separate ticket/provision secrets.
 The user deploys CF with their account; Hermes may not have CF credentials. No
 Railway or Cloudflare deployment was performed (only local dev and dry-run builds).
+
+## 2026-10-21 — Cloudflare V4 multiplayer completed and deployed
+
+Supersedes the October 20 **CF transport scaffold** limitation above. The three TS
+V4 reducers now preserve the Python simulation/protocol and deterministic RNG.
+Cloudflare owns active room simulation; Railway keeps admission, catalog, moderation,
+result replay, settlement, allocations and reward claims. Result retries retain their
+original finalized frame across rematches and cannot be reused across rooms. Inputs/ticks checkpoint in
+SQLite DO storage; a durable final outbox retries signed callbacks. Python replays
+and compares the full snapshot before atomic, idempotent settlement. The Center
+retains its lobby/control WS and uses scoped-ticket Worker gameplay WS, including
+fresh-ticket reconnect. Read-only spectator tickets preserve admitted roles and
+suspensions close their edge sockets. Existing room hosts stay pinned. Signed admin per-game host
+selection and tournament match creation honor the same policy.
+
+**Actually deployed via the account-token multipart API:** script `multiplayer`,
+URL https://multiplayer.justask3211.workers.dev, SQLite namespace
+`070dc75792f349b79a83c819f47a86c3`, binding `ROOMS` / class `MultiplayerRoom`.
+Three secrets installed: EDGE_TICKET_SECRET, PROVISION_SECRET, RESULT_SECRET;
+values are masked and retained only in mode-0600 `~/.orbix_multiplayer.env` for
+Hermes. Final Worker upstream is the existing production Railway origin. No custom
+gameplay domain installed; unrelated `patient-hill-3575` untouched. The temporary
+mp-verify.orbixcore.fun tunnel/DNS were deleted after live verification.
+
+**Railway not deployed, as requested.** Hermes must deploy API/site and install
+matching CENTER_EDGE_TICKET_SECRET, CENTER_CF_PROVISION_SECRET,
+CENTER_CF_RESULT_SECRET plus CENTER_CF_ENABLED=true and
+CENTER_CF_ORIGIN=https://multiplayer.justask3211.workers.dev. Complete configuration
+defaults only new token-catch rooms to CF; combat-duel/boss-raid stay Railway until
+live verification. Explicit admin preferences win, so check existing Token Catch
+host configuration. Without configuration, Railway remains default.
+
+Evidence: tools/tests/evidence/cloudflare/live-round.json, settlement.json,
+final-probes.json, validation.json and mobile screenshots. The live two-player
+Token Catch round used the **deployed Worker + updated local API over temporary
+CF tunnel**, not deployed Railway: room 414a8d6e1d21c90a, round
+fa209b2b2485690a8913e82e678e6f64, score100 confirmed by Python replay and persisted
+entitlement. Observed 30Hz sim and 9.78Hz received patches across forced reconnect
+(10Hz target); both sockets agreed on final score. Real move/jump/dodge/open/loot,
+fresh-ticket reconnect, 390×844 immersive game on top/no overflow, zero console/page
+errors. Fixed an ancestor entrance-animation stacking context covering gameplay and
+generic header CSS compressing the podium heading. This software-rendered Chromium
+run does not establish physical-phone FPS or regional latency. Initial Worker fetch
+redirect mode and broadcast timer drift failures were fixed before successful runs.
+
+Validation: full Python **1132 passed**, final targeted **15 passed**, Worker
+**16 passed** (all three Python parity/restore fixtures plus protocol/security),
+Worker types, local workerd SQLite/WS smoke, frontend types/Vite builds, cockpit and
+Center static assembly, snapshot/result/wallet regressions passed. Full tests retain
+one existing Starlette deprecation warning; Vite retains existing large-chunk warnings.
+No physical-phone, funded payout, forced-isolate recovery or 50-player load proof.
+Active DO timers target 30Hz without a hard wall-time guarantee; no rate reduction
+was needed for the canary. Checkpoints can lose roughly one second of noncritical
+movement; 100k-event/8MiB journal limits require load checks before broader rollout.
+
+Deployment instructions and Hermes mapping:
+docs/specs/cloudflare-multiplayer-{deployment,architecture}.md and
+cloudflare-multiplayer-live.json; session docs/sessions/2026-10-21-cloudflare-multiplayer.md.
+Pre-existing tracked Python 3.11 caches stay outside this commit. PQ and tournament
+custody limitations from earlier work are unchanged by this round.

@@ -290,7 +290,8 @@ class TournamentService:
                 if raw['rules'].get('team_mode') == 'teams':
                     raw['rules']['team_mode'] = 'coop'
                 rt = RoomRuntime.create(self.store, self.vault, self.hub, owner=t['owner'], config=RoomConfig(**raw))
-                self.store.set_setting(f'room-host:{rt.room_id}', {'host': 'railway'})
+                from center.edge_host import require_publish_host
+                self.store.set_setting(f'room-host:{rt.room_id}', {'host': require_publish_host(self.store,rt.config)})
                 for player in group:
                     self.store.join(rt.room_id, player)
                 match['room_id'] = rt.room_id

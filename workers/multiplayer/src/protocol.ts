@@ -21,7 +21,7 @@ export class InputWindow {
     this.tokens--;this.lastSeq=Number(seq);return null
   }
 }
-/** A pure scheduler primitive. The unavailable engine adapters never start a loop. */
+/** Strict clock helper for protocol tests; V4 uses its Python-compatible clock. */
 export class FixedStepClock {
   last:number;remainder=0;tick=0
   constructor(now:number){this.last=now}

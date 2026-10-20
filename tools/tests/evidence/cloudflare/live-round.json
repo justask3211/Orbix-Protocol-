@@ -1,0 +1,38 @@
+{
+  "verifiedAt": "2026-10-20T18:14:22.395Z",
+  "backend": "updated local Center API reached through temporary named Cloudflare tunnel; NOT deployed Railway",
+  "worker": "https://multiplayer.justask3211.workers.dev",
+  "roomId": "414a8d6e1d21c90a",
+  "roundId": "fa209b2b2485690a8913e82e678e6f64",
+  "hostType": "cloudflare",
+  "status": "claimable",
+  "simHz": 30,
+  "broadcastHz": 9.777777777777779,
+  "patchIntervalP50Ms": 22,
+  "patchIntervalP95Ms": 112,
+  "frames": 759,
+  "actions": 207,
+  "score": 100,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "viewports": [
+    390
+  ],
+  "mobileLayout": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 844,
+    "gameOnTop": true,
+    "overflow": false
+  },
+  "connectedPlayers": 2,
+  "freshTicketReconnect": true,
+  "peerFinalScore": 100,
+  "settlementSeen": true,
+  "websocketHosts": [
+    "127.0.0.1:8123",
+    "multiplayer.justask3211.workers.dev",
+    "multiplayer.justask3211.workers.dev"
+  ]
+}

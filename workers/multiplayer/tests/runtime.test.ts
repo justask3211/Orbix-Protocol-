@@ -44,9 +44,9 @@ test('inputs deduplicate and bound bursts',()=>{
   assert.equal(w.accept(61,0),'RATE_LIMITED');assert.equal(w.accept(61,34),null)
   assert.equal(w.accept(Number.NaN,100),'STALE_INPUT')
 })
-test('all three V4 engine slots fail closed until authoritative ports ship',()=>{
+test('all three V4 engines require a committed authoritative initial snapshot',()=>{
   const b=validateBootstrap(JSON.parse(vector.body),vector.room)
-  for(const template of TEMPLATE_IDS){assert.equal(adapters[template].ready,false);assert.throws(()=>adapters[template].create({...b,config:{...b.config,template_id:template}}),/ENGINE_PORT_PENDING/)}
+  for(const template of TEMPLATE_IDS){assert.equal(adapters[template].ready,true);assert.throws(()=>adapters[template].create({...b,config:{...b.config,template_id:template}}),/INITIAL_SNAPSHOT_REQUIRED/)}
   assert.throws(()=>validateBootstrap({...b,participants:[b.participants[0],b.participants[0]]},vector.room))
   assert.throws(()=>validateBootstrap({...b,config:{template_id:'number-hunt',rules:{world_version:4}}},vector.room))
 })

@@ -22,7 +22,7 @@ from typing import Any
 
 from eth_account import Account
 from eth_account.messages import encode_defunct
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import Request, Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field, ValidationError
@@ -516,9 +516,74 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
 
     @app.get(f"{API_PREFIX}/multiplayer/capabilities")
     def multiplayer_capabilities():
-        from center.edge_host import REALTIME
-        return {"cloudflareReady": False, "templates": sorted(REALTIME), "defaultHost": "railway",
-                "reason": "V4 engine ports and settlement bridge pending; transport scaffold only"}
+        from center.edge_host import REALTIME, runtime_ready
+        ready = runtime_ready()
+        return {"cloudflareReady": ready, "templates": sorted(REALTIME), "defaultHost": "railway",
+                "canaryTemplate": "token-catch", "reason": None if ready else "Cloudflare deployment and matching bridge secrets must be configured"}
+
+    @app.post(f"{API_PREFIX}/rooms/{{room_id}}/multiplayer-ticket")
+    def multiplayer_ticket(room_id: str, who: str = Depends(require_wallet)):
+        from center.edge_host import edge_transport
+        rt = runtime_for(room_id)
+        community.assert_can_join(room_id, who)
+        app.state.admin_games.assert_can_act(room_id, who, rt.round_id)
+        if not any(p['who']==who for p in store.participants(room_id)):
+            raise HTTPException(403, detail={'code':'NOT_ADMITTED'})
+        return {'transport':edge_transport(rt, who)}
+
+    @app.post(f"{API_PREFIX}/internal/multiplayer/rooms/{{room_id}}/results")
+    async def multiplayer_results(room_id: str, request: Request):
+        from center.edge_host import verify_result_signature, replay_result
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw.extend(chunk)
+            if len(raw)>8*1024*1024:raise HTTPException(413, detail={'code':'PAYLOAD_TOO_LARGE'})
+        try:
+            nonce=verify_result_signature(os.getenv('CENTER_CF_RESULT_SECRET',''), request.url.path, bytes(raw), request.headers)
+        except ValueError as exc:raise HTTPException(401, detail={'code':str(exc)})
+        rt=runtime_for(room_id)
+        if room_host(store,room_id)!='cloudflare':raise HTTPException(409, detail={'code':'WRONG_HOST'})
+        try:
+            data=json.loads(raw)
+            if not isinstance(data,dict):raise ValueError('INVALID_RESULT')
+            round_id=data.get('roundId')
+            if not isinstance(round_id,str) or not re.fullmatch(r'[0-9a-f]{16,64}',round_id):raise ValueError('ROUND_COMMITMENT_MISMATCH')
+            receipt_key=f"edge-result:{round_id}"
+            digest=hashlib.sha256(raw).hexdigest()
+            receipt=store.get_setting(receipt_key)
+            if receipt:
+                if receipt.get('roomId',room_id)!=room_id:raise ValueError('ROUND_COMMITMENT_MISMATCH')
+                if receipt['digest']!=digest:raise ValueError('RESULT_CONFLICT')
+                if receipt.get('frame'):return receipt['frame']
+                if round_id!=rt.round_id:raise ValueError('ROUND_COMMITMENT_MISMATCH')
+                return rt.settlement_frame()
+            if round_id!=rt.round_id:raise ValueError('ROUND_COMMITMENT_MISMATCH')
+            if rt.status!='running':raise ValueError('ROUND_NOT_OPEN')
+            nonce_key=f'edge-result-nonce:{nonce}'
+            if store.get_setting(nonce_key):raise ValueError('RESULT_REPLAY')
+            engine, actions=replay_result(rt,data)
+            # Persist before publication. Restore memory too if any nested write fails,
+            # so a durable outbox retry can recompute and complete the same settlement.
+            previous=rt.__dict__.copy()
+            try:
+                with store.tx():
+                    rt.engine=engine
+                    rt._arena_actions=[{'seq':store.next_seq(room_id)+i,**a} for i,a in enumerate(actions)]
+                    await rt.finish(broadcast=False)
+                    store.set_setting(nonce_key, {'at':time.time()})
+                    store.set_setting(receipt_key, {'digest':digest,'verified':True,'roomId':room_id,'frame':rt.settlement_frame()})
+            except Exception:
+                rt.__dict__.clear()
+                rt.__dict__.update(previous)
+                raise
+            finalized=rt.settlement_frame()
+            await hub.broadcast(room_id,finalized)
+            return finalized
+        except (sqlite3.Error,OSError):
+            logging.getLogger(__name__).exception('Cloudflare settlement storage unavailable')
+            raise HTTPException(503,detail={'code':'SETTLEMENT_STORAGE_UNAVAILABLE'})
+        except (ValueError,KeyError,TypeError) as exc:
+            raise HTTPException(409,detail={'code':str(exc)})
 
     # ------------------------------------------------------------------ drafts
 
@@ -637,7 +702,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
     def publish_room(body: PublishRoom, who: str = Depends(require_wallet)) -> dict:
         config = validate_config(body.config)
         from center.edge_host import require_publish_host
-        require_publish_host(store, config)
+        selected_host = require_publish_host(store, config)
         app.state.hold_gate.require(who, "create", config)
         require_game_mode(store, config.template_id, "create")
         waitlists.validate_reward_source(config.rewards, who)
@@ -698,7 +763,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             raise HTTPException(400, detail={"code": "VAULT_ERROR", "message": str(exc)})
 
         rt = RoomRuntime.create(store, vault, hub, owner=who, config=config, room_id=funded_room_id)
-        store.set_setting(f"room-host:{rt.room_id}", {"host": "railway"})
+        store.set_setting(f"room-host:{rt.room_id}", {"host": selected_host})
         if config.entry.kind == "erc20":
             store.set_setting(f"entry-gate:{rt.room_id}", {"address": getattr(app.state.entry_gate, "gate_address", DEPLOYED_GATE)})
         if funding_binding:
@@ -976,7 +1041,8 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
         ticket = secrets.token_urlsafe(16)
         app.state.tickets = getattr(app.state, "tickets", {})
         app.state.tickets[ticket] = {"who": who, "room": room_id, "exp": time.time() + 120}
-        return {**result, "ticket": ticket}
+        from center.edge_host import edge_transport
+        return {**result, "ticket": ticket, "transport": edge_transport(rt, who)}
 
     @app.post(f"{API_PREFIX}/rooms/{{room_id}}/ready")
     def ready(room_id: str, body: dict | None = None, who: str = Depends(require_wallet)) -> dict:
@@ -1401,7 +1467,7 @@ def create_app(*, db_path: str | None = None, authenticator: Auth | None = None,
             await ws.send_text(json.dumps({
                 "v": PROTOCOL_VERSION, "type": "session.ready", "roomId": room_id,
                 "roomNumber": rt.join_code, "joinCode": rt.join_code,
-                "serverTimeMs": int(time.time() * 1000), "status": rt.status,
+                "serverTimeMs": int(time.time() * 1000), "status": rt.status, "hostType":room_host(store,room_id),
                 "commitHash": rt.commit,
                 "roundId": rt.round_id, "deadline": rt.deadline(),
                 "state": app_community_filter(rt, {**rt.presentation_state(), **(rt.engine.private_state(who) if hasattr(rt.engine, "private_state") else {})}, who) if rt.engine else None,

@@ -1,0 +1,34 @@
+{
+  "dns": {
+    "status": 200,
+    "success": true
+  },
+  "connections": {
+    "status": 200,
+    "success": true
+  },
+  "tunnel": {
+    "status": 200,
+    "success": true
+  },
+  "healthStatus": 200,
+  "health": {
+    "ok": true,
+    "ready": true,
+    "transport": "durable-objects",
+    "protocol": 1,
+    "templates": [
+      "token-catch",
+      "combat-duel",
+      "boss-raid"
+    ],
+    "simHz": 30,
+    "broadcastHz": 10,
+    "settlement": "railway-replay"
+  },
+  "unsignedProvisionStatus": 401,
+  "temporaryHostname": "mp-verify.orbixcore.fun",
+  "railwayDeployed": false,
+  "verifiedAt": "2026-10-20T18:22:47.596494+00:00",
+  "activeVersion": "4fac3c1f-6fb2-434c-be96-ce5330d59422"
+}

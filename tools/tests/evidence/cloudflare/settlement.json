@@ -1,0 +1,32 @@
+{
+  "environment": "local updated API; callback originated from deployed Cloudflare Worker through temporary tunnel",
+  "room": {
+    "id": "414a8d6e1d21c90a",
+    "template_id": "token-catch",
+    "status": "claimable",
+    "round_id": "fa209b2b2485690a8913e82e678e6f64",
+    "config_hash": "0xd52117bfc892c3e98c24a947a344f1ab0e115a6ce4e6a1c4f9eeceb702393b01"
+  },
+  "round": {
+    "round_id": "fa209b2b2485690a8913e82e678e6f64",
+    "room_id": "414a8d6e1d21c90a",
+    "started_at": 1792519987.2470615,
+    "ended_at": 1792520047.652996,
+    "transcript_hash": "0x008f970a87a66dc4f72bdc16894cd37654f4a510831d112b2b3fb584a1791aa4",
+    "allocations_hash": "0x5048b81e8a97c7b931120e341f37f6c46b04a62f4c5571459fb2d73203561909",
+    "state": "claimable"
+  },
+  "verifiedReceipt": {
+    "digest": "2d0050eda5a6a4a78f71027a1cccdb33b81a53e0a2b224e945f8a0d841945588",
+    "verified": true
+  },
+  "entitlements": [
+    {
+      "round_id": "fa209b2b2485690a8913e82e678e6f64",
+      "room_id": "414a8d6e1d21c90a",
+      "points": 100,
+      "asset_kind": "preview-points",
+      "amount": "0"
+    }
+  ]
+}

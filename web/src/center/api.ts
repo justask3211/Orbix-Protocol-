@@ -249,6 +249,7 @@ export const center = {
   vault: (token: string) => request<VaultState>('/wallet/vault', {}, token),
   onchainBalance: (token: string) => request<OnchainBalance>('/wallet/onchain-balance', {}, token),
   deposit: (amount: number, token: string) => request<{ balance: number }>('/wallet/vault/deposit', { method: 'POST', body: JSON.stringify({ amount }) }, token),
+  multiplayerTicket: (roomId:string,token:string) => request<{transport:{ticket:string;websocketUrl:string}|null}>(`/rooms/${roomId}/multiplayer-ticket`, {method:'POST'}, token),
   ledgerCsvUrl: () => `${API_BASE}/wallet/ledger.csv`,
   getProfile: (address: string) =>
     request<{ name: string; bio: string; hue: number; showAddress: boolean; address?: string }>(`/profile/${address}`),
