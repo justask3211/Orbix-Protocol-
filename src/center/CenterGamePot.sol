@@ -201,7 +201,9 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
         if (r.creator != msg.sender) revert NotCreator();
         if (r.settled || r.cancelled || token.code.length == 0) revert NotOpen();
         if (block.timestamp > r.claimDeadline) revert ClaimWindowClosed();
-        receivingToken = token; receivingFrom = msg.sender; receivingId = tokenId;
+        receivingToken = token;
+        receivingFrom = msg.sender;
+        receivingId = tokenId;
         IERC721(token).safeTransferFrom(msg.sender, address(this), tokenId);
         receivingToken = address(0);
         if (IERC721(token).ownerOf(tokenId) != address(this)) revert NotOpen();
@@ -312,7 +314,10 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
                 // AUTO: push pot shares atomically at settlement.
                 for (uint256 i; i < winners.length; ++i) {
                     if (winners[i] == address(0)) revert BadShare();
-                    if (amounts[i] > 0) { tokenCommitted[entryToken] -= amounts[i]; IERC20(entryToken).safeTransfer(winners[i], amounts[i]); }
+                    if (amounts[i] > 0) {
+                        tokenCommitted[entryToken] -= amounts[i];
+                        IERC20(entryToken).safeTransfer(winners[i], amounts[i]);
+                    }
                 }
             }
             // MANUAL: winnings stay recorded as liabilities; winners pull via
@@ -431,7 +436,8 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
         uint256 remaining = roomUnclaimed[roomId];
         if (winningsReclaimed[roomId] || remaining == 0) revert NothingToClaim();
         winningsReclaimed[roomId] = true;
-        roomUnclaimed[roomId] = 0; r.pot = 0;
+        roomUnclaimed[roomId] = 0;
+        r.pot = 0;
         tokenCommitted[r.entryToken] -= remaining;
         IERC20(r.entryToken).safeTransfer(r.payoutWallet, remaining);
     }
@@ -462,8 +468,14 @@ contract CenterGamePot is ReentrancyGuard, IERC721Receiver {
         emit RewardPaid(roomId, winner, lr.token, lr.tokenId, lr.amount, lr.isNft);
     }
 
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata) external view returns (bytes4) {
-        if (msg.sender != receivingToken || operator != address(this) || from != receivingFrom || tokenId != receivingId) revert NotOpen();
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
+        external
+        view
+        returns (bytes4)
+    {
+        if (
+            msg.sender != receivingToken || operator != address(this) || from != receivingFrom || tokenId != receivingId
+        ) revert NotOpen();
         return this.onERC721Received.selector;
     }
 }

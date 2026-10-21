@@ -116,7 +116,10 @@ contract CreatorTokenGate is ReentrancyGuard {
     ///         No ownership or graduation requirement on the token: only that it
     ///         answers decimals(). Payout is the creator's own wallet by default,
     ///         a custom address, or the burn address.
-    function bindRoom(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout) external nonReentrant {
+    function bindRoom(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout)
+        external
+        nonReentrant
+    {
         _bindRoom(roomId, token, joinFee, payee, payout);
     }
 
@@ -157,18 +160,28 @@ contract CreatorTokenGate is ReentrancyGuard {
     }
 
     /// @notice One creator transaction registers ownership and binds the chosen quote.
-    function bindRoomAuthorized(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout,
-        uint256 deadline, bytes calldata signature) external nonReentrant {
+    function bindRoomAuthorized(
+        bytes32 roomId,
+        address token,
+        uint256 joinFee,
+        Payee payee,
+        address payout,
+        uint256 deadline,
+        bytes calldata signature
+    ) external nonReentrant {
         registerRoomCreator(roomId, msg.sender, deadline, signature);
         _bindRoom(roomId, token, joinFee, payee, payout);
     }
 
     function roomBindingDigest(bytes32 roomId, address creator, uint256 deadline) public view returns (bytes32) {
-        return keccak256(abi.encodePacked("ORBIX_ROOM_BIND_V1", address(this), block.chainid, roomId, creator, deadline));
+        return
+            keccak256(abi.encodePacked("ORBIX_ROOM_BIND_V1", address(this), block.chainid, roomId, creator, deadline));
     }
 
     /// @notice Gate protocol marker: anchored room ownership and quoted wallet joins.
-    function safetyVersion() external pure returns (uint256) { return 3; }
+    function safetyVersion() external pure returns (uint256) {
+        return 3;
+    }
 
     /// @dev Resolve and store the payout destination. CreatorWallet always maps to
     ///      the creator's own address; CustomWallet needs a non-zero address;
@@ -190,14 +203,20 @@ contract CreatorTokenGate is ReentrancyGuard {
     }
 
     /// @notice Creator updates the fee, token, or payout (mutable by design).
-    function updateBinding(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout) external nonReentrant {
+    function updateBinding(bytes32 roomId, address token, uint256 joinFee, Payee payee, address payout)
+        external
+        nonReentrant
+    {
         Binding storage b = bindings[roomId];
         if (!b.exists) revert NotBound();
         if (b.creator != msg.sender) revert NotCreator();
         if (token == address(0)) revert ZeroAddress();
         if (token.code.length == 0) revert BadToken();
         if (joinFee == 0) revert ZeroFee();
-        try IERC20MetadataLike(token).decimals() returns (uint8) {} catch { revert BadToken(); }
+        try IERC20MetadataLike(token).decimals() returns (uint8) {}
+        catch {
+            revert BadToken();
+        }
         emit BindingUpdated(roomId, b.joinFee, joinFee, token);
         b.token = token;
         b.joinFee = joinFee;
@@ -277,8 +296,20 @@ contract CreatorTokenGate is ReentrancyGuard {
     function joinDigest(bytes32 roomId, address player, uint256 nonce) public view returns (bytes32) {
         Binding storage b = bindings[roomId];
         if (!b.exists) revert NotBound();
-        return keccak256(abi.encodePacked("ORBIX_CREATOR_JOIN_V2", address(this), block.chainid,
-            roomId, player, nonce, b.token, b.joinFee, b.payout, uint8(b.payee)));
+        return keccak256(
+            abi.encodePacked(
+                "ORBIX_CREATOR_JOIN_V2",
+                address(this),
+                block.chainid,
+                roomId,
+                player,
+                nonce,
+                b.token,
+                b.joinFee,
+                b.payout,
+                uint8(b.payee)
+            )
+        );
     }
 
     function _pay(address token, address player, address payout, uint256 amount) internal {

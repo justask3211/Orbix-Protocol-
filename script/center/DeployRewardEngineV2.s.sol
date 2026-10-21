@@ -15,8 +15,10 @@ contract DeployRewardEngineV2 is Script {
         vm.startBroadcast();
         engine = new RewardEngine(authority);
         vm.stopBroadcast();
-        require(engine.authority() == authority && engine.safetyVersion() == 2 && engine.poolCount() == 0,
-            "Deployment verification failed");
+        require(
+            engine.authority() == authority && engine.safetyVersion() == 2 && engine.poolCount() == 0,
+            "Deployment verification failed"
+        );
         console2.log("RewardEngine v2", address(engine));
         console2.log("Authority", authority);
         console2.log("Chain", block.chainid);

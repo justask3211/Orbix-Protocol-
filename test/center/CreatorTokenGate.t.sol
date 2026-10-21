@@ -33,7 +33,9 @@ contract CreatorTokenGateTest is Test {
 
     function _register(bytes32 key) internal {
         uint256 deadline = block.timestamp + 1 days;
-        bytes32 digest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", gate.roomBindingDigest(key, creator, deadline)));
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", gate.roomBindingDigest(key, creator, deadline))
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xB17D, digest);
         gate.registerRoomCreator(key, creator, deadline, abi.encodePacked(r, s, v));
     }

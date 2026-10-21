@@ -203,7 +203,10 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     function depositERC721(uint256 poolId, address token, uint256 tokenId) external nonReentrant onlyCreator(poolId) {
         _active(poolId);
         if (token.code.length == 0) revert WrongAssetKind();
-        receivingToken = token; receivingFrom = msg.sender; receivingId = tokenId; receivingAmount = 1;
+        receivingToken = token;
+        receivingFrom = msg.sender;
+        receivingId = tokenId;
+        receivingAmount = 1;
         IERC721(token).safeTransferFrom(msg.sender, address(this), tokenId);
         receivingToken = address(0);
         if (IERC721(token).ownerOf(tokenId) != address(this)) revert TransferMismatch();
@@ -221,7 +224,10 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
         if (token.code.length == 0) revert WrongAssetKind();
         if (amount == 0) revert ZeroAmount();
         uint256 before = IERC1155(token).balanceOf(address(this), tokenId);
-        receivingToken = token; receivingFrom = msg.sender; receivingId = tokenId; receivingAmount = amount;
+        receivingToken = token;
+        receivingFrom = msg.sender;
+        receivingId = tokenId;
+        receivingAmount = amount;
         IERC1155(token).safeTransferFrom(msg.sender, address(this), tokenId, amount, data);
         receivingToken = address(0);
         if (IERC1155(token).balanceOf(address(this), tokenId) - before != amount) revert TransferMismatch();
@@ -431,9 +437,15 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     }
 
     /// @notice Capability marker for fail-closed clients; requires a fresh deployment.
-    function safetyVersion() external pure returns (uint256) { return 2; }
+    function safetyVersion() external pure returns (uint256) {
+        return 2;
+    }
 
-    function allocationInfo(uint256 poolId, uint256 allocIndex) external view returns (address, uint256, uint256, bool) {
+    function allocationInfo(uint256 poolId, uint256 allocIndex)
+        external
+        view
+        returns (address, uint256, uint256, bool)
+    {
         Pool storage p = pools[poolId];
         if (!p.exists) revert PoolNotFound();
         if (allocIndex >= p.allocationCount) revert BadAllocation();
@@ -503,13 +515,26 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
 
     // ------------------------------------------------------------ receivers
 
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata) external view returns (bytes4) {
-        if (msg.sender != receivingToken || operator != address(this) || from != receivingFrom || tokenId != receivingId) revert UnexpectedReceipt();
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
+        external
+        view
+        returns (bytes4)
+    {
+        if (
+            msg.sender != receivingToken || operator != address(this) || from != receivingFrom || tokenId != receivingId
+        ) revert UnexpectedReceipt();
         return this.onERC721Received.selector;
     }
 
-    function onERC1155Received(address operator, address from, uint256 tokenId, uint256 amount, bytes calldata) external view returns (bytes4) {
-        if (msg.sender != receivingToken || operator != address(this) || from != receivingFrom || tokenId != receivingId || amount != receivingAmount) revert UnexpectedReceipt();
+    function onERC1155Received(address operator, address from, uint256 tokenId, uint256 amount, bytes calldata)
+        external
+        view
+        returns (bytes4)
+    {
+        if (
+            msg.sender != receivingToken || operator != address(this) || from != receivingFrom || tokenId != receivingId
+                || amount != receivingAmount
+        ) revert UnexpectedReceipt();
         return this.onERC1155Received.selector;
     }
 
@@ -522,6 +547,7 @@ contract RewardEngine is ReentrancyGuard, IERC721Receiver, IERC1155Receiver {
     }
 
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == 0x01ffc9a7 || interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId;
+        return interfaceId == 0x01ffc9a7 || interfaceId == type(IERC721Receiver).interfaceId
+            || interfaceId == type(IERC1155Receiver).interfaceId;
     }
 }
