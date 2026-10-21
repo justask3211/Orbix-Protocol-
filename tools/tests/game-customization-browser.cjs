@@ -88,9 +88,9 @@ const config=()=>({placement:'catalog',overlay:{enabled:true,text:'Coming soon',
   games[1].config.placement='more';games[1].config.modes.join=false
   games[2].config.placement='hidden'
   await page.goto(base+'/center')
-  await page.getByRole('tab',{name:'More games',exact:true}).click()
-  await page.locator('#games-tab-panel').getByRole('heading',{name:'Word Forge',exact:true}).waitFor()
-  assert.equal(await page.locator('#games-tab-panel').getByText('Find rooms',{exact:false}).count(),0)
+  await page.getByRole('button',{name:'More',exact:true}).click()
+  await page.locator('#arcade-more').getByRole('heading',{name:'Word Forge',exact:true}).waitFor()
+  assert.equal(await page.locator('#arcade-more').getByText('Find rooms',{exact:false}).count(),0)
   const upcoming=page.locator('.arcade-coming')
   assert.equal(await upcoming.getByRole('button',{name:/Create a room|Find rooms|Try now/}).count(),0)
   assert.equal(await upcoming.locator('.gc-overlay').textContent(),'80% built')

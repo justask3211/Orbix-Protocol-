@@ -1,0 +1,29 @@
+{
+  "errors": [],
+  "checks": [
+    "active/create policy, admin ordering, hidden/offline/maintenance/join-only exclusions, upcoming badges and actions, More collapsed/expanded, category/search/URL persistence and reset, room handoff, invite validation, clipboard exact CA and failure recovery, configured copy/link/disabled state, infinite motion/hover/pause/reduced motion, session dismissal, desktop/390px no overflow",
+    "availability failure/retry, keyboard filter toggle and 320px overflow"
+  ],
+  "a11y": [
+    {
+      "width": 1440,
+      "view": "games",
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "view": "rooms",
+      "violations": []
+    },
+    {
+      "width": 390,
+      "view": "games",
+      "violations": []
+    },
+    {
+      "width": 390,
+      "view": "rooms",
+      "violations": []
+    }
+  ]
+}

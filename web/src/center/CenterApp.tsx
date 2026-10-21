@@ -1555,7 +1555,7 @@ function ConnectedCenterApp() {
   }, [route, session])
 
   return (
-    <div className="ct-app">
+    <div className={`ct-app${route.name === 'catalog' ? ' ct-home-shell' : ''}`}>
       <a className="ct-skip-link" href="#center-main">Skip to content</a>
       <header className="ct-topbar" ref={headerElement}>
         <a className="ct-brand" href="/center" onClick={(e) => { e.preventDefault(); go('/center') }}>

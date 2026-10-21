@@ -1,0 +1,8 @@
+{
+  "errors": [],
+  "configuredLink": "https://testnet.vibevibe.fun/token/0x16c5451763ec2e0e7f041e2db761a0491fdb6db1",
+  "promoWidth": 390,
+  "checks": [
+    "root cockpit default message, configured buy destination, shared copyText helper, exact contract address, desktop/390px, static reduced motion, no overflow"
+  ]
+}

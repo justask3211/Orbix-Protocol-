@@ -630,3 +630,49 @@ docs/specs/cloudflare-multiplayer-{deployment,architecture}.md and
 cloudflare-multiplayer-live.json; session docs/sessions/2026-10-21-cloudflare-multiplayer.md.
 Pre-existing tracked Python 3.11 caches stay outside this commit. PQ and tournament
 custody limitations from earlier work are unchanged by this round.
+
+## 2026-10-21 — Center home redesign and shared token promo quality pass
+
+Home now presents exactly two primary choices, **All games** and **Create & Join**.
+The main grid requires `placement=catalog`, `playStatus=live` and explicitly enabled
+`available_modes.create`. Hidden/offline, maintenance, join-only and upcoming games
+cannot leak into that grid. More is a small, initially collapsed expander; Upcoming
+has its own section with the existing admin overlay/tag and preview permissions.
+Category filters derive from game metadata (Duel, Arcade, Board, Estimation, Word,
+Map, Auction, etc.). Search, category, view and More state persist in URL parameters.
+Room discovery, invite validation, wallet balances and tournaments remain available
+inside Create & Join. The home shell uses charcoal/orange/teal, existing generative
+banner art, responsive card grids, tactile states and reduced-motion-safe entrances.
+Other game screens and server authority are unchanged.
+
+Replaced the plain running text in the shared `orbix-promo.js` with a branded
+conversion strip: fixed Buy $ORBIX pill to the configured vibevibe destination,
+monospace middle-truncated CA copy chip, actual copy success/failure feedback,
+seamless infinite message, hover/focus pause, explicit pause/resume, session dismiss
+and static reduced motion. Existing admin enabled/text/link settings still control
+it; the legacy CTA-only default gets a richer default announcement. The existing
+`copyText` implementation is shared between React and the script through the public
+`orbix-clipboard.js` module, retaining its legacy clipboard fallback. No token-price
+API or fabricated financial data. Offline previews still skip the promo/API entirely.
+
+Validation: full Python **1132 passed** (one pre-existing Starlette deprecation
+warning); **41 frontend unit tests**, **13 wallet regressions**; full TypeScript and
+Vite production builds; cockpit/Center static assembly. Existing customization
+browser regression passed all 25 offline stages, signed admin settings and badges;
+tournament/holding/promo browser regression passed at 390px. New production-build
+browser evidence covers 1440px/390px, 320px overflow, create-only gating, admin order,
+filters/search/URL reload/reset, More, upcoming actions/badges, room handoff, invite
+error focus, retry, clipboard failure recovery, pause/reduced motion and dismissal.
+Zero unexpected console/page errors; axe found zero WCAG A/AA violations in the
+home/promo at both principal sizes. Actual root cockpit promo copy/layout also
+passed with zero console errors. Evidence: `tools/tests/evidence/home-promo/`.
+Existing large lazy game-engine chunk warnings remain. No full manual screen-reader
+or physical-phone performance audit is claimed.
+
+`web/dist`, `deploy/site/assets`, `deploy/site/index.html` and
+`deploy/site/center-dist` refreshed for Git delivery. No Railway deployment or
+production setting change. Storage was already checked healthy per the user;
+no storage change was needed. Pre-existing tracked Python 3.11 bytecode changes
+remain outside the commit. `design-taste-frontend` was unavailable in the installed
+skill roots; Orbix engineering identity, repository DESIGN.md and fetched Web
+Interface Guidelines supplied the design/review guidance instead.
