@@ -236,9 +236,8 @@ contract RewardsAuditTest is Test, IERC721Receiver {
     function test_two_nft_merkle_winners_receive_their_exact_ids() public {
         bytes32 first = keccak256(abi.encodePacked(alice, uint256(0), uint256(1)));
         bytes32 second = keccak256(abi.encodePacked(bob, uint256(1), uint256(1)));
-        bytes32 root = first < second
-            ? keccak256(abi.encodePacked(first, second))
-            : keccak256(abi.encodePacked(second, first));
+        bytes32 root =
+            first < second ? keccak256(abi.encodePacked(first, second)) : keccak256(abi.encodePacked(second, first));
         uint256 id = pool(creator, RewardEngine.ClaimMode.Merkle, 0, root);
         for (uint256 i = 0; i < 2; i++) {
             nft.mint(creator, 7 + i);

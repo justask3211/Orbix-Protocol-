@@ -35,9 +35,8 @@ contract CreatorGateAuditTest is Test {
         register(room);
         vm.prank(creator);
         gate.bindRoom(room, address(token), 10, CreatorTokenGate.Payee.CreatorWallet, address(0));
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", gate.joinDigest(room, player, 7))
-        );
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", gate.joinDigest(room, player, 7)));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(PK, digest);
         vm.prank(creator);
         gate.updateBinding(room, address(token), 100, CreatorTokenGate.Payee.CreatorWallet, address(0));
