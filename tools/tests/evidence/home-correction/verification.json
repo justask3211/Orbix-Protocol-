@@ -1,0 +1,16 @@
+{
+  "errors": [],
+  "checks": [
+    "Original hero, palette and always-visible room cards; original Games/More catalog controls; active/create/placement/tag gates; disabled/missing/create/preview/hidden/offline/maintenance cases moved to final collage; preserved overlays and preview-only actions; tournament banner immediately above collage; search, rooms and invite focus; purple 16s legacy marquee, copy exact CA, failure recovery, configured text/link/disabled state, pause/reduced motion/session dismissal; desktop/390px and 320px overflow"
+  ],
+  "a11y": [
+    {
+      "width": 1440,
+      "violations": []
+    },
+    {
+      "width": 390,
+      "violations": []
+    }
+  ]
+}

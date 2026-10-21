@@ -1,0 +1,42 @@
+{
+  "errors": [],
+  "checks": [
+    "Real API signed small/large promotion edits and game selection; front-page custom headline; banner → active tournament directory → rules; raw uppercase code and same-origin link → rules → consent → holding check → server join; malformed/foreign-link validation and unknown-code recovery; exclusion of settled/cancelled/closed tournaments from active directory and promotion; copy exact tournament ID; desktop/390px editor, directory, rules and joined evidence; persisted API configuration and membership"
+  ],
+  "a11y": [
+    {
+      "width": 1440,
+      "view": "list",
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "view": "detail",
+      "violations": []
+    },
+    {
+      "width": 390,
+      "view": "list",
+      "violations": []
+    },
+    {
+      "width": 390,
+      "view": "detail",
+      "violations": []
+    }
+  ],
+  "edits": [
+    {
+      "text": "The Orbix Community Championship",
+      "style": "blue",
+      "size": "small",
+      "placement": "front"
+    },
+    {
+      "text": "The Orbix Community Championship",
+      "style": "gold",
+      "size": "large",
+      "placement": "front"
+    }
+  ]
+}

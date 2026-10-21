@@ -676,3 +676,68 @@ no storage change was needed. Pre-existing tracked Python 3.11 bytecode changes
 remain outside the commit. `design-taste-frontend` was unavailable in the installed
 skill roots; Orbix engineering identity, repository DESIGN.md and fetched Web
 Interface Guidelines supplied the design/review guidance instead.
+
+## 2026-10-21 — User correction: revert home restructure; keep only scoped additions
+
+**Supersedes the “Center home redesign and shared token promo quality pass” above.**
+The user rejected the home restructure. Restored `GameCenterHome.tsx` and `home.css`
+from `0d5a018f^` before applying only the corrected request. Original navy, cream,
+lime and lavender shell, lime hero, wallet panel, catalog/category pills, original
+Games/More tabs and always-visible room invite/directory cards are back. Removed
+All games/Create & Join navigation, Filter toggle, More expander and charcoal/orange
+home theme overrides. Do not reintroduce that rejected restructure. The original
+catalog tab is now labeled All games and includes actively creatable More entries.
+
+The shared marquee returns to its old top-of-body placement, purple/gold style,
+14px type and 16-second left-to-right motion. Retains Buy $ORBIX and one-click full
+CA copy inside the strip, plus accessible copy feedback/fallback, pause, reduced
+motion and session dismissal. Existing admin promo text/link/enabled configuration
+continues to work on Center and the root cockpit. No new orange promotional panel.
+
+All games requires `playStatus=live` and explicit `available_modes.create=true`;
+hidden/upcoming placement and enabled upcoming/development tags or overlays exclude
+a game. Non-creatable, preview-only, maintenance/offline, hidden and upcoming games
+appear as banner-image tiles in the final Upcoming games collage, retaining admin
+overlays/tags. Preview links remain permission-gated; hidden/offline tiles have no
+play actions. The collage stays visible independently of active-grid search.
+Existing admin defaults include a Coming soon overlay: administrators must clear
+that overlay before a game appears active in this presentation. Backend effective
+modes and all admission/settlement authority remain unchanged.
+
+A large original-theme tournament banner sits immediately above the final collage.
+It opens `/center/tournaments` with active entries; featured tournaments lead that
+view. Rules show the configured game fields, bracket/advancement, registration,
+entry credits and prize split. Join by code accepts the existing 24-character
+tournament ID or same-origin invite link, opens rules, and still requires wallet,
+entry consent, holding check and the existing server join endpoint. Codes identify
+tournaments and never bypass admission. Unknown codes have retry/back recovery.
+Settled/cancelled/closed tournaments cannot become active promotions.
+
+The admin tournament editor filters by game, then opens a specific tournament for
+headline, style, star/front-page promotion and large headline vs small supporting
+banner configuration. All values use the **existing** signed banner PATCH fields
+(`text`, `style`, `size`, `placement`), persisted and audited by the unchanged server.
+Large promoted entries use the headline banner; small promotions appear beneath it.
+The generic large banner remains available when no active headline is configured.
+Per-game customization backend, room authority and tournament backend are untouched.
+
+Validation: full Python **1,111 passed** in the current checkout; **38 frontend unit
+tests** (including three new catalog-policy tests), **13 wallet regressions**,
+TypeScript, Vite production builds and dual-site static assembly passed. Existing
+25-stage offline/admin customization and tournament/hold/promo browser regressions
+passed. Desktop 1440px and 390px browser evidence proves restored home, strict grid,
+final collage, signed small/large promotions and banner → active tournaments → rules
+→ code → consent → holding check → successful API registration. Zero unexpected
+page errors and zero axe WCAG A/AA violations in tested home/promo and tournament
+views; 320px home overflow and reduced motion also passed. Existing Starlette
+warning and large Vite chunk warnings remain. Tests deliberately updated:
+`home-promo-browser.cjs` (rejected-shell assertions replaced),
+`game-customization-browser.cjs` (restored More tab, hidden collage, explicit active
+fixture overlay), `cockpit-promo-browser.cjs` (old Buy text/style).
+
+Evidence and full test-change list: `tools/tests/evidence/home-correction/README.md`.
+Tournament browser checks use a real local in-memory API, signed generated wallets,
+preview credits and a deterministic holdings RPC stub, not production balances or
+funded payment evidence. `web/dist`, root cockpit assets/index and Center assembly
+are refreshed for Git delivery. **No Railway deployment** or production setting
+change. Pre-existing tracked Python 3.11 bytecode changes remain outside the commit.

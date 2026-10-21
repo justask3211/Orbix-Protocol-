@@ -19,7 +19,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { RoundPending, STAGES } from './stages'
 import { FOUR_STAGE_VIEWS } from './GamePlayStages'
 import { useHoldCheck } from './HoldGate'
-import { TournamentDetail, TournamentParameters, tournaments, newTournamentSettings, DUEL_TEMPLATES } from './Tournaments'
+import { TournamentDetail, TournamentsSection, TournamentParameters, tournaments, newTournamentSettings, DUEL_TEMPLATES } from './Tournaments'
 import { CenterJoin } from './CenterJoin'
 import { RoomCommunity } from './RoomCommunity'
 import { ArcadeChoices, ArcadeNumber, ArcadeShares, ArcadeToggle, numericError, type NumericBounds } from './ArcadeSettings'
@@ -67,6 +67,7 @@ type Route =
   | { name: 'wallet' }
   | { name: 'join' }
   | { name: 'tournament'; id: string }
+  | { name: 'tournaments' }
   | { name: 'admin' }
   | { name: 'practice'; templateId: string }
 
@@ -75,6 +76,7 @@ function parseRoute(): Route {
   const parts = path.split('/').filter(Boolean)
   if (parts[1] === 'create') return { name: 'create', templateId: parts[2] ?? new URLSearchParams(window.location.search).get('template') ?? undefined, fromRoom: new URLSearchParams(window.location.search).get('from') ?? undefined }
   if (parts[1] === 'tournaments' && parts[2]) return { name: 'tournament', id: parts[2] }
+  if (parts[1] === 'tournaments') return { name: 'tournaments' }
   if (parts[1] === 'rooms' && parts[2]) return { name: 'room', roomId: parts[2] }
   if (parts[1] === 'wallet') return { name: 'wallet' }
   if (parts[1] === 'join') return { name: 'join' }
@@ -1517,6 +1519,8 @@ function ConnectedCenterApp() {
       wallet: 'Vault — Orbix Game Center',
       join: 'Join a room — Orbix Game Center',
       admin: 'Admin — Orbix Game Center',
+      tournaments: 'Active tournaments — Orbix Game Center',
+      tournament: 'Tournament rules — Orbix Game Center',
       practice: 'Practice — Orbix Game Center',
     }
     document.title = titles[route.name] ?? 'Orbix Game Center'
@@ -1543,8 +1547,10 @@ function ConnectedCenterApp() {
         return <RoomRoute key={`${route.roomId}:${session.address ?? 'watch'}`} roomId={route.roomId} session={session} />
       case 'wallet':
         return <CenterVault session={session} onConnect={() => setWalletOpen(true)} navigate={go} />
+      case 'tournaments':
+        return <div className="ct-page"><TournamentsSection session={session} navigate={go}/></div>
       case 'tournament':
-        return <TournamentDetail id={route.id} session={session} navigate={go} onConnect={() => setWalletOpen(true)} />
+        return <TournamentDetail key={route.id} id={route.id} session={session} navigate={go} onConnect={() => setWalletOpen(true)} />
       case 'join':
         return <CenterJoin session={session} onConnect={() => setWalletOpen(true)} navigate={go} />
       case 'admin':
@@ -1555,7 +1561,7 @@ function ConnectedCenterApp() {
   }, [route, session])
 
   return (
-    <div className={`ct-app${route.name === 'catalog' ? ' ct-home-shell' : ''}`}>
+    <div className="ct-app">
       <a className="ct-skip-link" href="#center-main">Skip to content</a>
       <header className="ct-topbar" ref={headerElement}>
         <a className="ct-brand" href="/center" onClick={(e) => { e.preventDefault(); go('/center') }}>
